@@ -87,8 +87,6 @@ OPENAI_API_KEY=sk-your_key
 SERPER_API_KEY=your_key
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_key
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
 
 # Authentication (Clerk)
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_your_key
@@ -186,7 +184,7 @@ flowpost/
 - Or manually clear: `lsof -ti:3000 | xargs kill -9` and `lsof -ti:54367 | xargs kill -9`
 
 **"Supabase not configured"**
-- Ensure both `SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_URL` are set
+- Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set
 
 **"Instagram login failed"**
 - Verify credentials are correct

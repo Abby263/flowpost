@@ -41,12 +41,7 @@ import {
     Lightbulb,
     Zap,
 } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+ 
 
 interface Post {
     id: string;
@@ -125,15 +120,12 @@ export default function AnalyticsPage() {
     const fetchPosts = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from("posts")
-                .select("*")
-                .eq("user_id", user?.id)
-                .order("created_at", { ascending: false });
-
-            if (error) throw error;
-
-            setPosts(data || []);
+            const res = await fetch("/api/posts");
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to fetch posts");
+            }
+            setPosts(data.posts || []);
         } catch (error) {
             console.error("Error fetching posts:", error);
         } finally {
@@ -143,14 +135,12 @@ export default function AnalyticsPage() {
 
     const fetchConnections = async () => {
         try {
-            const { data, error } = await supabase
-                .from("connections")
-                .select("id, platform, profile_name")
-                .eq("user_id", user?.id);
-
-            if (error) throw error;
-
-            setConnections(data || []);
+            const res = await fetch("/api/connections");
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to fetch connections");
+            }
+            setConnections(data.connections || []);
         } catch (error) {
             console.error("Error fetching connections:", error);
         }
@@ -796,4 +786,3 @@ export default function AnalyticsPage() {
         </div>
     );
 }
-

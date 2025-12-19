@@ -48,12 +48,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+ 
 
 interface ContentIdea {
     title: string;
@@ -134,12 +129,16 @@ export default function ContentIdeasPage() {
     }, [user]);
 
     const fetchConnections = async () => {
-        const { data, error } = await supabase
-            .from("connections")
-            .select("id, platform, profile_name")
-            .eq("user_id", user?.id);
-
-        if (data) setConnections(data);
+        try {
+            const res = await fetch("/api/connections");
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to load connections");
+            }
+            setConnections(data.connections || []);
+        } catch (error) {
+            console.error("Failed to load connections:", error);
+        }
     };
 
     const saveInterests = (interests: string[]) => {
@@ -327,7 +326,6 @@ export default function ContentIdeasPage() {
                     content: postContent,
                     platform: publishPlatform,
                     connectionId: publishConnectionId,
-                    userId: user?.id,
                     imageUrl: imageUrl || undefined,
                     source: source,
                 }),
@@ -792,4 +790,3 @@ export default function ContentIdeasPage() {
         </div>
     );
 }
-

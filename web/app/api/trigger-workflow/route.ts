@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { Client } from "@langchain/langgraph-sdk";
-
-// Initialize Supabase Admin Client (to read all data)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!; // In prod use Service Role Key
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { auth } from "@clerk/nextjs/server";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 // Initialize LangGraph Client
 const client = new Client({
@@ -14,28 +10,51 @@ const client = new Client({
 
 export async function POST(request: Request) {
     try {
-        const { workflow, connection } = await request.json();
+        const { userId } = auth();
+        const { workflowId } = await request.json();
+
+        if (!userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
         console.log("Received workflow trigger request:", {
-            workflowId: workflow?.id,
-            searchQuery: workflow?.search_query,
-            location: workflow?.location,
-            stylePrompt: workflow?.style_prompt,
-            fullWorkflow: workflow,
+            workflowId,
         });
 
-        if (!workflow || !workflow.id) {
+        if (!workflowId) {
             return NextResponse.json({ error: "Workflow ID is required" }, { status: 400 });
         }
 
-        if (!connection) {
-            return NextResponse.json({ error: "Connection details are required" }, { status: 400 });
+        const { data: workflow, error: workflowError } = await supabaseAdmin
+            .from("workflows")
+            .select("*")
+            .eq("id", workflowId)
+            .eq("user_id", userId)
+            .single();
+
+        if (workflowError || !workflow) {
+            return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+        }
+
+        if (!workflow.connection_id) {
+            return NextResponse.json({ error: "Workflow has no connection" }, { status: 400 });
+        }
+
+        const { data: connection, error: connectionError } = await supabaseAdmin
+            .from("connections")
+            .select("*")
+            .eq("id", workflow.connection_id)
+            .eq("user_id", userId)
+            .single();
+
+        if (connectionError || !connection) {
+            return NextResponse.json({ error: "Connection not found" }, { status: 404 });
         }
 
         // 2. Prepare Input for Agent
         const input = {
             searchQuery: workflow.search_query || "AI News",
-            location: workflow.location || "", // No default location
+            location: workflow.location || "",
             stylePrompt: workflow.style_prompt || "",
             platform: connection.platform,
             credentials: connection.credentials,

@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { Shield, Workflow, Sparkles, Activity, TrendingUp, Lightbulb, CalendarPlus, History } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 export default function DashboardLayout({
     children,
@@ -50,15 +49,6 @@ export default function DashboardLayout({
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
             <Navbar />
-            {!supabase && (
-                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-500 text-yellow-800 p-4 shadow-sm" role="alert">
-                    <p className="font-bold flex items-center gap-2">
-                        <Activity className="h-5 w-5" />
-                        Configuration Required
-                    </p>
-                    <p className="text-sm mt-1">Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env in the project root and restart the server.</p>
-                </div>
-            )}
             <div className="flex flex-1">
                 <aside className="w-72 border-r bg-white/80 backdrop-blur-sm p-6 hidden md:block shadow-sm">
                     <div className="space-y-6">

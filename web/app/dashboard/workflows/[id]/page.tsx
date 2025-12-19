@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,11 +19,6 @@ import {
     AlertCircle
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 interface Post {
     id: string;
@@ -72,37 +66,21 @@ export default function WorkflowDetailPage() {
 
     async function fetchWorkflowDetails() {
         setLoading(true);
+        try {
+            const res = await fetch(`/api/workflows/${workflowId}`);
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to fetch workflow");
+            }
 
-        // Fetch workflow
-        const { data: workflowData, error: workflowError } = await supabase
-            .from("workflows")
-            .select("*")
-            .eq("id", workflowId)
-            .single();
+            const workflowData = data.workflow;
+            const postsData = data.posts || [];
 
-        if (workflowError) {
-            console.error("Error fetching workflow:", workflowError);
-            setLoading(false);
-            return;
-        }
+            setWorkflow(workflowData);
+            setPosts(postsData);
 
-        setWorkflow(workflowData);
-
-        // Fetch all posts for this workflow
-        const { data: postsData, error: postsError } = await supabase
-            .from("posts")
-            .select("*")
-            .eq("workflow_id", workflowId)
-            .order("posted_at", { ascending: false });
-
-        if (postsError) {
-            console.error("Error fetching posts:", postsError);
-        } else {
-            setPosts(postsData || []);
-
-            // Calculate stats
-            const successful = postsData?.filter(p => p.status === "published").length || 0;
-            const failed = postsData?.filter(p => p.status === "failed").length || 0;
+            const successful = postsData?.filter((p: Post) => p.status === "published").length || 0;
+            const failed = postsData?.filter((p: Post) => p.status === "failed").length || 0;
             const lastPost = postsData && postsData.length > 0 ? postsData[0].posted_at : null;
 
             setStats({
@@ -111,9 +89,11 @@ export default function WorkflowDetailPage() {
                 failedRuns: failed,
                 lastRun: lastPost,
             });
+        } catch (error) {
+            console.error("Error fetching workflow:", error);
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     }
 
 
@@ -484,4 +464,3 @@ export default function WorkflowDetailPage() {
         </div>
     );
 }
-

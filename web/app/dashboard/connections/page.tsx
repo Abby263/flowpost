@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
-import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -25,14 +24,19 @@ export default function ConnectionsPage() {
     }, [user]);
 
     async function fetchConnections() {
-        if (!supabase) return;
-        const { data, error } = await supabase
-            .from("connections")
-            .select("*")
-            .eq("user_id", user?.id);
-
-        if (data) setConnections(data);
-        setLoading(false);
+        setLoading(true);
+        try {
+            const res = await fetch("/api/connections");
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to load connections");
+            }
+            setConnections(data.connections || []);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
     }
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,7 +44,7 @@ export default function ConnectionsPage() {
     };
 
     async function addConnection() {
-        if (!user || !supabase) return;
+        if (!user) return;
 
         let credentials = {};
         let profileName = "";
@@ -87,33 +91,39 @@ export default function ConnectionsPage() {
             return;
         }
 
-        const { data, error } = await supabase.from("connections").insert({
-            user_id: user.id,
-            platform: platform,
-            profile_name: profileName,
-            credentials,
-        }).select();
-
-        if (!error && data) {
-            setConnections([...connections, data[0]]);
+        try {
+            const res = await fetch("/api/connections", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    platform,
+                    profile_name: profileName,
+                    credentials,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to add connection");
+            }
+            setConnections([...connections, data.connection]);
             setFormData({});
-        } else {
+        } catch (error: any) {
             console.error(error);
-            alert(`Failed to add connection: ${error?.message}`);
+            alert(`Failed to add connection: ${error?.message || "Unknown error"}`);
         }
     }
 
     async function deleteConnection(id: string) {
-        if (!supabase) return;
-
-        const { error } = await supabase
-            .from("connections")
-            .delete()
-            .eq("id", id);
-
-        if (!error) {
+        try {
+            const res = await fetch(`/api/connections?id=${id}`, {
+                method: "DELETE",
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to delete connection");
+            }
             setConnections(connections.filter((c) => c.id !== id));
-        } else {
+        } catch (error) {
             console.error(error);
             alert("Failed to delete connection");
         }

@@ -7,8 +7,8 @@
   "outputDirectory": "web/.next",
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- web/",
   "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
+    "SUPABASE_URL": "@supabase_url",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
     "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "@clerk_publishable_key",
     "CLERK_SECRET_KEY": "@clerk_secret_key",
     "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "/sign-in",
@@ -18,4 +18,3 @@
     "LANGGRAPH_API_URL": "@langgraph_api_url"
   }
 }
-

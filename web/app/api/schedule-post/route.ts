@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { Client } from "@langchain/langgraph-sdk";
+import { auth } from "@clerk/nextjs/server";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -8,11 +9,6 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const langGraphClient = new Client({
     apiUrl: process.env.LANGGRAPH_API_URL || "http://localhost:54367",
 });
-
-// Initialize Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function generateImage(prompt: string): Promise<string> {
     if (!OPENAI_API_KEY) {
@@ -62,10 +58,11 @@ async function schedulePost(
     source?: string
 ) {
     // Get connection details to find the workflow or create a new scheduled entry
-    const { data: connection, error: connError } = await supabase
+    const { data: connection, error: connError } = await supabaseAdmin
         .from("connections")
         .select("*")
         .eq("id", connectionId)
+        .eq("user_id", userId)
         .single();
 
     if (connError || !connection) {
@@ -73,7 +70,7 @@ async function schedulePost(
     }
 
     // Insert scheduled post into posts table
-    const { data: post, error: postError } = await supabase
+    const { data: post, error: postError } = await supabaseAdmin
         .from("posts")
         .insert({
             user_id: userId,
@@ -101,6 +98,11 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
         const { action } = body;
+        const { userId } = auth();
+
+        if (!userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
         if (action === "generate-image") {
             const { prompt } = body;
@@ -122,11 +124,11 @@ export async function POST(request: Request) {
         }
 
         if (action === "schedule") {
-            const { content, platform, connectionId, scheduledAt, userId, imageUrl, source } = body;
+            const { content, platform, connectionId, scheduledAt, imageUrl, source } = body;
 
-            if (!content || !platform || !connectionId || !scheduledAt || !userId) {
+            if (!content || !platform || !connectionId || !scheduledAt) {
                 return NextResponse.json({
-                    error: "Missing required fields: content, platform, connectionId, scheduledAt, userId"
+                    error: "Missing required fields: content, platform, connectionId, scheduledAt"
                 }, { status: 400 });
             }
 
@@ -143,20 +145,21 @@ export async function POST(request: Request) {
         }
 
         if (action === "post-now") {
-            const { content, platform, connectionId, userId, imageUrl, source } = body;
+            const { content, platform, connectionId, imageUrl, source } = body;
 
-            if (!content || !platform || !connectionId || !userId) {
+            if (!content || !platform || !connectionId) {
                 return NextResponse.json({
-                    error: "Missing required fields: content, platform, connectionId, userId"
+                    error: "Missing required fields: content, platform, connectionId"
                 }, { status: 400 });
             }
 
             try {
                 // Get connection details with credentials
-                const { data: connection, error: connError } = await supabase
+                const { data: connection, error: connError } = await supabaseAdmin
                     .from("connections")
                     .select("*")
                     .eq("id", connectionId)
+                    .eq("user_id", userId)
                     .single();
 
                 if (connError || !connection) {
@@ -171,7 +174,7 @@ export async function POST(request: Request) {
                 }
 
                 // Create a record in posts table with "posting" status
-                const { data: post, error: postError } = await supabase
+                const { data: post, error: postError } = await supabaseAdmin
                     .from("posts")
                     .insert({
                         user_id: userId,
@@ -237,7 +240,7 @@ export async function POST(request: Request) {
                     if (runStatus.status === "success") {
                         // Update post status to published
                         console.log(`[Schedule Post API] Updating post ${post.id} status to published`);
-                        const { error: updateError } = await supabase
+                        const { error: updateError } = await supabaseAdmin
                             .from("posts")
                             .update({
                                 status: "published",
@@ -258,7 +261,7 @@ export async function POST(request: Request) {
                         });
                     } else if (runStatus.status === "error") {
                         // Update post status to failed
-                        await supabase
+                        await supabaseAdmin
                             .from("posts")
                             .update({ status: "failed" })
                             .eq("id", post.id);
@@ -282,7 +285,7 @@ export async function POST(request: Request) {
                         throw new Error(errorMsg);
                     } else {
                         // Timeout - mark as pending
-                        await supabase
+                        await supabaseAdmin
                             .from("posts")
                             .update({ status: "pending" })
                             .eq("id", post.id);
@@ -298,7 +301,7 @@ export async function POST(request: Request) {
                     console.error("Upload error:", uploadError);
 
                     // Update post status to failed
-                    await supabase
+                    await supabaseAdmin
                         .from("posts")
                         .update({ status: "failed" })
                         .eq("id", post.id);
@@ -326,14 +329,13 @@ export async function POST(request: Request) {
 // GET endpoint to fetch scheduled posts
 export async function GET(request: Request) {
     try {
-        const { searchParams } = new URL(request.url);
-        const userId = searchParams.get("userId");
+        const { userId } = auth();
 
         if (!userId) {
-            return NextResponse.json({ error: "userId is required" }, { status: 400 });
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { data: posts, error } = await supabase
+        const { data: posts, error } = await supabaseAdmin
             .from("posts")
             .select("*")
             .eq("user_id", userId)
@@ -350,4 +352,3 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
-

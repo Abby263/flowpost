@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { createClient } from "@supabase/supabase-js";
 import {
     CalendarPlus,
     Clock,
@@ -33,11 +32,6 @@ import {
     X
 } from "lucide-react";
 import { format } from "date-fns";
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 interface Connection {
     id: string;
@@ -93,39 +87,46 @@ export default function SchedulePostPage() {
     }, [user]);
 
     async function fetchConnections() {
-        const { data, error } = await supabase
-            .from("connections")
-            .select("id, platform, profile_name")
-            .eq("user_id", user?.id);
-
-        if (data) setConnections(data);
-        setLoading(false);
+        setLoading(true);
+        try {
+            const res = await fetch("/api/connections");
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to load connections");
+            }
+            setConnections(data.connections || []);
+        } catch (error) {
+            console.error("Error fetching connections:", error);
+        } finally {
+            setLoading(false);
+        }
     }
 
     async function fetchScheduledPosts() {
-        const { data, error } = await supabase
-            .from("posts")
-            .select("*")
-            .eq("user_id", user?.id)
-            .eq("status", "scheduled")
-            .order("scheduled_at", { ascending: true })
-            .limit(10);
-
-        if (data) setScheduledPosts(data);
+        try {
+            const res = await fetch("/api/posts?status=scheduled&order=scheduled_at&direction=asc&limit=10");
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to load scheduled posts");
+            }
+            setScheduledPosts(data.posts || []);
+        } catch (error) {
+            console.error("Error fetching scheduled posts:", error);
+        }
     }
 
     async function fetchPostHistory() {
         // Fetch all posts (not just scheduled) for history, excluding scheduled ones
-        const { data, error } = await supabase
-            .from("posts")
-            .select("*")
-            .eq("user_id", user?.id)
-            .neq("status", "scheduled")
-            .is("workflow_id", null) // Only manual posts, not workflow-generated
-            .order("posted_at", { ascending: false })
-            .limit(20);
-
-        if (data) setPostHistory(data);
+        try {
+            const res = await fetch("/api/posts?excludeStatus=scheduled&workflowId=null&order=posted_at&direction=desc&limit=20");
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to load post history");
+            }
+            setPostHistory(data.posts || []);
+        } catch (error) {
+            console.error("Error fetching post history:", error);
+        }
     }
 
     const handlePlatformChange = (value: string) => {
@@ -207,7 +208,6 @@ export default function SchedulePostPage() {
                     connectionId,
                     scheduledAt,
                     imageUrl: imageUrl || undefined,
-                    userId: user?.id,
                     source: "manual"
                 }),
             });
@@ -240,16 +240,15 @@ export default function SchedulePostPage() {
 
     const cancelScheduledPost = async (postId: string) => {
         try {
-            const { error } = await supabase
-                .from("posts")
-                .delete()
-                .eq("id", postId);
-
-            if (!error) {
-                setScheduledPosts(scheduledPosts.filter(p => p.id !== postId));
-                showNotification("success", "Scheduled post cancelled");
+            const res = await fetch(`/api/posts?id=${postId}`, { method: "DELETE" });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to cancel post");
             }
-        } catch (error) {
+            setScheduledPosts(scheduledPosts.filter(p => p.id !== postId));
+            showNotification("success", "Scheduled post cancelled");
+        } catch (error: any) {
+            console.error(error);
             showNotification("error", "Failed to cancel post");
         }
     };
@@ -788,4 +787,3 @@ export default function SchedulePostPage() {
         </div>
     );
 }
-

@@ -1,24 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createClient } from "@supabase/supabase-js";
 import { WorkflowCard } from "@/components/workflow-card";
 import { EditWorkflowModal } from "@/components/edit-workflow-modal";
 import { Switch } from "@/components/ui/switch";
 import { Plus, AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export default function WorkflowsPage() {
+    const { user } = useUser();
     const [workflows, setWorkflows] = useState<any[]>([]);
     const [connections, setConnections] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -55,9 +51,10 @@ export default function WorkflowsPage() {
     };
 
     useEffect(() => {
+        if (!user) return;
         fetchWorkflows();
         fetchConnections();
-    }, []);
+    }, [user]);
 
     // Poll for status of active runs
     useEffect(() => {
@@ -104,23 +101,14 @@ export default function WorkflowsPage() {
 
     async function fetchWorkflows() {
         setLoading(true);
-        // Fetch workflows and join with posts to get count and last post
-        const { data: workflowsData, error } = await supabase
-            .from("workflows")
-            .select(`
-        *,
-        posts (
-          id,
-          posted_at
-        )
-      `)
-            .order("created_at", { ascending: false });
-
-        if (error) {
-            console.error("Error fetching workflows:", error);
-        } else {
-            // Process data to add post stats
-            const processed = workflowsData.map(wf => {
+        try {
+            const res = await fetch("/api/workflows?includePosts=true");
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to fetch workflows");
+            }
+            const workflowsData = data.workflows || [];
+            const processed = workflowsData.map((wf: any) => {
                 const posts = wf.posts || [];
                 const lastPost = posts.sort((a: any, b: any) => new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime())[0];
                 return {
@@ -130,14 +118,24 @@ export default function WorkflowsPage() {
                 };
             });
             setWorkflows(processed);
+        } catch (error) {
+            console.error("Error fetching workflows:", error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }
 
     async function fetchConnections() {
-        const { data, error } = await supabase.from("connections").select("*");
-        if (error) console.error("Error fetching connections:", error);
-        else setConnections(data);
+        try {
+            const res = await fetch("/api/connections");
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to fetch connections");
+            }
+            setConnections(data.connections || []);
+        } catch (error) {
+            console.error("Error fetching connections:", error);
+        }
     }
 
     async function createWorkflow() {
@@ -146,20 +144,17 @@ export default function WorkflowsPage() {
             return;
         }
 
-        const { data, error } = await supabase.from("workflows").insert([
-            {
-                user_id: "user_2o6W...", // TODO: Get from auth
-                ...newWorkflow,
-                type: "content_automation_advanced",
-                config: {},
-                is_active: true
-            },
-        ]).select();
-
-        if (error) {
-            showNotification("error", "Failed to create workflow: " + error.message);
-        } else {
-            setWorkflows([data[0], ...workflows]);
+        try {
+            const res = await fetch("/api/workflows", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(newWorkflow),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to create workflow");
+            }
+            setWorkflows([data.workflow, ...workflows]);
             setIsCreateModalOpen(false);
             showNotification("success", `Workflow "${newWorkflow.name}" created successfully!`);
             setNewWorkflow({
@@ -173,6 +168,8 @@ export default function WorkflowsPage() {
                 frequency: "daily",
                 requires_approval: false,
             });
+        } catch (error: any) {
+            showNotification("error", "Failed to create workflow: " + (error?.message || "Unknown error"));
         }
     }
 
@@ -180,46 +177,55 @@ export default function WorkflowsPage() {
         if (!confirm("Are you sure you want to delete this workflow?")) return;
 
         const workflowName = workflows.find(w => w.id === id)?.name || "workflow";
-        const { error } = await supabase.from("workflows").delete().eq("id", id);
-        if (error) {
-            showNotification("error", "Failed to delete workflow");
-        } else {
+        try {
+            const res = await fetch(`/api/workflows?id=${id}`, { method: "DELETE" });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to delete workflow");
+            }
             setWorkflows(workflows.filter((w) => w.id !== id));
             showNotification("success", `"${workflowName}" deleted successfully`);
+        } catch (error) {
+            showNotification("error", "Failed to delete workflow");
         }
     }
 
     async function toggleWorkflowActive(id: string, currentStatus: boolean) {
-        const { error } = await supabase
-            .from("workflows")
-            .update({ is_active: !currentStatus })
-            .eq("id", id);
-
-        if (error) {
-            showNotification("error", "Failed to update workflow status");
-        } else {
+        try {
+            const res = await fetch("/api/workflows", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id, is_active: !currentStatus }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to update workflow");
+            }
             setWorkflows(workflows.map(w => w.id === id ? { ...w, is_active: !currentStatus } : w));
             showNotification("success", `Workflow ${!currentStatus ? "enabled" : "paused"}`);
+        } catch (error) {
+            showNotification("error", "Failed to update workflow status");
         }
     }
 
     async function updateWorkflow(updatedWorkflow: any) {
-        const { error } = await supabase
-            .from("workflows")
-            .update({
+        const res = await fetch("/api/workflows", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                id: updatedWorkflow.id,
                 name: updatedWorkflow.name,
                 search_query: updatedWorkflow.search_query,
                 schedule: updatedWorkflow.schedule,
                 frequency: updatedWorkflow.frequency,
                 requires_approval: updatedWorkflow.requires_approval,
-            })
-            .eq("id", updatedWorkflow.id);
-
-        if (error) {
-            throw error;
-        } else {
-            setWorkflows(workflows.map(w => w.id === updatedWorkflow.id ? updatedWorkflow : w));
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.error || "Failed to update workflow");
         }
+        setWorkflows(workflows.map(w => w.id === updatedWorkflow.id ? updatedWorkflow : w));
     }
 
     async function runWorkflow(workflow: any) {
@@ -239,8 +245,7 @@ export default function WorkflowsPage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    workflow,
-                    connection
+                    workflowId: workflow.id
                 }),
             });
             const data = await res.json();
