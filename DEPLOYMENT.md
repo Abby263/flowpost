@@ -98,6 +98,7 @@ langgraph build -t flowpost-backend
 - [ ] Use production Supabase project
 - [ ] Never commit `.env` files
 - [ ] Enable RLS in Supabase for production
+- [ ] Ensure Clerk JWT `sub` matches `connections.user_id`/`workflows.user_id`/`posts.user_id`
 - [ ] Update Clerk allowed origins with Vercel URL
 
 ---

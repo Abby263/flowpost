@@ -79,18 +79,12 @@ CREATE INDEX IF NOT EXISTS idx_posts_source ON posts(source);
 
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS)
--- Note: For development, RLS is disabled. Enable for production.
+-- Designed for Clerk: set Supabase JWT "sub" to the Clerk user ID.
 -- ============================================================================
 
--- Disable RLS for development (remove these lines for production)
-ALTER TABLE connections DISABLE ROW LEVEL SECURITY;
-ALTER TABLE workflows DISABLE ROW LEVEL SECURITY;
-ALTER TABLE posts DISABLE ROW LEVEL SECURITY;
-
--- To enable RLS in production, uncomment below and comment out the DISABLE lines above:
--- ALTER TABLE connections ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE connections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (only active when RLS is enabled)
 DROP POLICY IF EXISTS "Users can view their own connections" ON connections;
@@ -109,19 +103,31 @@ DROP POLICY IF EXISTS "Users can update their own posts" ON posts;
 DROP POLICY IF EXISTS "Users can delete their own posts" ON posts;
 
 -- Connection policies
-CREATE POLICY "Users can view their own connections" ON connections FOR SELECT USING (true);
-CREATE POLICY "Users can insert their own connections" ON connections FOR INSERT WITH CHECK (true);
-CREATE POLICY "Users can update their own connections" ON connections FOR UPDATE USING (true);
-CREATE POLICY "Users can delete their own connections" ON connections FOR DELETE USING (true);
+CREATE POLICY "Users can view their own connections" ON connections
+  FOR SELECT USING (user_id = auth.jwt() ->> 'sub');
+CREATE POLICY "Users can insert their own connections" ON connections
+  FOR INSERT WITH CHECK (user_id = auth.jwt() ->> 'sub');
+CREATE POLICY "Users can update their own connections" ON connections
+  FOR UPDATE USING (user_id = auth.jwt() ->> 'sub');
+CREATE POLICY "Users can delete their own connections" ON connections
+  FOR DELETE USING (user_id = auth.jwt() ->> 'sub');
 
 -- Workflow policies
-CREATE POLICY "Users can view their own workflows" ON workflows FOR SELECT USING (true);
-CREATE POLICY "Users can insert their own workflows" ON workflows FOR INSERT WITH CHECK (true);
-CREATE POLICY "Users can update their own workflows" ON workflows FOR UPDATE USING (true);
-CREATE POLICY "Users can delete their own workflows" ON workflows FOR DELETE USING (true);
+CREATE POLICY "Users can view their own workflows" ON workflows
+  FOR SELECT USING (user_id = auth.jwt() ->> 'sub');
+CREATE POLICY "Users can insert their own workflows" ON workflows
+  FOR INSERT WITH CHECK (user_id = auth.jwt() ->> 'sub');
+CREATE POLICY "Users can update their own workflows" ON workflows
+  FOR UPDATE USING (user_id = auth.jwt() ->> 'sub');
+CREATE POLICY "Users can delete their own workflows" ON workflows
+  FOR DELETE USING (user_id = auth.jwt() ->> 'sub');
 
 -- Post policies
-CREATE POLICY "Users can view their own posts" ON posts FOR SELECT USING (true);
-CREATE POLICY "Users can insert their own posts" ON posts FOR INSERT WITH CHECK (true);
-CREATE POLICY "Users can update their own posts" ON posts FOR UPDATE USING (true);
-CREATE POLICY "Users can delete their own posts" ON posts FOR DELETE USING (true);
+CREATE POLICY "Users can view their own posts" ON posts
+  FOR SELECT USING (user_id = auth.jwt() ->> 'sub');
+CREATE POLICY "Users can insert their own posts" ON posts
+  FOR INSERT WITH CHECK (user_id = auth.jwt() ->> 'sub');
+CREATE POLICY "Users can update their own posts" ON posts
+  FOR UPDATE USING (user_id = auth.jwt() ->> 'sub');
+CREATE POLICY "Users can delete their own posts" ON posts
+  FOR DELETE USING (user_id = auth.jwt() ->> 'sub');
