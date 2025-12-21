@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
     let query = supabaseAdmin
         .from("posts")
-        .select("*")
+        .select("*, workflows(connection_id)")
         .eq("user_id", userId)
         .order(order, { ascending: direction === "asc" });
 
@@ -60,7 +60,15 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ posts: data || [] });
+    const normalizedPosts = (data || []).map((post: any) => {
+        const { workflows, ...postData } = post;
+        if (!postData.connection_id && workflows?.connection_id) {
+            return { ...postData, connection_id: workflows.connection_id };
+        }
+        return postData;
+    });
+
+    return NextResponse.json({ posts: normalizedPosts });
 }
 
 export async function DELETE(request: Request) {

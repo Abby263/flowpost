@@ -533,12 +533,30 @@ async function savePostToDb(state: typeof ContentAutomationAdvancedState.State) 
             posted_at: new Date().toISOString(),
         };
 
+        let connectionId: string | null = null;
+        if (state.workflowId) {
+            const { data: workflow, error: workflowError } = await supabase
+                .from("workflows")
+                .select("connection_id")
+                .eq("id", state.workflowId)
+                .single();
+
+            if (workflowError) {
+                console.warn("WARN: Failed to load workflow connection:", workflowError.message);
+            } else if (workflow?.connection_id) {
+                connectionId = workflow.connection_id;
+            }
+        }
+
         // Add optional fields if they exist
         if (state.imageUrl) {
             postData.image_url = state.imageUrl;
         }
         if (state.publishedUrl) {
             postData.published_url = state.publishedUrl;
+        }
+        if (connectionId) {
+            postData.connection_id = connectionId;
         }
 
         console.log(`   💾 Inserting post data:`, {
