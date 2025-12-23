@@ -12,10 +12,10 @@ resource "azurerm_container_app" "this" {
   }
 
   dynamic "secret" {
-    for_each = var.secrets
+    for_each = nonsensitive(var.secrets)
     content {
       name  = secret.key
-      value = secret.value
+      value = var.secrets[secret.key]
     }
   }
 
@@ -62,30 +62,19 @@ resource "azurerm_container_app" "this" {
       }
 
       liveness_probe {
-        transport        = "HTTP"
-        path             = var.health_check_path
-        port             = var.target_port
-        initial_delay    = 60
-        interval_seconds = 30
+        transport               = "HTTP"
+        path                    = var.health_check_path
+        port                    = var.target_port
+        interval_seconds        = 30
         failure_count_threshold = 3
       }
 
       readiness_probe {
-        transport        = "HTTP"
-        path             = var.health_check_path
-        port             = var.target_port
-        initial_delay    = 30
-        interval_seconds = 10
+        transport               = "HTTP"
+        path                    = var.health_check_path
+        port                    = var.target_port
+        interval_seconds        = 10
         failure_count_threshold = 3
-      }
-
-      startup_probe {
-        transport        = "HTTP"
-        path             = var.health_check_path
-        port             = var.target_port
-        initial_delay    = 10
-        interval_seconds = 10
-        failure_count_threshold = 30
       }
     }
 

@@ -62,21 +62,25 @@ module "backend" {
     PORT     = "54367"
   }
 
-  secrets = {
-    openai-api-key  = var.openai_api_key
-    supabase-url    = var.supabase_url
-    supabase-key    = var.supabase_service_role_key
-    langchain-key   = var.langchain_api_key
-    serper-key      = var.serper_api_key
-  }
+  secrets = merge(
+    {
+      openai-api-key = var.openai_api_key
+      supabase-url   = var.supabase_url
+      supabase-key   = var.supabase_service_role_key
+    },
+    var.langchain_api_key != "" ? { langchain-key = var.langchain_api_key } : {},
+    var.serper_api_key != "" ? { serper-key = var.serper_api_key } : {}
+  )
 
-  secret_environment_variables = {
-    OPENAI_API_KEY           = "openai-api-key"
-    SUPABASE_URL             = "supabase-url"
-    SUPABASE_SERVICE_ROLE_KEY = "supabase-key"
-    LANGCHAIN_API_KEY        = "langchain-key"
-    SERPER_API_KEY           = "serper-key"
-  }
+  secret_environment_variables = merge(
+    {
+      OPENAI_API_KEY            = "openai-api-key"
+      SUPABASE_URL              = "supabase-url"
+      SUPABASE_SERVICE_ROLE_KEY = "supabase-key"
+    },
+    var.langchain_api_key != "" ? { LANGCHAIN_API_KEY = "langchain-key" } : {},
+    var.serper_api_key != "" ? { SERPER_API_KEY = "serper-key" } : {}
+  )
 
   health_check_path = "/ok"
   tags              = local.common_tags

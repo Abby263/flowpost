@@ -122,11 +122,19 @@ preflight_checks() {
         az login
     fi
     print_success "Logged in to Azure"
-    
+
     # Show current subscription
     CURRENT_SUB=$(az account show --query name -o tsv)
     CURRENT_SUB_ID=$(az account show --query id -o tsv)
     echo -e "   Current subscription: ${CYAN}$CURRENT_SUB${NC}"
+    
+    print_step "Registering Azure resource providers..."
+    az provider register --namespace Microsoft.Storage --wait &> /dev/null &
+    az provider register --namespace Microsoft.ContainerRegistry --wait &> /dev/null &
+    az provider register --namespace Microsoft.App --wait &> /dev/null &
+    az provider register --namespace Microsoft.OperationalInsights --wait &> /dev/null &
+    wait
+    print_success "Azure resource providers registered"
 }
 
 # =============================================================================
@@ -194,11 +202,13 @@ gather_config() {
     echo -e "${YELLOW}Optional secrets (press Enter to skip):${NC}"
     
     if [ -z "$LANGCHAIN_API_KEY" ]; then
-        read -p "$(echo -e ${YELLOW}LangChain API Key (optional): ${NC})" LANGCHAIN_API_KEY
+        echo -ne "${YELLOW}LangChain API Key (optional): ${NC}"
+        read LANGCHAIN_API_KEY
     fi
     
     if [ -z "$SERPER_API_KEY" ]; then
-        read -p "$(echo -e ${YELLOW}Serper API Key (optional): ${NC})" SERPER_API_KEY
+        echo -ne "${YELLOW}Serper API Key (optional): ${NC}"
+        read SERPER_API_KEY
     fi
     
     # GitHub settings
@@ -465,29 +475,30 @@ build_and_push_images() {
     az acr login --name "$ACR_NAME"
     print_success "Logged in to ACR"
     
-    print_step "Building backend image..."
-    docker build \
+    print_step "Building backend image for linux/amd64..."
+    docker buildx build \
+        --platform linux/amd64 \
         -t "${ACR_SERVER}/flowpost-backend:latest" \
         -t "${ACR_SERVER}/flowpost-backend:${GITHUB_SHA:-initial}" \
         -f "$PROJECT_ROOT/backend/Dockerfile" \
+        --push \
         "$PROJECT_ROOT"
-    print_success "Backend image built"
+    print_success "Backend image built and pushed"
     
-    print_step "Pushing backend image..."
-    docker push "${ACR_SERVER}/flowpost-backend:latest"
-    print_success "Backend image pushed"
+    # Image already pushed with buildx --push
     
-    print_step "Building frontend image..."
-    docker build \
+    print_step "Building frontend image for linux/amd64..."
+    docker buildx build \
+        --platform linux/amd64 \
+        --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${CLERK_PUBLISHABLE_KEY}" \
         -t "${ACR_SERVER}/flowpost-frontend:latest" \
         -t "${ACR_SERVER}/flowpost-frontend:${GITHUB_SHA:-initial}" \
         -f "$PROJECT_ROOT/frontend/Dockerfile" \
+        --push \
         "$PROJECT_ROOT/frontend"
-    print_success "Frontend image built"
+    print_success "Frontend image built and pushed"
     
-    print_step "Pushing frontend image..."
-    docker push "${ACR_SERVER}/flowpost-frontend:latest"
-    print_success "Frontend image pushed"
+    # Image already pushed with buildx --push
 }
 
 # =============================================================================

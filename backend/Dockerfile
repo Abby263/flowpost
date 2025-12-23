@@ -29,8 +29,9 @@ RUN yarn build
 # Production stage
 FROM node:20-bookworm-slim AS production
 
-# Install runtime dependencies for Playwright
+# Install runtime dependencies for Playwright and curl for health checks
 RUN apt-get update && apt-get install -y \
+    curl \
     libnss3 \
     libnspr4 \
     libatk1.0-0 \
@@ -58,6 +59,9 @@ COPY --from=base /app/backend ./backend
 COPY --from=base /app/package.json ./
 COPY --from=base /app/langgraph.json ./
 COPY --from=base /app/tsconfig.json ./
+
+# Create empty .env file (environment variables come from container runtime)
+RUN touch .env
 
 # Copy Playwright browsers
 COPY --from=base /root/.cache/ms-playwright /root/.cache/ms-playwright
