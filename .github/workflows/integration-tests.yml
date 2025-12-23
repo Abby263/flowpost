@@ -21,8 +21,17 @@ jobs:
     name: E2E Tests
     timeout-minutes: 30
     runs-on: ubuntu-latest
+    env:
+      # Set environment variables for Next.js build and runtime
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_dummy
+      CLERK_SECRET_KEY: sk_test_dummy
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Use Node.js 20.x
         uses: actions/setup-node@v4
@@ -30,8 +39,12 @@ jobs:
           node-version: 20.x
           cache: "yarn"
 
-      - name: Install pnpm
-        run: npm install -g pnpm
+      - name: Setup pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install root dependencies
         run: yarn install --immutable
@@ -42,14 +55,6 @@ jobs:
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
-
-      - name: Build frontend
-        working-directory: frontend
-        run: pnpm build
-        env:
-          # Add dummy env vars for build
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_dummy
-          CLERK_SECRET_KEY: sk_test_dummy
 
       - name: Run E2E Tests
         run: yarn test:e2e --project=chromium

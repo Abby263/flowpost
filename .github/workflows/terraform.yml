@@ -11,20 +11,20 @@ on:
       - develop
       - uat
     paths:
-      - 'terraform/**'
-      - '.github/workflows/terraform.yml'
+      - "terraform/**"
+      - ".github/workflows/terraform.yml"
   pull_request:
     branches:
       - main
       - develop
       - uat
     paths:
-      - 'terraform/**'
-      - '.github/workflows/terraform.yml'
+      - "terraform/**"
+      - ".github/workflows/terraform.yml"
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy'
+        description: "Environment to deploy"
         required: true
         type: choice
         options:
@@ -32,7 +32,7 @@ on:
           - uat
           - prod
       action:
-        description: 'Terraform action'
+        description: "Terraform action"
         required: true
         type: choice
         options:
@@ -41,15 +41,33 @@ on:
           - destroy
 
 env:
-  TF_VERSION: '1.6.0'
+  TF_VERSION: "1.6.0"
   ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
   ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
   ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
 
 jobs:
+  check-secrets:
+    name: Check Secrets Availability
+    runs-on: ubuntu-latest
+    outputs:
+      has-azure-creds: ${{ steps.check.outputs.has-azure-creds }}
+    steps:
+      - name: Check if Azure credentials are available
+        id: check
+        run: |
+          if [ -n "${{ secrets.ARM_CLIENT_ID }}" ] && [ -n "${{ secrets.ARM_SUBSCRIPTION_ID }}" ]; then
+            echo "has-azure-creds=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-azure-creds=false" >> $GITHUB_OUTPUT
+            echo "::warning::Azure credentials not configured. Skipping Terraform operations."
+          fi
+
   determine-environment:
     name: Determine Environment
+    needs: check-secrets
+    if: needs.check-secrets.outputs.has-azure-creds == 'true'
     runs-on: ubuntu-latest
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
@@ -117,17 +135,17 @@ jobs:
           script: |
             const output = `#### Terraform Plan 📖
             **Environment:** \`${{ needs.determine-environment.outputs.environment }}\`
-            
+
             <details><summary>Show Plan</summary>
-            
+
             \`\`\`terraform
             ${{ steps.plan.outputs.stdout }}
             \`\`\`
-            
+
             </details>
-            
+
             *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

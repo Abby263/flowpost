@@ -10,13 +10,13 @@ on:
       - develop
       - uat
     paths-ignore:
-      - 'terraform/**'
-      - 'docs/**'
-      - '*.md'
+      - "terraform/**"
+      - "docs/**"
+      - "*.md"
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy'
+        description: "Environment to deploy"
         required: true
         type: choice
         options:
@@ -29,8 +29,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-secrets:
+    name: Check Secrets Availability
+    runs-on: ubuntu-latest
+    outputs:
+      has-azure-creds: ${{ steps.check.outputs.has-azure-creds }}
+    steps:
+      - name: Check if Azure credentials are available
+        id: check
+        run: |
+          if [ -n "${{ secrets.AZURE_CREDENTIALS }}" ]; then
+            echo "has-azure-creds=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-azure-creds=false" >> $GITHUB_OUTPUT
+            echo "::warning::Azure credentials not configured. Skipping deployment."
+          fi
+
   determine-environment:
     name: Determine Environment
+    needs: check-secrets
+    if: needs.check-secrets.outputs.has-azure-creds == 'true'
     runs-on: ubuntu-latest
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
@@ -55,6 +73,8 @@ jobs:
 
   test:
     name: Run Tests
+    needs: check-secrets
+    if: needs.check-secrets.outputs.has-azure-creds == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -101,15 +121,15 @@ jobs:
         run: |
           ACR_SERVER="${{ needs.determine-environment.outputs.acr_name }}.azurecr.io"
           IMAGE_TAG="${{ github.sha }}"
-          
+
           docker build \
             -t ${ACR_SERVER}/flowpost-backend:${IMAGE_TAG} \
             -t ${ACR_SERVER}/flowpost-backend:latest \
             -f backend/Dockerfile .
-          
+
           docker push ${ACR_SERVER}/flowpost-backend:${IMAGE_TAG}
           docker push ${ACR_SERVER}/flowpost-backend:latest
-          
+
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
   build-frontend:
@@ -136,15 +156,15 @@ jobs:
         run: |
           ACR_SERVER="${{ needs.determine-environment.outputs.acr_name }}.azurecr.io"
           IMAGE_TAG="${{ github.sha }}"
-          
+
           docker build \
             -t ${ACR_SERVER}/flowpost-frontend:${IMAGE_TAG} \
             -t ${ACR_SERVER}/flowpost-frontend:latest \
             -f frontend/Dockerfile frontend/
-          
+
           docker push ${ACR_SERVER}/flowpost-frontend:${IMAGE_TAG}
           docker push ${ACR_SERVER}/flowpost-frontend:latest
-          
+
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
   deploy:
@@ -179,12 +199,12 @@ jobs:
             --name flowpost-${{ needs.determine-environment.outputs.environment }}-backend \
             --resource-group ${{ needs.determine-environment.outputs.resource_group }} \
             --query "properties.configuration.ingress.fqdn" -o tsv)
-          
+
           FRONTEND_URL=$(az containerapp show \
             --name flowpost-${{ needs.determine-environment.outputs.environment }}-frontend \
             --resource-group ${{ needs.determine-environment.outputs.resource_group }} \
             --query "properties.configuration.ingress.fqdn" -o tsv)
-          
+
           echo "backend_url=https://${BACKEND_URL}" >> $GITHUB_OUTPUT
           echo "frontend_url=https://${FRONTEND_URL}" >> $GITHUB_OUTPUT
 

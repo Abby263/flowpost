@@ -18,10 +18,7 @@ export default {
     ],
   },
   extensionsToTreatAsEsm: [".ts"],
-  collectCoverageFrom: [
-    "backend/**/*.ts",
-    "!backend/**/*.d.ts",
-  ],
+  collectCoverageFrom: ["backend/**/*.ts", "!backend/**/*.d.ts"],
   coverageDirectory: "coverage/backend",
   coverageReporters: ["text", "lcov", "html"],
   verbose: true,

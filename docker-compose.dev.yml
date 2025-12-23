@@ -4,7 +4,7 @@
 services:
   backend:
     build:
-      target: base  # Use the base stage with all dev dependencies
+      target: base # Use the base stage with all dev dependencies
     volumes:
       - ./backend:/app/backend
       - ./langgraph.json:/app/langgraph.json
@@ -15,7 +15,7 @@ services:
 
   frontend:
     build:
-      target: builder  # Use the builder stage with all dev dependencies
+      target: builder # Use the builder stage with all dev dependencies
     volumes:
       - ./frontend:/app
       - /app/node_modules

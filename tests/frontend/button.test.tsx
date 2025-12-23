@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 describe("Button component", () => {
   it("renders a button with text", () => {
     render(<Button>Click me</Button>);
-    expect(screen.getByRole("button", { name: /click me/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /click me/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders with default variant and size", () => {
@@ -68,10 +70,10 @@ describe("Button component", () => {
   it("handles click events", async () => {
     const handleClick = jest.fn();
     render(<Button onClick={handleClick}>Clickable</Button>);
-    
+
     const button = screen.getByRole("button");
     await userEvent.click(button);
-    
+
     expect(handleClick).toHaveBeenCalledTimes(1);
   });
 

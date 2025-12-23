@@ -72,9 +72,16 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: "cd frontend && pnpm dev",
+    command: process.env.CI
+      ? "pnpm --dir frontend dev"
+      : "cd frontend && pnpm dev",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
+    env: {
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
+        process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "pk_test_dummy",
+      CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY || "sk_test_dummy",
+    },
   },
 });
