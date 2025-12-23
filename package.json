@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "AI-Powered Social Media Automation Platform - Automate content discovery, image generation, and posting to Instagram, Twitter, and LinkedIn.",
   "packageManager": "yarn@1.22.22",
-  "main": "src/agents/content-automation/index.ts",
+  "main": "backend/agents/content-automation/index.ts",
   "author": "LangChain",
   "license": "MIT",
   "private": true,
@@ -13,11 +13,12 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "format": "prettier --write .",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
+    "lint": "eslint backend",
+    "lint:fix": "eslint backend --fix",
     "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
     "lint:langgraph-json": "node scripts/checkLanggraphPaths.js",
-    "start:auth": "yarn tsx src/clients/auth-server.ts",
+    "start:auth": "yarn tsx backend/clients/auth-server.ts",
     "generate_post": "yarn tsx scripts/generate-post.ts",
     "cron:create": "yarn tsx scripts/crons/create-cron.ts",
     "cron:delete": "yarn tsx scripts/crons/delete-cron.ts",
@@ -27,7 +28,13 @@
     "get:used_links": "yarn tsx scripts/get-all-used-links.ts",
     "graph:delete:run_thread": "yarn tsx scripts/delete-run-thread.ts",
     "langgraph:up": "langgraph up --watch --port 54367",
-    "langgraph:in_mem:up": "npx @langchain/langgraph-cli@latest dev --port 54367"
+    "langgraph:in_mem:up": "npx @langchain/langgraph-cli@latest dev --port 54367",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "prepare": "husky"
   },
   "dependencies": {
     "@arcadeai/arcadejs": "^1.0.0",
@@ -70,9 +77,11 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.1.0",
     "@eslint/js": "^9.9.1",
+    "@playwright/test": "^1.49.1",
     "@tsconfig/recommended": "^1.0.7",
     "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.1",
+    "@types/jest": "^29.5.14",
     "@types/node": "^22.10.6",
     "@types/passport": "^1.0.17",
     "@types/passport-twitter": "^1.0.40",
@@ -84,8 +93,24 @@
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-no-instanceof": "^1.0.1",
     "eslint-plugin-prettier": "^4.2.1",
+    "husky": "^9.1.7",
+    "jest": "^29.7.0",
+    "lint-staged": "^15.2.11",
     "prettier": "^3.3.3",
+    "ts-jest": "^29.2.5",
     "tsx": "^4.19.2",
     "typescript": "^5.3.3"
+  },
+  "lint-staged": {
+    "backend/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "frontend/**/*.{ts,tsx}": [
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
   }
 }

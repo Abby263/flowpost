@@ -1,0 +1,68 @@
+# Docker Compose for local development
+# Usage: docker compose up --build
+
+services:
+  # LangGraph Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: flowpost-backend
+    ports:
+      - "54367:54367"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - HOST=0.0.0.0
+      - PORT=54367
+    volumes:
+      # Mount source for hot reload in development
+      - ./backend:/app/backend:ro
+      - ./langgraph.json:/app/langgraph.json:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:54367/ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - flowpost-network
+
+  # Next.js Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: flowpost-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - LANGGRAPH_API_URL=http://backend:54367
+      # These should be set in .env or passed at runtime
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - flowpost-network
+
+networks:
+  flowpost-network:
+    driver: bridge
+
+# Optional: Add volumes for persistent data
+# volumes:
+#   backend-data:

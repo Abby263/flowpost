@@ -14,7 +14,7 @@ module.exports = {
   ignorePatterns: [
     ".eslintrc.cjs",
     "scripts",
-    "src/utils/lodash/*",
+    "backend/utils/lodash/*",
     "node_modules",
     "dist",
     "dist-cjs",

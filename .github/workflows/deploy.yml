@@ -1,0 +1,201 @@
+# Build and Deploy Container Images
+# Triggered after infrastructure changes or on demand
+
+name: Build & Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - uat
+    paths-ignore:
+      - 'terraform/**'
+      - 'docs/**'
+      - '*.md'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - uat
+          - prod
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  determine-environment:
+    name: Determine Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      resource_group: ${{ steps.set-env.outputs.resource_group }}
+      acr_name: ${{ steps.set-env.outputs.acr_name }}
+    steps:
+      - name: Set environment from branch or input
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            ENV="prod"
+          elif [ "${{ github.ref }}" == "refs/heads/uat" ]; then
+            ENV="uat"
+          else
+            ENV="dev"
+          fi
+          echo "environment=${ENV}" >> $GITHUB_OUTPUT
+          echo "resource_group=flowpost-${ENV}-rg" >> $GITHUB_OUTPUT
+          echo "acr_name=flowpost${ENV}acr" >> $GITHUB_OUTPUT
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Type check
+        run: yarn typecheck
+
+      - name: Run tests
+        run: yarn test --passWithNoTests
+
+  build-backend:
+    name: Build Backend
+    needs: [determine-environment, test]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    outputs:
+      image_tag: ${{ steps.build.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: |
+          az acr login --name ${{ needs.determine-environment.outputs.acr_name }}
+
+      - name: Build and push
+        id: build
+        run: |
+          ACR_SERVER="${{ needs.determine-environment.outputs.acr_name }}.azurecr.io"
+          IMAGE_TAG="${{ github.sha }}"
+          
+          docker build \
+            -t ${ACR_SERVER}/flowpost-backend:${IMAGE_TAG} \
+            -t ${ACR_SERVER}/flowpost-backend:latest \
+            -f backend/Dockerfile .
+          
+          docker push ${ACR_SERVER}/flowpost-backend:${IMAGE_TAG}
+          docker push ${ACR_SERVER}/flowpost-backend:latest
+          
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+
+  build-frontend:
+    name: Build Frontend
+    needs: [determine-environment, test]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    outputs:
+      image_tag: ${{ steps.build.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: |
+          az acr login --name ${{ needs.determine-environment.outputs.acr_name }}
+
+      - name: Build and push
+        id: build
+        run: |
+          ACR_SERVER="${{ needs.determine-environment.outputs.acr_name }}.azurecr.io"
+          IMAGE_TAG="${{ github.sha }}"
+          
+          docker build \
+            -t ${ACR_SERVER}/flowpost-frontend:${IMAGE_TAG} \
+            -t ${ACR_SERVER}/flowpost-frontend:latest \
+            -f frontend/Dockerfile frontend/
+          
+          docker push ${ACR_SERVER}/flowpost-frontend:${IMAGE_TAG}
+          docker push ${ACR_SERVER}/flowpost-frontend:latest
+          
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: Deploy
+    needs: [determine-environment, build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Backend
+        run: |
+          az containerapp update \
+            --name flowpost-${{ needs.determine-environment.outputs.environment }}-backend \
+            --resource-group ${{ needs.determine-environment.outputs.resource_group }} \
+            --image ${{ needs.determine-environment.outputs.acr_name }}.azurecr.io/flowpost-backend:${{ needs.build-backend.outputs.image_tag }}
+
+      - name: Deploy Frontend
+        run: |
+          az containerapp update \
+            --name flowpost-${{ needs.determine-environment.outputs.environment }}-frontend \
+            --resource-group ${{ needs.determine-environment.outputs.resource_group }} \
+            --image ${{ needs.determine-environment.outputs.acr_name }}.azurecr.io/flowpost-frontend:${{ needs.build-frontend.outputs.image_tag }}
+
+      - name: Get URLs
+        id: urls
+        run: |
+          BACKEND_URL=$(az containerapp show \
+            --name flowpost-${{ needs.determine-environment.outputs.environment }}-backend \
+            --resource-group ${{ needs.determine-environment.outputs.resource_group }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          
+          FRONTEND_URL=$(az containerapp show \
+            --name flowpost-${{ needs.determine-environment.outputs.environment }}-frontend \
+            --resource-group ${{ needs.determine-environment.outputs.resource_group }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          
+          echo "backend_url=https://${BACKEND_URL}" >> $GITHUB_OUTPUT
+          echo "frontend_url=https://${FRONTEND_URL}" >> $GITHUB_OUTPUT
+
+      - name: Deployment Summary
+        run: |
+          echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ needs.determine-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | URL |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | ${{ steps.urls.outputs.backend_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | ${{ steps.urls.outputs.frontend_url }} |" >> $GITHUB_STEP_SUMMARY

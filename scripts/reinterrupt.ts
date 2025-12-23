@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { Client } from "@langchain/langgraph-sdk";
-import { Image } from "../src/agents/types.js";
-import { createSupabaseClient } from "../src/utils/supabase.js";
+import { Image } from "../backend/agents/types.js";
+import { createSupabaseClient } from "../backend/utils/supabase.js";
 
 async function getInterrupts(client: Client) {
   const interrupts = await client.threads.search({

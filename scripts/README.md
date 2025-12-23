@@ -1,6 +1,39 @@
 # FlowPost Scripts
 
-## Setup
+## Azure Deployment Scripts
+
+### One-Time Setup (Recommended)
+
+Run this script to set up everything for Azure deployment:
+
+```bash
+./scripts/azure-setup.sh
+```
+
+This script will:
+
+1. Create Terraform state storage in Azure
+2. Create a Service Principal for GitHub Actions
+3. Configure GitHub repository secrets (if GitHub CLI is installed)
+4. Deploy infrastructure with Terraform
+5. Build and push Docker images
+6. Update Container Apps with the new images
+
+After running this script, any push to `main`, `develop`, or `uat` branches will automatically deploy.
+
+### Destroy Resources
+
+To tear down all Azure resources:
+
+```bash
+./scripts/azure-destroy.sh
+```
+
+---
+
+## Operational Scripts
+
+### Setup
 
 First ensure you have all dependencies installed:
 

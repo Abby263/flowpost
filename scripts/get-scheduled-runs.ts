@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { Client, Run } from "@langchain/langgraph-sdk";
-import { SlackClient } from "../src/clients/slack/client.js";
+import { SlackClient } from "../backend/clients/slack/client.js";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 

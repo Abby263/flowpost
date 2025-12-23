@@ -34,9 +34,9 @@ git clone https://github.com/langchain-ai/social-media-agent.git
 cd social-media-agent
 yarn install
 
-# Install web UI dependencies (requires pnpm)
+# Install frontend dependencies (requires pnpm)
 npm install -g pnpm  # If not already installed
-cd web && pnpm install && cd ..
+cd frontend && pnpm install && cd ..
 
 # Set up environment
 cp .env.example .env
@@ -53,11 +53,14 @@ cp .env.example .env
 ### Run the Application
 
 **Option 1: Quick Start (Recommended)**
+
 ```bash
 # Run both backend and frontend with one command
 ./run.sh
 ```
+
 This script automatically:
+
 - Clears ports 54367 and 3000
 - Checks and installs dependencies
 - Starts LangGraph backend at `http://localhost:54367`
@@ -65,17 +68,27 @@ This script automatically:
 
 **Option 2: Run Separately**
 
-*Terminal 1 - LangGraph Backend:*
+_Terminal 1 - LangGraph Backend:_
+
 ```bash
 yarn dev
 ```
+
 Server starts at `http://localhost:54367`
 
-*Terminal 2 - Web UI:*
+_Terminal 2 - Frontend:_
+
 ```bash
-cd web && pnpm dev
+cd frontend && pnpm dev
 ```
+
 App starts at `http://localhost:3000`
+
+**Option 3: Docker Compose**
+
+```bash
+docker compose up --build
+```
 
 ## Environment Variables
 
@@ -142,59 +155,86 @@ Go to **Dashboard > Workflows** and configure:
 
 ## Deployment
 
-### Deploy Web UI to Vercel
+### Azure Container Apps (One-Command Setup)
 
-1. Push to GitHub
-2. Import to [Vercel](https://vercel.com)
-3. Framework: **Next.js**
-4. Root Directory: **web**
-5. Add environment variables in Vercel dashboard
-6. Deploy!
-
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
-
-### Deploy Backend to LangGraph Cloud
+Run the setup script to deploy everything:
 
 ```bash
-pip install langgraph-cli
-langgraph login
-langgraph deploy
+./scripts/azure-setup.sh
 ```
 
-Update `LANGGRAPH_API_URL` in Vercel with your deployment URL.
+This single script will:
+
+- ✅ Create all Azure resources (Container Registry, Container Apps, etc.)
+- ✅ Configure GitHub Actions for CI/CD
+- ✅ Build and deploy Docker images
+- ✅ Set up automatic deployments on push
+
+**After setup, deployments are automatic:**
+
+- Push to `develop` → Deploys to Dev
+- Push to `uat` → Deploys to UAT
+- Push to `main` → Deploys to Production
+
+See [docs/AZURE_DEPLOYMENT.md](./docs/AZURE_DEPLOYMENT.md) for detailed documentation.
 
 ## Project Structure
 
 ```
 flowpost/
-├── src/
+├── backend/             # LangGraph backend (AI agents)
 │   ├── agents/          # LangGraph workflow agents
 │   ├── clients/         # Social media platform clients
 │   └── utils/           # Utility functions
-├── web/                 # Next.js web UI
-├── supabase/            # Database schema
-├── scripts/             # Utility scripts
+├── frontend/            # Next.js web dashboard
+│   ├── app/             # Next.js App Router pages
+│   ├── components/      # React components
+│   └── lib/             # Utilities
+├── terraform/           # Infrastructure as Code
+│   ├── modules/         # Reusable Terraform modules
+│   └── environments/    # Environment configs (dev/uat/prod)
+├── tests/               # All test files
+│   ├── backend/         # Backend unit tests (Jest)
+│   ├── frontend/        # Frontend unit tests (Jest)
+│   └── e2e/             # E2E tests (Playwright)
+├── docs/                # Documentation
+├── scripts/             # Operational scripts (crons, backfill)
+├── supabase/            # Database schema (run manually)
+├── docker-compose.yml   # Local Docker orchestration
 └── langgraph.json       # LangGraph configuration
 ```
+
+For detailed documentation:
+
+- **Backend**: [backend/README.md](./backend/README.md)
+- **Frontend**: [frontend/README.md](./frontend/README.md)
+- **Terraform**: [terraform/README.md](./terraform/README.md)
+- **Deployment**: [docs/AZURE_DEPLOYMENT.md](./docs/AZURE_DEPLOYMENT.md)
+- **Tests**: [tests/README.md](./tests/README.md)
 
 ## Troubleshooting
 
 **Port already in use**
+
 - Use the `./run.sh` script which automatically clears ports
 - Or manually clear: `lsof -ti:3000 | xargs kill -9` and `lsof -ti:54367 | xargs kill -9`
 
 **"Supabase not configured"**
+
 - Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set
 
 **"Instagram login failed"**
+
 - Verify credentials are correct
 - Try logging in manually to check for security challenges
 
 **"Image generation failed"**
+
 - Check OpenAI API key has DALL-E access
 - Verify sufficient API credits
 
-**Web dependency install fails**
+**Frontend dependency install fails**
+
 - Make sure you're using pnpm: `pnpm install` (not yarn or npm)
 - Clear node_modules and retry: `rm -rf node_modules && pnpm install`
 

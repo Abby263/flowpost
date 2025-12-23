@@ -1,4 +1,5 @@
-# Run formatting on all PRs
+# CI - Static Analysis Checks
+# Runs formatting, linting, type checking, and spell checking on all PRs
 
 name: CI
 
@@ -6,14 +7,8 @@ on:
   push:
     branches: ["main"]
   pull_request:
-  workflow_dispatch: # Allows triggering the workflow manually in GitHub UI
+  workflow_dispatch:
 
-# If another push to the same PR or branch happens while this workflow is still running,
-# cancel the earlier run in favor of the next run.
-#
-# There's no point in testing an outdated version of the code. GitHub only allows
-# a limited number of job runners to be active at the same time, so it's better to cancel
-# pointless jobs early so that more useful jobs can run sooner.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -25,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js 20.x
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20.x
           cache: "yarn"
@@ -40,14 +35,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js 20.x
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20.x
           cache: "yarn"
       - name: Install dependencies
         run: yarn install --immutable --mode=skip-build
       - name: Check linting
-        run: yarn run lint:all
+        run: yarn lint
+
+  typecheck:
+    name: Type checking
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: "yarn"
+      - name: Install dependencies
+        run: yarn install --immutable --mode=skip-build
+      - name: Type check
+        run: yarn typecheck
+
+  langgraph-paths:
+    name: Validate LangGraph paths
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: "yarn"
+      - name: Install dependencies
+        run: yarn install --immutable --mode=skip-build
+      - name: Validate langgraph.json paths
+        run: yarn lint:langgraph-json
 
   readme-spelling:
     name: Check README spelling
@@ -67,4 +92,4 @@ jobs:
       - uses: codespell-project/actions-codespell@v2
         with:
           ignore_words_file: .codespellignore
-          path: src
+          path: backend

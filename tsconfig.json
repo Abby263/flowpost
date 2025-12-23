@@ -17,9 +17,14 @@
     "strict": true,
     "strictFunctionTypes": false,
     "outDir": "dist",
-    "types": ["node"],
+    "types": ["node", "jest"],
     "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts", "scripts/**/*.js"],
-  "exclude": ["node_modules", "dist", "web"]
+  "include": [
+    "backend/**/*.ts",
+    "scripts/**/*.ts",
+    "scripts/**/*.js",
+    "tests/backend/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist", "frontend"]
 }

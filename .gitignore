@@ -60,3 +60,29 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Test coverage
+coverage/
+*.lcov
+
+# Playwright
+playwright-report/
+playwright/.cache/
+test-results/
+
+# Docker
+*.tar
+docker-compose.override.yml
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.auto.tfvars

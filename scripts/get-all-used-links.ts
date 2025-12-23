@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { Client } from "@langchain/langgraph-sdk";
-import { extractUrls } from "../src/agents/utils.js";
+import { extractUrls } from "../backend/agents/utils.js";
 
 async function getCurrentInterrupts() {
   const client = new Client({

@@ -1,0 +1,197 @@
+# Terraform Infrastructure Management
+# - Plan on PR
+# - Apply on merge to main (prod) or specific branches (dev/uat)
+
+name: Terraform
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - uat
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+  pull_request:
+    branches:
+      - main
+      - develop
+      - uat
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - uat
+          - prod
+      action:
+        description: 'Terraform action'
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+env:
+  TF_VERSION: '1.6.0'
+  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+
+jobs:
+  determine-environment:
+    name: Determine Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+    steps:
+      - name: Set environment from branch or input
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/uat" ]; then
+            echo "environment=uat" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          fi
+
+  terraform-plan:
+    name: Terraform Plan
+    needs: determine-environment
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="environments/${{ needs.determine-environment.outputs.environment }}.backend.tfvars"
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan \
+            -var-file="environments/${{ needs.determine-environment.outputs.environment }}.tfvars" \
+            -var="openai_api_key=${{ secrets.OPENAI_API_KEY }}" \
+            -var="supabase_url=${{ secrets.SUPABASE_URL }}" \
+            -var="supabase_service_role_key=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -var="clerk_publishable_key=${{ secrets.CLERK_PUBLISHABLE_KEY }}" \
+            -var="clerk_secret_key=${{ secrets.CLERK_SECRET_KEY }}" \
+            -var="langchain_api_key=${{ secrets.LANGCHAIN_API_KEY }}" \
+            -var="serper_api_key=${{ secrets.SERPER_API_KEY }}" \
+            -out=tfplan \
+            -no-color
+        continue-on-error: true
+
+      - name: Post Plan to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `#### Terraform Plan 📖
+            **Environment:** \`${{ needs.determine-environment.outputs.environment }}\`
+            
+            <details><summary>Show Plan</summary>
+            
+            \`\`\`terraform
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+            
+            </details>
+            
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ needs.determine-environment.outputs.environment }}
+          path: terraform/tfplan
+          retention-days: 5
+
+      - name: Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+  terraform-apply:
+    name: Terraform Apply
+    needs: [determine-environment, terraform-plan]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    if: |
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/develop')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="environments/${{ needs.determine-environment.outputs.environment }}.backend.tfvars"
+
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ needs.determine-environment.outputs.environment }}
+          path: terraform
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+
+      - name: Get Outputs
+        id: outputs
+        run: |
+          echo "backend_url=$(terraform output -raw backend_url)" >> $GITHUB_OUTPUT
+          echo "frontend_url=$(terraform output -raw frontend_url)" >> $GITHUB_OUTPUT
+
+      - name: Deployment Summary
+        run: |
+          echo "## Terraform Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ needs.determine-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | URL |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | ${{ steps.outputs.outputs.backend_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | ${{ steps.outputs.outputs.frontend_url }} |" >> $GITHUB_STEP_SUMMARY

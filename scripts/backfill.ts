@@ -3,7 +3,7 @@ import { Client } from "@langchain/langgraph-sdk";
 import {
   SKIP_CONTENT_RELEVANCY_CHECK,
   SKIP_USED_URLS_CHECK,
-} from "../src/agents/generate-post/constants.js";
+} from "../backend/agents/generate-post/constants.js";
 
 /**
  * Performs a manual data backfill operation using LangGraph.

@@ -4,7 +4,7 @@ import {
   SKIP_CONTENT_RELEVANCY_CHECK,
   SKIP_USED_URLS_CHECK,
   TEXT_ONLY_MODE,
-} from "../src/agents/generate-post/constants.js";
+} from "../backend/agents/generate-post/constants.js";
 
 /**
  * Generate a post based on a LangChain blog post.

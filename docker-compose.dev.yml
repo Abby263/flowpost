@@ -1,0 +1,25 @@
+# Docker Compose override for development
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  backend:
+    build:
+      target: base  # Use the base stage with all dev dependencies
+    volumes:
+      - ./backend:/app/backend
+      - ./langgraph.json:/app/langgraph.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+
+  frontend:
+    build:
+      target: builder  # Use the builder stage with all dev dependencies
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+    command: ["pnpm", "dev"]

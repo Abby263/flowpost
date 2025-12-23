@@ -51,12 +51,12 @@ check_dependencies() {
         echo -e "${GREEN}✓ Root dependencies installed${NC}"
     fi
     
-    # Check web dependencies
-    if [ ! -d "web/node_modules" ]; then
-        echo -e "${YELLOW}Installing web dependencies...${NC}"
-        cd web && pnpm install && cd ..
+    # Check frontend dependencies
+    if [ ! -d "frontend/node_modules" ]; then
+        echo -e "${YELLOW}Installing frontend dependencies...${NC}"
+        cd frontend && pnpm install && cd ..
     else
-        echo -e "${GREEN}✓ Web dependencies installed${NC}"
+        echo -e "${GREEN}✓ Frontend dependencies installed${NC}"
     fi
 }
 
@@ -88,7 +88,7 @@ start_backend() {
 # Function to start the frontend
 start_frontend() {
     echo -e "\n${BLUE}🎨 Starting Next.js Frontend on port $FRONTEND_PORT...${NC}"
-    cd web && pnpm dev &
+    cd frontend && pnpm dev &
     FRONTEND_PID=$!
     cd ..
     echo -e "${GREEN}✓ Frontend started (PID: $FRONTEND_PID)${NC}"
