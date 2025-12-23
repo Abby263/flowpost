@@ -39,22 +39,22 @@ module "container_environment" {
 module "backend" {
   source = "./modules/container-app"
 
-  name                         = "${local.resource_prefix}-backend"
-  resource_group_name          = azurerm_resource_group.main.name
-  location                     = azurerm_resource_group.main.location
-  container_environment_id     = module.container_environment.id
-  container_registry_server    = module.container_registry.login_server
-  container_registry_username  = module.container_registry.admin_username
-  container_registry_password  = module.container_registry.admin_password
+  name                        = "${local.resource_prefix}-backend"
+  resource_group_name         = azurerm_resource_group.main.name
+  location                    = azurerm_resource_group.main.location
+  container_environment_id    = module.container_environment.id
+  container_registry_server   = module.container_registry.login_server
+  container_registry_username = module.container_registry.admin_username
+  container_registry_password = module.container_registry.admin_password
 
-  image_name    = "flowpost-backend"
-  image_tag     = "latest"
-  target_port   = 54367
-  
-  cpu           = var.backend_cpu
-  memory        = var.backend_memory
-  min_replicas  = var.backend_min_replicas
-  max_replicas  = var.backend_max_replicas
+  image_name  = "flowpost-backend"
+  image_tag   = "latest"
+  target_port = 54367
+
+  cpu          = var.backend_cpu
+  memory       = var.backend_memory
+  min_replicas = var.backend_min_replicas
+  max_replicas = var.backend_max_replicas
 
   environment_variables = {
     NODE_ENV = var.environment == "prod" ? "production" : "development"
@@ -90,39 +90,39 @@ module "backend" {
 module "frontend" {
   source = "./modules/container-app"
 
-  name                         = "${local.resource_prefix}-frontend"
-  resource_group_name          = azurerm_resource_group.main.name
-  location                     = azurerm_resource_group.main.location
-  container_environment_id     = module.container_environment.id
-  container_registry_server    = module.container_registry.login_server
-  container_registry_username  = module.container_registry.admin_username
-  container_registry_password  = module.container_registry.admin_password
+  name                        = "${local.resource_prefix}-frontend"
+  resource_group_name         = azurerm_resource_group.main.name
+  location                    = azurerm_resource_group.main.location
+  container_environment_id    = module.container_environment.id
+  container_registry_server   = module.container_registry.login_server
+  container_registry_username = module.container_registry.admin_username
+  container_registry_password = module.container_registry.admin_password
 
-  image_name    = "flowpost-frontend"
-  image_tag     = "latest"
-  target_port   = 3000
-  
-  cpu           = var.frontend_cpu
-  memory        = var.frontend_memory
-  min_replicas  = var.frontend_min_replicas
-  max_replicas  = var.frontend_max_replicas
+  image_name  = "flowpost-frontend"
+  image_tag   = "latest"
+  target_port = 3000
+
+  cpu          = var.frontend_cpu
+  memory       = var.frontend_memory
+  min_replicas = var.frontend_min_replicas
+  max_replicas = var.frontend_max_replicas
 
   environment_variables = {
-    NODE_ENV                              = "production"
-    HOSTNAME                              = "0.0.0.0"
-    PORT                                  = "3000"
-    NEXT_PUBLIC_CLERK_SIGN_IN_URL         = "/sign-in"
-    NEXT_PUBLIC_CLERK_SIGN_UP_URL         = "/sign-up"
-    NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL   = "/dashboard"
-    NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL   = "/dashboard"
-    LANGGRAPH_API_URL                     = "https://${module.backend.fqdn}"
+    NODE_ENV                            = "production"
+    HOSTNAME                            = "0.0.0.0"
+    PORT                                = "3000"
+    NEXT_PUBLIC_CLERK_SIGN_IN_URL       = "/sign-in"
+    NEXT_PUBLIC_CLERK_SIGN_UP_URL       = "/sign-up"
+    NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL = "/dashboard"
+    NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL = "/dashboard"
+    LANGGRAPH_API_URL                   = "https://${module.backend.fqdn}"
   }
 
   secrets = {
-    clerk-pub-key  = var.clerk_publishable_key
-    clerk-secret   = var.clerk_secret_key
-    supabase-url   = var.supabase_url
-    supabase-key   = var.supabase_service_role_key
+    clerk-pub-key = var.clerk_publishable_key
+    clerk-secret  = var.clerk_secret_key
+    supabase-url  = var.supabase_url
+    supabase-key  = var.supabase_service_role_key
   }
 
   secret_environment_variables = {

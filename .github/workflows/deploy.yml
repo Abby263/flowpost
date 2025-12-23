@@ -35,14 +35,19 @@ jobs:
     outputs:
       has-azure-creds: ${{ steps.check.outputs.has-azure-creds }}
     steps:
-      - name: Check if Azure credentials are available
+      - name: Check if Azure credentials are available and valid
         id: check
+        env:
+          AZURE_CREDS: ${{ secrets.AZURE_CREDENTIALS }}
         run: |
-          if [ -n "${{ secrets.AZURE_CREDENTIALS }}" ]; then
-            echo "has-azure-creds=true" >> $GITHUB_OUTPUT
-          else
+          if [ -z "$AZURE_CREDS" ]; then
             echo "has-azure-creds=false" >> $GITHUB_OUTPUT
             echo "::warning::Azure credentials not configured. Skipping deployment."
+          elif ! echo "$AZURE_CREDS" | jq empty 2>/dev/null; then
+            echo "has-azure-creds=false" >> $GITHUB_OUTPUT
+            echo "::warning::Azure credentials are not valid JSON. Skipping deployment."
+          else
+            echo "has-azure-creds=true" >> $GITHUB_OUTPUT
           fi
 
   determine-environment:

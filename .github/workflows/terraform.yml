@@ -56,8 +56,11 @@ jobs:
     steps:
       - name: Check if Azure credentials are available
         id: check
+        env:
+          ARM_CLIENT: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_SUB: ${{ secrets.ARM_SUBSCRIPTION_ID }}
         run: |
-          if [ -n "${{ secrets.ARM_CLIENT_ID }}" ] && [ -n "${{ secrets.ARM_SUBSCRIPTION_ID }}" ]; then
+          if [ -n "$ARM_CLIENT" ] && [ -n "$ARM_SUB" ]; then
             echo "has-azure-creds=true" >> $GITHUB_OUTPUT
           else
             echo "has-azure-creds=false" >> $GITHUB_OUTPUT
