@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import {
   isGeminiConfigured,
   generateTextWithGrounding,
@@ -17,6 +19,9 @@ const USE_GOOGLE_SEARCH_GROUNDING =
 // Configuration
 const MAX_SEARCH_QUERIES = 2; // Limit number of parallel searches
 const RESULTS_PER_QUERY = 5; // Results per search query
+
+// Credits required for generating content ideas
+const CREDITS_PER_GENERATION = 1;
 
 interface ContentItem {
   title: string;
@@ -526,8 +531,89 @@ async function generatePostIdeas(
   }
 }
 
+// Helper to check and deduct credits
+async function checkAndDeductCredits(
+  userId: string,
+  amount: number,
+  description: string,
+): Promise<{ success: boolean; error?: string; balance?: number }> {
+  // Check current credits
+  const { data: credits, error: creditsError } = await supabaseAdmin
+    .from("user_credits")
+    .select("credits_balance, bonus_credits")
+    .eq("user_id", userId)
+    .single();
+
+  if (creditsError || !credits) {
+    // Try to initialize credits for new user
+    try {
+      await supabaseAdmin.rpc("initialize_user_credits", {
+        p_user_id: userId,
+        p_plan_slug: "free",
+      });
+      // Fetch again after initialization
+      const { data: newCredits } = await supabaseAdmin
+        .from("user_credits")
+        .select("credits_balance, bonus_credits")
+        .eq("user_id", userId)
+        .single();
+
+      if (!newCredits) {
+        return { success: false, error: "Failed to initialize credits" };
+      }
+
+      const totalCredits =
+        (newCredits.credits_balance || 0) + (newCredits.bonus_credits || 0);
+      if (totalCredits < amount) {
+        return {
+          success: false,
+          error: `Insufficient credits. You have ${totalCredits} credits, need ${amount}.`,
+          balance: totalCredits,
+        };
+      }
+    } catch {
+      return { success: false, error: "Failed to check credits" };
+    }
+  } else {
+    const totalCredits =
+      (credits.credits_balance || 0) + (credits.bonus_credits || 0);
+    if (totalCredits < amount) {
+      return {
+        success: false,
+        error: `Insufficient credits. You have ${totalCredits} credits, need ${amount}.`,
+        balance: totalCredits,
+      };
+    }
+  }
+
+  // Deduct credits
+  try {
+    await supabaseAdmin.rpc("deduct_credits", {
+      p_user_id: userId,
+      p_amount: amount,
+      p_description: description,
+    });
+
+    // Get updated balance
+    const { data: updatedCredits } = await supabaseAdmin
+      .from("user_credits")
+      .select("credits_balance, bonus_credits")
+      .eq("user_id", userId)
+      .single();
+
+    const newBalance =
+      (updatedCredits?.credits_balance || 0) +
+      (updatedCredits?.bonus_credits || 0);
+    return { success: true, balance: newBalance };
+  } catch (error) {
+    console.error("Failed to deduct credits:", error);
+    return { success: false, error: "Failed to deduct credits" };
+  }
+}
+
 export async function POST(request: Request) {
   try {
+    const { userId } = await auth();
     const body = await request.json();
     const { action, query, content, category, provider, interests } = body;
 
@@ -684,10 +770,41 @@ Return ONLY a JSON array of strings. Example: ["latest AI tools 2024", "SpaceX S
 
     if (action === "generate") {
       console.log(`[Content Ideas API] Generate action initiated`);
+
+      // Require authentication for generating ideas (costs credits)
+      if (!userId) {
+        return NextResponse.json(
+          { error: "Authentication required to generate content ideas" },
+          { status: 401 },
+        );
+      }
+
       if (!content || !Array.isArray(content) || content.length === 0) {
         return NextResponse.json(
           { error: "Content array is required" },
           { status: 400 },
+        );
+      }
+
+      // Check credits before generating
+      const { data: credits } = await supabaseAdmin
+        .from("user_credits")
+        .select("credits_balance, bonus_credits")
+        .eq("user_id", userId)
+        .single();
+
+      const currentBalance =
+        (credits?.credits_balance || 0) + (credits?.bonus_credits || 0);
+
+      if (currentBalance < CREDITS_PER_GENERATION) {
+        return NextResponse.json(
+          {
+            error: "Insufficient credits",
+            message: `You need at least ${CREDITS_PER_GENERATION} credit to generate content ideas. You have ${currentBalance} credits remaining.`,
+            credits_remaining: currentBalance,
+            credits_required: CREDITS_PER_GENERATION,
+          },
+          { status: 402 }, // Payment Required
         );
       }
 
@@ -699,9 +816,32 @@ Return ONLY a JSON array of strings. Example: ["latest AI tools 2024", "SpaceX S
       console.log(
         `[Content Ideas API] Generating post ideas for context: ${context} from ${content.length} articles`,
       );
+
+      // Generate ideas first
       const ideas = await generatePostIdeas(content, context);
       console.log(`[Content Ideas API] Generated ${ideas.length} post ideas`);
-      return NextResponse.json({ success: true, ideas });
+
+      // Deduct credits ONLY after successful generation
+      const creditResult = await checkAndDeductCredits(
+        userId,
+        CREDITS_PER_GENERATION,
+        `Content Ideas: Generated ${ideas.length} ideas for "${context}"`,
+      );
+
+      if (!creditResult.success) {
+        console.warn(
+          "Failed to deduct credits after generation:",
+          creditResult.error,
+        );
+        // Still return ideas since generation was successful
+      }
+
+      return NextResponse.json({
+        success: true,
+        ideas,
+        credits_used: CREDITS_PER_GENERATION,
+        credits_remaining: creditResult.balance,
+      });
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });

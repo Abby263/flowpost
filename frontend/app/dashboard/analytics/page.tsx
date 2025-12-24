@@ -63,9 +63,6 @@ interface Post {
   impression_count?: number;
   reach_count?: number;
   save_count?: number;
-  profile_visits?: number;
-  link_clicks?: number;
-  follower_delta?: number;
 }
 
 const platformIcons: Record<string, any> = {
@@ -99,17 +96,19 @@ export default function AnalyticsPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Account filter
   const [accountFilter, setAccountFilter] = useState<string>("all");
 
+  // Fetch connections on mount but DON'T auto-fetch posts
+  // User must select a connection and click Refresh to load data
   useEffect(() => {
     if (user) {
-      fetchPosts();
       fetchConnections();
     }
   }, [user]);
@@ -130,6 +129,7 @@ export default function AnalyticsPage() {
       }
       setPosts(data.posts || []);
       setLastUpdated(new Date().toISOString());
+      setDataLoaded(true);
     } catch (error) {
       console.error("Error fetching posts:", error);
     } finally {
@@ -191,12 +191,6 @@ export default function AnalyticsPage() {
   const formatPercent = (value: number | null) => {
     if (value === null || Number.isNaN(value)) return "N/A";
     return `${value.toFixed(1)}%`;
-  };
-
-  const formatSignedCompactNumber = (value: number) => {
-    if (value === 0) return "0";
-    const sign = value > 0 ? "+" : "-";
-    return `${sign}${formatCompactNumber(Math.abs(value))}`;
   };
 
   const formatDuration = (minutes: number | null) => {
@@ -311,9 +305,6 @@ export default function AnalyticsPage() {
       acc.saves += post.save_count || 0;
       acc.impressions += post.impression_count || 0;
       acc.reach += post.reach_count || 0;
-      acc.profileVisits += post.profile_visits || 0;
-      acc.linkClicks += post.link_clicks || 0;
-      acc.followerDelta += post.follower_delta || 0;
       return acc;
     },
     {
@@ -323,9 +314,6 @@ export default function AnalyticsPage() {
       saves: 0,
       impressions: 0,
       reach: 0,
-      profileVisits: 0,
-      linkClicks: 0,
-      followerDelta: 0,
     },
   );
 
@@ -448,7 +436,7 @@ export default function AnalyticsPage() {
           </h1>
           <p className="text-muted-foreground mt-2">
             Track performance, engagement, and insights across all your social
-            media posts.
+            media posts. Select a connection and click Refresh to load data.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -489,689 +477,717 @@ export default function AnalyticsPage() {
               fetchPosts();
               fetchConnections();
             }}
-            variant="outline"
+            variant={dataLoaded ? "outline" : "default"}
             disabled={loading}
           >
             <RefreshCw
               className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
             />
-            Refresh
+            {dataLoaded ? "Refresh" : "Load Data"}
           </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Row 1: Status Overview */}
+      {/* Empty State - Show when data hasn't been loaded */}
+      {!dataLoaded && !loading && (
+        <Card className="border-2 border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <TrendingUp className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Data Loaded</h3>
+            <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
+              Select a connection filter (optional) and click &quot;Load
+              Data&quot; to view your analytics. Data is not automatically
+              fetched to save resources.
+            </p>
+            <Button
+              onClick={() => {
+                fetchPosts();
+                fetchConnections();
+              }}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Load Analytics Data
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Loading State */}
+      {loading && (
         <Card className="border-2">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Total Posts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Across all platforms
-            </p>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <RefreshCw className="h-12 w-12 text-muted-foreground mb-4 animate-spin" />
+            <h3 className="text-lg font-semibold">Loading Analytics...</h3>
           </CardContent>
         </Card>
-        <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              Published
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-700">
-              {stats.published}
-            </div>
-            <p className="text-xs text-green-600 mt-1">
-              {successRate}% success rate
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Scheduled
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-700">
-              {stats.scheduled}
-            </div>
-            <p className="text-xs text-blue-600 mt-1">Pending publication</p>
-          </CardContent>
-        </Card>
-        <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-purple-700 flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              AI-Powered
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-700">{aiPosts}</div>
-            <p className="text-xs text-purple-600 mt-1">
-              {aiPercentage}% of all posts
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      )}
 
-      {/* Engagement Overview */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Engagement Overview</h2>
-          <span className="text-xs text-muted-foreground">
-            Metrics populate when platform insights are available
-          </span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-2 border-slate-200 bg-gradient-to-br from-slate-50 to-white">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-700">
-                Impressions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900">
-                {formatCompactNumber(engagementTotals.impressions)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Total impressions
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-white">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-indigo-700">
-                Reach
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-indigo-700">
-                {formatCompactNumber(engagementTotals.reach)}
-              </div>
-              <p className="text-xs text-indigo-600 mt-1">Unique viewers</p>
-            </CardContent>
-          </Card>
-          <Card className="border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-emerald-700">
-                Engagements
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-emerald-700">
-                {formatCompactNumber(totalEngagements)}
-              </div>
-              <p className="text-xs text-emerald-600 mt-1">
-                Likes, comments, shares, saves
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-white">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-amber-700">
-                Engagement Rate
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-700">
-                {formatPercent(engagementRate)}
-              </div>
-              <p className="text-xs text-amber-600 mt-1">
-                Engagements per impression
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Likes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold">
-                {formatCompactNumber(engagementTotals.likes)}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Comments
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold">
-                {formatCompactNumber(engagementTotals.comments)}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Shares
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold">
-                {formatCompactNumber(engagementTotals.shares)}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Saves
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold">
-                {formatCompactNumber(engagementTotals.saves)}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Growth & Audience */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Growth Signals</h2>
-          <span className="text-xs text-muted-foreground">
-            Audience and discovery trends
-          </span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-blue-700">
-                Follower Change
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className={`text-2xl font-bold ${engagementTotals.followerDelta >= 0 ? "text-blue-700" : "text-red-600"}`}
-              >
-                {formatSignedCompactNumber(engagementTotals.followerDelta)}
-              </div>
-              <p className="text-xs text-blue-600 mt-1">Net change</p>
-            </CardContent>
-          </Card>
-          <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-white">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-purple-700">
-                Profile Visits
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-700">
-                {formatCompactNumber(engagementTotals.profileVisits)}
-              </div>
-              <p className="text-xs text-purple-600 mt-1">Profile views</p>
-            </CardContent>
-          </Card>
-          <Card className="border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-white">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-pink-700">
-                Link Clicks
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-pink-700">
-                {formatCompactNumber(engagementTotals.linkClicks)}
-              </div>
-              <p className="text-xs text-pink-600 mt-1">Outbound traffic</p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Cadence & Reliability */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Cadence & Reliability</h2>
-          <span className="text-xs text-muted-foreground">
-            Consistency, timing, and delivery
-          </span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Posts (7 days)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold">
-                {formatCompactNumber(postsLast7Days)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Last 7 days</p>
-            </CardContent>
-          </Card>
-          <Card className="border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Avg Posts / Week
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold">
-                {avgPostsPerWeek.toFixed(1)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Last 4 weeks</p>
-            </CardContent>
-          </Card>
-          <Card className="border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Posting Streak
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold">{postingStreak} days</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Consecutive days
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Best Window
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold">{bestDay}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {bestHour} peak
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card className="border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Failure Rate
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold">{failureRate}%</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Failed vs published
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Avg Publish Delay
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold">
-                {formatDuration(avgPublishDelayMinutes)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Scheduled to published
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Published vs Scheduled
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold">
-                {stats.published} / {stats.scheduled}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Delivered ratio
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Detailed Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Source Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-blue-600" />
-              Post Sources
-            </CardTitle>
-            <CardDescription>How your content is being created</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-100">
-              <div className="flex items-center gap-2">
-                <Workflow className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium">Workflow</span>
-              </div>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                {stats.workflow}
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-purple-50 border border-purple-100">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-purple-600" />
-                <span className="text-sm font-medium">AI Generated</span>
-              </div>
-              <Badge
-                variant="secondary"
-                className="bg-purple-100 text-purple-700"
-              >
-                {stats.aiGenerated}
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 border border-amber-100">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-amber-600" />
-                <span className="text-sm font-medium">Trending Content</span>
-              </div>
-              <Badge
-                variant="secondary"
-                className="bg-amber-100 text-amber-700"
-              >
-                {stats.trending}
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-gray-600" />
-                <span className="text-sm font-medium">Manual</span>
-              </div>
-              <Badge variant="secondary" className="bg-gray-100 text-gray-700">
-                {stats.manual}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Platform Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-indigo-600" />
-              Platform Distribution
-            </CardTitle>
-            <CardDescription>Where you're posting</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100">
-              <div className="flex items-center gap-2">
-                <Instagram className="h-4 w-4 text-purple-600" />
-                <span className="text-sm font-medium">Instagram</span>
-              </div>
-              <Badge
-                variant="secondary"
-                className="bg-purple-100 text-purple-700"
-              >
-                {stats.instagram}
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-100">
-              <div className="flex items-center gap-2">
-                <Twitter className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium">Twitter</span>
-              </div>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                {stats.twitter}
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200">
-              <div className="flex items-center gap-2">
-                <Linkedin className="h-4 w-4 text-blue-700" />
-                <span className="text-sm font-medium">LinkedIn</span>
-              </div>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                {stats.linkedin}
-              </Badge>
-            </div>
-            {stats.failed > 0 && (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-red-50 border border-red-100 mt-4">
-                <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-600" />
-                  <span className="text-sm font-medium">Failed Posts</span>
+      {/* Stats Cards - Only show when data is loaded */}
+      {dataLoaded && !loading && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Row 1: Status Overview */}
+            <Card className="border-2">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Total Posts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{stats.total}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Across all platforms
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Published
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-green-700">
+                  {stats.published}
                 </div>
-                <Badge variant="secondary" className="bg-red-100 text-red-700">
-                  {stats.failed}
-                </Badge>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                <p className="text-xs text-green-600 mt-1">
+                  {successRate}% success rate
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Scheduled
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-blue-700">
+                  {stats.scheduled}
+                </div>
+                <p className="text-xs text-blue-600 mt-1">
+                  Pending publication
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-purple-700 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  AI-Powered
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-purple-700">
+                  {aiPosts}
+                </div>
+                <p className="text-xs text-purple-600 mt-1">
+                  {aiPercentage}% of all posts
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Top Performing Posts */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-emerald-600" />
-            Top Performing Posts
-          </CardTitle>
-          <CardDescription>
-            Highest engagement posts for this view
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {topPosts.length === 0 ? (
-            <div className="text-sm text-muted-foreground">
-              No published posts to rank yet.
+          {/* Engagement Overview */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Engagement Overview</h2>
+              <span className="text-xs text-muted-foreground">
+                Metrics populate when platform insights are available
+              </span>
             </div>
-          ) : (
-            topPosts.map((post) => {
-              const PlatformIcon = platformIcons[post.platform] || FileText;
-              return (
-                <div
-                  key={post.id}
-                  className="flex items-start gap-4 rounded-lg border p-4 cursor-pointer hover:bg-muted/40 transition-colors"
-                  onClick={() => openPostDetails(post)}
-                >
-                  <div
-                    className={`h-10 w-10 rounded-lg flex items-center justify-center ${platformColors[post.platform] || "bg-gray-200"}`}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="border-2 border-slate-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-slate-700">
+                    Impressions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-slate-900">
+                    {formatCompactNumber(engagementTotals.impressions)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Total impressions
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-white">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-indigo-700">
+                    Reach
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-indigo-700">
+                    {formatCompactNumber(engagementTotals.reach)}
+                  </div>
+                  <p className="text-xs text-indigo-600 mt-1">Unique viewers</p>
+                </CardContent>
+              </Card>
+              <Card className="border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-emerald-700">
+                    Engagements
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-emerald-700">
+                    {formatCompactNumber(totalEngagements)}
+                  </div>
+                  <p className="text-xs text-emerald-600 mt-1">
+                    Likes, comments, shares, saves
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-white">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-amber-700">
+                    Engagement Rate
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-amber-700">
+                    {formatPercent(engagementRate)}
+                  </div>
+                  <p className="text-xs text-amber-600 mt-1">
+                    Engagements per impression
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Likes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">
+                    {formatCompactNumber(engagementTotals.likes)}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Comments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">
+                    {formatCompactNumber(engagementTotals.comments)}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Shares
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">
+                    {formatCompactNumber(engagementTotals.shares)}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Saves
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">
+                    {formatCompactNumber(engagementTotals.saves)}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Cadence & Reliability */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Cadence & Reliability</h2>
+              <span className="text-xs text-muted-foreground">
+                Consistency, timing, and delivery
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Posts (7 days)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">
+                    {formatCompactNumber(postsLast7Days)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Last 7 days
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Avg Posts / Week
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">
+                    {avgPostsPerWeek.toFixed(1)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Last 4 weeks
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Posting Streak
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">
+                    {postingStreak} days
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Consecutive days
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Best Window
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">{bestDay}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {bestHour} peak
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card className="border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Failure Rate
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">{failureRate}%</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Failed vs published
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Avg Publish Delay
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">
+                    {formatDuration(avgPublishDelayMinutes)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Scheduled to published
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Published vs Scheduled
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">
+                    {stats.published} / {stats.scheduled}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Delivered ratio
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Detailed Breakdown */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Source Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                  Post Sources
+                </CardTitle>
+                <CardDescription>
+                  How your content is being created
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-100">
+                  <div className="flex items-center gap-2">
+                    <Workflow className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-medium">Workflow</span>
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className="bg-blue-100 text-blue-700"
                   >
-                    <PlatformIcon className="h-5 w-5 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium line-clamp-2">
-                        {post.content}
-                      </p>
-                      {post.published_url && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            window.open(post.published_url, "_blank");
-                          }}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-                      <Badge variant="secondary" className="text-xs capitalize">
-                        {post.platform}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {getAccountLabel(post.connection_id)}
-                      </Badge>
-                      <span>
-                        {post.posted_at ? formatDate(post.posted_at) : "N/A"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-semibold text-emerald-700">
-                      {formatCompactNumber(getEngagementScore(post))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">Engagements</p>
-                  </div>
+                    {stats.workflow}
+                  </Badge>
                 </div>
-              );
-            })
-          )}
-        </CardContent>
-      </Card>
-
-      {/* AI Insights & Recommendations */}
-      {stats.total > 5 && (
-        <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-indigo-600" />
-              AI Insights & Recommendations
-            </CardTitle>
-            <CardDescription>
-              Data-driven suggestions to improve your social media performance
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Performance Insight */}
-              <div className="p-4 rounded-lg bg-white border border-indigo-100">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-sm mb-1">Success Rate</h4>
-                    <p className="text-sm text-muted-foreground">
-                      You have a {successRate}% success rate.
-                      {parseFloat(successRate) >= 90
-                        ? " Excellent! Your posting process is very reliable."
-                        : parseFloat(successRate) >= 70
-                          ? " Good performance! Check failed posts to identify issues."
-                          : " Consider reviewing your connection settings and content format."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Automation Insight */}
-              <div className="p-4 rounded-lg bg-white border border-indigo-100">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-purple-50 border border-purple-100">
+                  <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-purple-600" />
+                    <span className="text-sm font-medium">AI Generated</span>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-sm mb-1">
-                      Automation Level
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      {parseFloat(aiPercentage)}% of your posts use
-                      AI/Workflows.
-                      {parseFloat(aiPercentage) >= 60
-                        ? " Great! You're leveraging automation effectively."
-                        : " Try using more workflows and AI-generated content to save time."}
-                    </p>
-                  </div>
+                  <Badge
+                    variant="secondary"
+                    className="bg-purple-100 text-purple-700"
+                  >
+                    {stats.aiGenerated}
+                  </Badge>
                 </div>
-              </div>
-
-              {/* Content Mix Insight */}
-              <div className="p-4 rounded-lg bg-white border border-indigo-100">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                    <Lightbulb className="h-4 w-4 text-amber-600" />
+                <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 border border-amber-100">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-amber-600" />
+                    <span className="text-sm font-medium">
+                      Trending Content
+                    </span>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-sm mb-1">
-                      Content Diversity
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      {stats.trending > 0 && stats.aiGenerated > 0
-                        ? "You're using both trending and AI content - great mix!"
-                        : stats.trending > 0
-                          ? "Add AI-generated posts for more variety and creativity."
-                          : "Try using trending content to stay relevant and timely."}
-                    </p>
-                  </div>
+                  <Badge
+                    variant="secondary"
+                    className="bg-amber-100 text-amber-700"
+                  >
+                    {stats.trending}
+                  </Badge>
                 </div>
-              </div>
-
-              {/* Platform Strategy */}
-              <div className="p-4 rounded-lg bg-white border border-indigo-100">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                    <ImageIcon className="h-4 w-4 text-blue-600" />
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-gray-600" />
+                    <span className="text-sm font-medium">Manual</span>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-sm mb-1">
-                      Platform Strategy
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      {stats.instagram > 0 &&
-                      stats.twitter > 0 &&
-                      stats.linkedin > 0
-                        ? "Multi-platform presence detected! Consider cross-posting similar content."
-                        : stats.instagram + stats.twitter + stats.linkedin === 1
-                          ? "Expand to other platforms to grow your audience."
-                          : "Focus on your active platforms for consistency."}
-                    </p>
-                  </div>
+                  <Badge
+                    variant="secondary"
+                    className="bg-gray-100 text-gray-700"
+                  >
+                    {stats.manual}
+                  </Badge>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Actionable Tips */}
-            <div className="pt-4 border-t">
-              <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
-                <Zap className="h-4 w-4 text-amber-500" />
-                Quick Tips to Improve
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                {stats.scheduled === 0 && (
-                  <div className="text-xs p-2 rounded bg-blue-50 text-blue-700 border border-blue-100">
-                    📅 Schedule posts in advance for consistent presence
+            {/* Platform Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5 text-indigo-600" />
+                  Platform Distribution
+                </CardTitle>
+                <CardDescription>Where you're posting</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100">
+                  <div className="flex items-center gap-2">
+                    <Instagram className="h-4 w-4 text-purple-600" />
+                    <span className="text-sm font-medium">Instagram</span>
                   </div>
-                )}
-                {stats.workflow === 0 && (
-                  <div className="text-xs p-2 rounded bg-purple-50 text-purple-700 border border-purple-100">
-                    🤖 Set up workflows to automate routine posting
+                  <Badge
+                    variant="secondary"
+                    className="bg-purple-100 text-purple-700"
+                  >
+                    {stats.instagram}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-100">
+                  <div className="flex items-center gap-2">
+                    <Twitter className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-medium">Twitter</span>
                   </div>
-                )}
-                {stats.aiGenerated === 0 && (
-                  <div className="text-xs p-2 rounded bg-pink-50 text-pink-700 border border-pink-100">
-                    ✨ Try AI-generated posts for creative content ideas
+                  <Badge
+                    variant="secondary"
+                    className="bg-blue-100 text-blue-700"
+                  >
+                    {stats.twitter}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200">
+                  <div className="flex items-center gap-2">
+                    <Linkedin className="h-4 w-4 text-blue-700" />
+                    <span className="text-sm font-medium">LinkedIn</span>
                   </div>
-                )}
-                {stats.trending === 0 && (
-                  <div className="text-xs p-2 rounded bg-amber-50 text-amber-700 border border-amber-100">
-                    🔥 Use trending content to stay relevant
-                  </div>
-                )}
-                {stats.instagram === 0 &&
-                  connections.some((c) => c.platform === "instagram") && (
-                    <div className="text-xs p-2 rounded bg-purple-50 text-purple-700 border border-purple-100">
-                      📸 Start posting on Instagram - high engagement platform
+                  <Badge
+                    variant="secondary"
+                    className="bg-blue-100 text-blue-800"
+                  >
+                    {stats.linkedin}
+                  </Badge>
+                </div>
+                {stats.failed > 0 && (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-red-50 border border-red-100 mt-4">
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-4 w-4 text-red-600" />
+                      <span className="text-sm font-medium">Failed Posts</span>
                     </div>
-                  )}
-                {parseFloat(successRate) < 90 && stats.failed > 0 && (
-                  <div className="text-xs p-2 rounded bg-red-50 text-red-700 border border-red-100">
-                    ⚠️ Review failed posts to fix recurring issues
+                    <Badge
+                      variant="secondary"
+                      className="bg-red-100 text-red-700"
+                    >
+                      {stats.failed}
+                    </Badge>
                   </div>
                 )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Top Performing Posts */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-emerald-600" />
+                Top Performing Posts
+              </CardTitle>
+              <CardDescription>
+                Highest engagement posts for this view
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {topPosts.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  No published posts to rank yet.
+                </div>
+              ) : (
+                topPosts.map((post) => {
+                  const PlatformIcon = platformIcons[post.platform] || FileText;
+                  return (
+                    <div
+                      key={post.id}
+                      className="flex items-start gap-4 rounded-lg border p-4 cursor-pointer hover:bg-muted/40 transition-colors"
+                      onClick={() => openPostDetails(post)}
+                    >
+                      <div
+                        className={`h-10 w-10 rounded-lg flex items-center justify-center ${platformColors[post.platform] || "bg-gray-200"}`}
+                      >
+                        <PlatformIcon className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium line-clamp-2">
+                            {post.content}
+                          </p>
+                          {post.published_url && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                window.open(post.published_url, "_blank");
+                              }}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                          <Badge
+                            variant="secondary"
+                            className="text-xs capitalize"
+                          >
+                            {post.platform}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {getAccountLabel(post.connection_id)}
+                          </Badge>
+                          <span>
+                            {post.posted_at
+                              ? formatDate(post.posted_at)
+                              : "N/A"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-semibold text-emerald-700">
+                          {formatCompactNumber(getEngagementScore(post))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Engagements
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+
+          {/* AI Insights & Recommendations */}
+          {stats.total > 5 && (
+            <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-indigo-600" />
+                  AI Insights & Recommendations
+                </CardTitle>
+                <CardDescription>
+                  Data-driven suggestions to improve your social media
+                  performance
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Performance Insight */}
+                  <div className="p-4 rounded-lg bg-white border border-indigo-100">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                        <TrendingUp className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-sm mb-1">
+                          Success Rate
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          You have a {successRate}% success rate.
+                          {parseFloat(successRate) >= 90
+                            ? " Excellent! Your posting process is very reliable."
+                            : parseFloat(successRate) >= 70
+                              ? " Good performance! Check failed posts to identify issues."
+                              : " Consider reviewing your connection settings and content format."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Automation Insight */}
+                  <div className="p-4 rounded-lg bg-white border border-indigo-100">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
+                        <Sparkles className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-sm mb-1">
+                          Automation Level
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          {parseFloat(aiPercentage)}% of your posts use
+                          AI/Workflows.
+                          {parseFloat(aiPercentage) >= 60
+                            ? " Great! You're leveraging automation effectively."
+                            : " Try using more workflows and AI-generated content to save time."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Content Mix Insight */}
+                  <div className="p-4 rounded-lg bg-white border border-indigo-100">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                        <Lightbulb className="h-4 w-4 text-amber-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-sm mb-1">
+                          Content Diversity
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          {stats.trending > 0 && stats.aiGenerated > 0
+                            ? "You're using both trending and AI content - great mix!"
+                            : stats.trending > 0
+                              ? "Add AI-generated posts for more variety and creativity."
+                              : "Try using trending content to stay relevant and timely."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Platform Strategy */}
+                  <div className="p-4 rounded-lg bg-white border border-indigo-100">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                        <ImageIcon className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-sm mb-1">
+                          Platform Strategy
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          {stats.instagram > 0 &&
+                          stats.twitter > 0 &&
+                          stats.linkedin > 0
+                            ? "Multi-platform presence detected! Consider cross-posting similar content."
+                            : stats.instagram +
+                                  stats.twitter +
+                                  stats.linkedin ===
+                                1
+                              ? "Expand to other platforms to grow your audience."
+                              : "Focus on your active platforms for consistency."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actionable Tips */}
+                <div className="pt-4 border-t">
+                  <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-amber-500" />
+                    Quick Tips to Improve
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    {stats.scheduled === 0 && (
+                      <div className="text-xs p-2 rounded bg-blue-50 text-blue-700 border border-blue-100">
+                        📅 Schedule posts in advance for consistent presence
+                      </div>
+                    )}
+                    {stats.workflow === 0 && (
+                      <div className="text-xs p-2 rounded bg-purple-50 text-purple-700 border border-purple-100">
+                        🤖 Set up workflows to automate routine posting
+                      </div>
+                    )}
+                    {stats.aiGenerated === 0 && (
+                      <div className="text-xs p-2 rounded bg-pink-50 text-pink-700 border border-pink-100">
+                        ✨ Try AI-generated posts for creative content ideas
+                      </div>
+                    )}
+                    {stats.trending === 0 && (
+                      <div className="text-xs p-2 rounded bg-amber-50 text-amber-700 border border-amber-100">
+                        🔥 Use trending content to stay relevant
+                      </div>
+                    )}
+                    {stats.instagram === 0 &&
+                      connections.some((c) => c.platform === "instagram") && (
+                        <div className="text-xs p-2 rounded bg-purple-50 text-purple-700 border border-purple-100">
+                          📸 Start posting on Instagram - high engagement
+                          platform
+                        </div>
+                      )}
+                    {parseFloat(successRate) < 90 && stats.failed > 0 && (
+                      <div className="text-xs p-2 rounded bg-red-50 text-red-700 border border-red-100">
+                        ⚠️ Review failed posts to fix recurring issues
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
       {/* Post Details Dialog */}

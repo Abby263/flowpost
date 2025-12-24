@@ -281,7 +281,9 @@ export async function POST(request: Request) {
       reader.cancel();
     }
 
-    // 8. Update workflow with the run ID
+    // 8. Update workflow with the run ID and pending credit info
+    // NOTE: Credits are deducted ONLY on successful completion, not at trigger time
+    // This ensures users aren't charged for failed workflows
     await supabaseAdmin
       .from("workflows")
       .update({
@@ -289,37 +291,29 @@ export async function POST(request: Request) {
       })
       .eq("id", workflowId);
 
-    // 9. Deduct credits for the workflow run
-    const { data: deductResult } = await supabaseAdmin.rpc("deduct_credits", {
-      p_user_id: userId,
-      p_amount: CREDITS_PER_RUN,
-      p_reference_type: "workflow",
-      p_reference_id: workflowId,
-      p_description: `Workflow run: ${workflow.name || workflowId}`,
-    });
-
-    // Get updated credits balance
-    const { data: updatedCredits } = await supabaseAdmin
+    // Get current credits balance for response
+    const { data: currentCredits } = await supabaseAdmin
       .from("user_credits")
       .select("credits_balance, bonus_credits")
       .eq("user_id", userId)
       .single();
 
-    const remainingCredits =
-      (updatedCredits?.credits_balance || 0) +
-      (updatedCredits?.bonus_credits || 0);
+    const currentBalance =
+      (currentCredits?.credits_balance || 0) +
+      (currentCredits?.bonus_credits || 0);
 
     console.log(
-      `Workflow ${workflowId} started with run ID: ${runId}. Credits deducted: ${CREDITS_PER_RUN}. Remaining: ${remainingCredits}`,
+      `Workflow ${workflowId} started with run ID: ${runId}. Credits will be deducted on successful completion. Current balance: ${currentBalance}`,
     );
 
     return NextResponse.json({
       success: true,
       runId: runId || "started",
       workflowId: workflowId,
-      message: "Workflow started successfully",
-      credits_used: CREDITS_PER_RUN,
-      credits_remaining: remainingCredits,
+      message:
+        "Workflow started successfully. Credits will be deducted on completion.",
+      credits_to_deduct: CREDITS_PER_RUN,
+      credits_balance: currentBalance,
     });
   } catch (error: any) {
     console.error("Trigger Error:", error);

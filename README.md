@@ -14,6 +14,8 @@ FlowPost automates content discovery, image generation with DALL-E 3, and postin
 - ⏰ **Smart Scheduling** - Daily, weekly, or monthly automation
 - 📊 **Analytics Dashboard** - Track post performance
 - 🔐 **Secure Credentials** - Manage platform credentials via UI
+- 💳 **Credit System** - Pay-as-you-go with subscription plans
+- 💰 **Stripe Integration** - Secure payment processing
 
 ## Quick Start
 
@@ -118,6 +120,11 @@ AI_PROVIDER=openai  # or 'gemini'
 LLM_MODEL=gpt-4o
 IMAGE_MODEL=dall-e-3
 
+# Optional - Stripe (for payments)
+STRIPE_SECRET_KEY=sk_your_key
+STRIPE_WEBHOOK_SECRET=whsec_your_key
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
 # Optional - Platform Credentials (can add via UI instead)
 INSTAGRAM_USERNAME=your_username
 INSTAGRAM_PASSWORD=your_password
@@ -152,6 +159,43 @@ Go to **Dashboard > Workflows** and configure:
 - **Manual Run**: Click "Run Now" to test
 - **Automatic**: Scheduled workflows run automatically
 - **View Details**: See run history and analytics
+
+## Credit System
+
+FlowPost uses a credit-based system to manage AI usage costs:
+
+### How Credits Work
+
+- **Credits are only deducted on successful completion** - Failed operations don't cost credits
+- **Workflow runs**: 1 credit per successful workflow execution
+- **Content Ideas**: 1 credit per AI-generated content batch
+- **Free tier**: 10 credits per month
+- **Purchased credits**: Never expire, carry over
+
+### Subscription Plans
+
+| Plan       | Monthly Price | Credits/Month | Workflows | Connections |
+| ---------- | ------------- | ------------- | --------- | ----------- |
+| Free       | $0            | 10            | 1         | 1           |
+| Starter    | $19           | 100           | 5         | 3           |
+| Pro        | $49           | 500           | 20        | 10          |
+| Enterprise | $149          | 2000          | Unlimited | Unlimited   |
+
+### Credit Packages (One-time Purchase)
+
+- **Small Pack**: 50 credits + 5 bonus = $9.99
+- **Growth Pack**: 150 credits + 15 bonus = $24.99
+- **Power Pack**: 500 credits + 75 bonus = $69.99
+- **Enterprise Pack**: 2000 credits + 500 bonus = $199.99
+
+### Viewing Credits
+
+Check your credit balance in the sidebar or visit **Dashboard > Billing** for:
+
+- Current credit balance
+- Usage history
+- Plan details
+- Purchase more credits
 
 ## Deployment
 

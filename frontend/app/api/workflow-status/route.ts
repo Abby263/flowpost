@@ -87,6 +87,9 @@ export async function GET(request: Request) {
   }
 }
 
+// Credits required per workflow run (deducted only on success)
+const CREDITS_PER_WORKFLOW = 1;
+
 // PATCH: Update workflow run status (called by backend when run completes)
 export async function PATCH(request: Request) {
   try {
@@ -95,7 +98,7 @@ export async function PATCH(request: Request) {
 
     // For webhook-based updates, verify the secret
     // For authenticated users, verify userId
-    const { userId } = auth();
+    const { userId } = await auth();
     const expectedSecret = process.env.WORKFLOW_WEBHOOK_SECRET;
 
     // Allow either authenticated user or valid webhook secret
@@ -121,7 +124,7 @@ export async function PATCH(request: Request) {
     }
 
     // Build update object
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       run_status: status,
     };
 
@@ -143,7 +146,7 @@ export async function PATCH(request: Request) {
       query = query.eq("user_id", userId);
     }
 
-    const { data, error } = await query.select().single();
+    const { data, error } = await query.select("*, user_id").single();
 
     if (error) {
       console.error("Failed to update workflow status:", error);
@@ -157,7 +160,31 @@ export async function PATCH(request: Request) {
       );
     }
 
-    console.log(`Workflow ${workflowId} status updated to: ${status}`);
+    // Deduct credits ONLY on successful completion
+    let creditsDeducted = false;
+    if (status === "completed") {
+      const workflowUserId = data.user_id;
+      if (workflowUserId) {
+        try {
+          await supabaseAdmin.rpc("deduct_credits", {
+            p_user_id: workflowUserId,
+            p_amount: CREDITS_PER_WORKFLOW,
+            p_description: `Workflow completed: ${data.name || workflowId}`,
+          });
+          creditsDeducted = true;
+          console.log(
+            `Workflow ${workflowId} completed successfully. Deducted ${CREDITS_PER_WORKFLOW} credit(s) from user ${workflowUserId}`,
+          );
+        } catch (creditError) {
+          console.error("Failed to deduct credits:", creditError);
+          // Don't fail the status update if credit deduction fails
+        }
+      }
+    } else {
+      console.log(
+        `Workflow ${workflowId} status updated to: ${status}. No credits deducted (only charged on success).`,
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -166,6 +193,7 @@ export async function PATCH(request: Request) {
         run_status: data.run_status,
         run_completed_at: data.run_completed_at,
       },
+      credits_deducted: creditsDeducted ? CREDITS_PER_WORKFLOW : 0,
     });
   } catch (error: any) {
     console.error("Status Update Error:", error);
