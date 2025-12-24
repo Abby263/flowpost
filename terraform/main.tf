@@ -123,19 +123,25 @@ module "frontend" {
     LANGGRAPH_API_URL                   = "https://${module.backend.fqdn}"
   }
 
-  secrets = {
-    clerk-pub-key = var.clerk_publishable_key
-    clerk-secret  = var.clerk_secret_key
-    supabase-url  = var.supabase_url
-    supabase-key  = var.supabase_service_role_key
-  }
+  secrets = merge(
+    {
+      clerk-pub-key = var.clerk_publishable_key
+      clerk-secret  = var.clerk_secret_key
+      supabase-url  = var.supabase_url
+      supabase-key  = var.supabase_service_role_key
+    },
+    var.stripe_secret_key != "" ? { stripe-secret = var.stripe_secret_key } : {}
+  )
 
-  secret_environment_variables = {
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "clerk-pub-key"
-    CLERK_SECRET_KEY                  = "clerk-secret"
-    SUPABASE_URL                      = "supabase-url"
-    SUPABASE_SERVICE_ROLE_KEY         = "supabase-key"
-  }
+  secret_environment_variables = merge(
+    {
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "clerk-pub-key"
+      CLERK_SECRET_KEY                  = "clerk-secret"
+      SUPABASE_URL                      = "supabase-url"
+      SUPABASE_SERVICE_ROLE_KEY         = "supabase-key"
+    },
+    var.stripe_secret_key != "" ? { STRIPE_SECRET_KEY = "stripe-secret" } : {}
+  )
 
   health_check_path = "/api/health"
   tags              = local.common_tags

@@ -151,6 +151,13 @@ variable "serper_api_key" {
   default     = ""
 }
 
+variable "stripe_secret_key" {
+  description = "Stripe secret key for payment processing (optional)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # Tags
 variable "tags" {
   description = "Tags to apply to all resources"
