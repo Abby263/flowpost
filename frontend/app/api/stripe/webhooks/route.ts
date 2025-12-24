@@ -121,11 +121,14 @@ export async function POST(request: Request) {
       }
 
       case "customer.subscription.updated": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object;
         const userId = subscription.metadata?.user_id;
 
         if (userId) {
-          // Update subscription status
+          // Update subscription status - use type assertion for period dates
+          const periodStart = (subscription as any).current_period_start;
+          const periodEnd = (subscription as any).current_period_end;
+
           await supabaseAdmin
             .from("user_subscriptions")
             .update({
@@ -133,12 +136,12 @@ export async function POST(request: Request) {
                 subscription.status === "active"
                   ? "active"
                   : subscription.status,
-              current_period_start: new Date(
-                subscription.current_period_start * 1000,
-              ).toISOString(),
-              current_period_end: new Date(
-                subscription.current_period_end * 1000,
-              ).toISOString(),
+              current_period_start: periodStart
+                ? new Date(periodStart * 1000).toISOString()
+                : new Date().toISOString(),
+              current_period_end: periodEnd
+                ? new Date(periodEnd * 1000).toISOString()
+                : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
               updated_at: new Date().toISOString(),
             })
             .eq("user_id", userId);
@@ -147,7 +150,7 @@ export async function POST(request: Request) {
       }
 
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object;
         const userId = subscription.metadata?.user_id;
 
         if (userId) {
