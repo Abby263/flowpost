@@ -105,6 +105,14 @@ export default function AnalyticsPage() {
   // Account filter
   const [accountFilter, setAccountFilter] = useState<string>("all");
 
+  // Load lastUpdated from localStorage on mount
+  useEffect(() => {
+    const storedLastUpdated = localStorage.getItem("analytics_last_updated");
+    if (storedLastUpdated) {
+      setLastUpdated(storedLastUpdated);
+    }
+  }, []);
+
   // Fetch connections on mount but DON'T auto-fetch posts
   // User must select a connection and click Refresh to load data
   useEffect(() => {
@@ -128,7 +136,9 @@ export default function AnalyticsPage() {
         throw new Error(data.error || "Failed to fetch posts");
       }
       setPosts(data.posts || []);
-      setLastUpdated(new Date().toISOString());
+      const now = new Date().toISOString();
+      setLastUpdated(now);
+      localStorage.setItem("analytics_last_updated", now);
       setDataLoaded(true);
     } catch (error) {
       console.error("Error fetching posts:", error);

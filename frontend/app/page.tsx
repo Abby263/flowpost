@@ -64,9 +64,8 @@ export default function Home() {
                   </Link>
                   <Link href="#how-it-works">
                     <Button
-                      variant="outline"
                       size="lg"
-                      className="text-base px-8 h-12 border-white/20 text-white hover:bg-white/10 w-full sm:w-auto"
+                      className="text-base px-8 h-12 bg-blue-600 text-white hover:bg-blue-700 font-semibold w-full sm:w-auto"
                     >
                       <Play className="mr-2 h-4 w-4" />
                       See How It Works
@@ -417,8 +416,7 @@ export default function Home() {
               <Link href="/pricing">
                 <Button
                   size="lg"
-                  variant="outline"
-                  className="text-base px-10 h-12 border-white/20 text-white hover:bg-white/10"
+                  className="text-base px-10 h-12 bg-blue-600 text-white hover:bg-blue-700 font-semibold"
                 >
                   View Pricing
                 </Button>
@@ -506,7 +504,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-slate-800 pt-8 text-center text-sm">
-            <p>© 2024 FlowPost. All rights reserved.</p>
+            <p>© 2025 FlowPost. All rights reserved.</p>
           </div>
         </div>
       </footer>
