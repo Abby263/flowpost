@@ -107,9 +107,27 @@ interface AdminStats {
   };
   costTracking: {
     totalCost: number;
-    costBreakdown: Record<string, number>;
+    costByService: Record<string, { cost: number; calls: number }>;
+    costByServiceType: Record<string, number>;
     dailyCosts: { date: string; amount: number }[];
     estimatedMonthly: number;
+    apiCalls: number;
+    totalTokens: { input: number; output: number };
+  };
+  userCostBreakdown: {
+    userCosts: {
+      userId: string;
+      email: string;
+      name: string;
+      totalCost: number;
+      apiCalls: number;
+      tokensInput: number;
+      tokensOutput: number;
+      services: Record<string, number>;
+    }[];
+    topUsers: any[];
+    avgCostPerUser: number;
+    totalTrackedUsers: number;
   };
   generatedAt: string;
 }
@@ -595,7 +613,7 @@ export default function AdminDashboard() {
             <CardHeader className="pb-2">
               <CardTitle className="text-white">Cost Tracking</CardTitle>
               <CardDescription className="text-slate-400">
-                External service costs (last 30 days)
+                AI & Infrastructure costs (last 30 days)
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -607,6 +625,9 @@ export default function AdminDashboard() {
                       <p className="text-2xl font-bold text-red-400">
                         {formatCurrency(stats.costTracking.totalCost)}
                       </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {formatNumber(stats.costTracking.apiCalls)} API calls
+                      </p>
                     </div>
                     <div className="p-4 bg-slate-800/50 rounded-xl">
                       <p className="text-sm text-slate-400 mb-1">
@@ -615,36 +636,65 @@ export default function AdminDashboard() {
                       <p className="text-2xl font-bold text-amber-400">
                         {formatCurrency(stats.costTracking.estimatedMonthly)}
                       </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Based on daily avg
+                      </p>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    {Object.entries(stats.costTracking.costBreakdown).map(
-                      ([service, amount]) => {
+                  {/* Cost by Service */}
+                  <p className="text-xs text-slate-500 uppercase mb-3">
+                    Cost by Service
+                  </p>
+                  <div className="space-y-3 mb-6">
+                    {Object.entries(stats.costTracking.costByService || {}).map(
+                      ([service, data]) => {
+                        const serviceData = data as {
+                          cost: number;
+                          calls: number;
+                        };
                         const percentage =
                           stats.costTracking.totalCost > 0
-                            ? (amount / stats.costTracking.totalCost) * 100
+                            ? (serviceData.cost /
+                                stats.costTracking.totalCost) *
+                              100
                             : 0;
+                        const serviceIcons: Record<string, any> = {
+                          gemini: Brain,
+                          openai: Brain,
+                          anthropic: Brain,
+                          firecrawl: Globe,
+                          azure: Server,
+                          "dall-e": Image,
+                          flux: Image,
+                        };
+                        const ServiceIcon =
+                          serviceIcons[service.toLowerCase()] || Server;
                         return (
                           <div
                             key={service}
                             className="flex items-center gap-3"
                           >
                             <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
-                              <Server className="h-4 w-4 text-slate-400" />
+                              <ServiceIcon className="h-4 w-4 text-slate-400" />
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-sm text-white capitalize">
-                                  {service}
-                                </span>
+                                <div>
+                                  <span className="text-sm text-white capitalize">
+                                    {service}
+                                  </span>
+                                  <span className="text-xs text-slate-500 ml-2">
+                                    ({formatNumber(serviceData.calls)} calls)
+                                  </span>
+                                </div>
                                 <span className="text-sm text-slate-400">
-                                  {formatCurrency(amount)}
+                                  {formatCurrency(serviceData.cost)}
                                 </span>
                               </div>
                               <div className="w-full bg-slate-800 rounded-full h-1.5">
                                 <div
-                                  className="bg-red-500 h-1.5 rounded-full"
+                                  className="bg-gradient-to-r from-red-500 to-orange-500 h-1.5 rounded-full"
                                   style={{ width: `${percentage}%` }}
                                 />
                               </div>
@@ -654,13 +704,41 @@ export default function AdminDashboard() {
                       },
                     )}
                   </div>
+
+                  {/* Token Usage */}
+                  {(stats.costTracking.totalTokens?.input > 0 ||
+                    stats.costTracking.totalTokens?.output > 0) && (
+                    <div className="p-3 bg-slate-800/30 rounded-lg mb-4">
+                      <p className="text-xs text-slate-500 uppercase mb-2">
+                        Token Usage
+                      </p>
+                      <div className="grid grid-cols-2 gap-4 text-center">
+                        <div>
+                          <p className="text-lg font-bold text-white">
+                            {formatNumber(stats.costTracking.totalTokens.input)}
+                          </p>
+                          <p className="text-xs text-slate-400">Input Tokens</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-white">
+                            {formatNumber(
+                              stats.costTracking.totalTokens.output,
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            Output Tokens
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="text-center py-8">
                   <Server className="h-12 w-12 text-slate-600 mx-auto mb-3" />
                   <p className="text-slate-400">No cost data available</p>
                   <p className="text-xs text-slate-500 mt-1">
-                    Run the migration and start logging costs
+                    Costs will appear when using AI services
                   </p>
                 </div>
               )}
@@ -701,6 +779,187 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* User Cost Breakdown */}
+        {stats.userCostBreakdown &&
+          stats.userCostBreakdown.topUsers.length > 0 && (
+            <Card className="bg-slate-900 border-slate-800">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white">
+                      User Cost Analysis
+                    </CardTitle>
+                    <CardDescription className="text-slate-400">
+                      Cost breakdown per user (last 30 days) •{" "}
+                      {stats.userCostBreakdown.totalTrackedUsers} users tracked
+                    </CardDescription>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-slate-400">Avg Cost/User</p>
+                    <p className="text-xl font-bold text-amber-400">
+                      {formatCurrency(stats.userCostBreakdown.avgCostPerUser)}
+                    </p>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-800">
+                        <th className="text-left text-xs text-slate-500 uppercase py-3 px-2">
+                          User
+                        </th>
+                        <th className="text-right text-xs text-slate-500 uppercase py-3 px-2">
+                          API Calls
+                        </th>
+                        <th className="text-right text-xs text-slate-500 uppercase py-3 px-2">
+                          Tokens
+                        </th>
+                        <th className="text-right text-xs text-slate-500 uppercase py-3 px-2">
+                          Cost
+                        </th>
+                        <th className="text-right text-xs text-slate-500 uppercase py-3 px-2">
+                          % of Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stats.userCostBreakdown.topUsers.map(
+                        (user: any, index: number) => {
+                          const totalCost =
+                            stats.userCostBreakdown.userCosts.reduce(
+                              (sum: number, u: any) => sum + u.totalCost,
+                              0,
+                            );
+                          const percentage =
+                            totalCost > 0
+                              ? (user.totalCost / totalCost) * 100
+                              : 0;
+                          return (
+                            <tr
+                              key={user.userId}
+                              className="border-b border-slate-800/50 hover:bg-slate-800/30"
+                            >
+                              <td className="py-3 px-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
+                                    {index + 1}
+                                  </div>
+                                  <div>
+                                    <p
+                                      className="text-sm text-white truncate max-w-[200px]"
+                                      title={user.email}
+                                    >
+                                      {user.email}
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                      {Object.keys(user.services || {}).join(
+                                        ", ",
+                                      ) || "No services"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="text-right py-3 px-2">
+                                <span className="text-sm text-white">
+                                  {formatNumber(user.apiCalls)}
+                                </span>
+                              </td>
+                              <td className="text-right py-3 px-2">
+                                <span className="text-sm text-slate-400">
+                                  {formatNumber(
+                                    user.tokensInput + user.tokensOutput,
+                                  )}
+                                </span>
+                              </td>
+                              <td className="text-right py-3 px-2">
+                                <span className="text-sm font-medium text-amber-400">
+                                  {formatCurrency(user.totalCost)}
+                                </span>
+                              </td>
+                              <td className="text-right py-3 px-2">
+                                <div className="flex items-center justify-end gap-2">
+                                  <div className="w-16 bg-slate-800 rounded-full h-1.5">
+                                    <div
+                                      className="bg-amber-500 h-1.5 rounded-full"
+                                      style={{
+                                        width: `${Math.min(percentage, 100)}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="text-xs text-slate-400 w-12 text-right">
+                                    {percentage.toFixed(1)}%
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        },
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Cost Savings Insight */}
+                {stats.revenueStats.mrr > 0 &&
+                  stats.costTracking.estimatedMonthly > 0 && (
+                    <div className="mt-6 p-4 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl border border-blue-500/20">
+                      <div className="flex items-center gap-3 mb-3">
+                        <TrendingUp className="h-5 w-5 text-blue-400" />
+                        <p className="text-sm font-medium text-white">
+                          Cost Efficiency Analysis
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                        <div>
+                          <p className="text-lg font-bold text-white">
+                            {formatCurrency(
+                              stats.revenueStats.mrr /
+                                Math.max(stats.userStats.totalUsers, 1),
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-400">Revenue/User</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-white">
+                            {formatCurrency(
+                              stats.userCostBreakdown.avgCostPerUser,
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-400">Cost/User</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-emerald-400">
+                            {formatCurrency(
+                              stats.revenueStats.mrr /
+                                Math.max(stats.userStats.totalUsers, 1) -
+                                stats.userCostBreakdown.avgCostPerUser,
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-400">Profit/User</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-blue-400">
+                            {(
+                              stats.revenueStats.mrr /
+                              Math.max(stats.userStats.totalUsers, 1) /
+                              Math.max(
+                                stats.userCostBreakdown.avgCostPerUser,
+                                0.01,
+                              )
+                            ).toFixed(1)}
+                            x
+                          </p>
+                          <p className="text-xs text-slate-400">ROI Multiple</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+              </CardContent>
+            </Card>
+          )}
 
         {/* Platform & Usage Stats */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -890,8 +1149,11 @@ export default function AdminDashboard() {
                         <Users className="h-4 w-4 text-violet-400" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white truncate">
-                          {sub.user_id.substring(0, 12)}...
+                        <p
+                          className="text-sm text-white truncate"
+                          title={sub.user_email}
+                        >
+                          {sub.user_email || sub.user_id}
                         </p>
                         <p className="text-xs text-slate-400">
                           {sub.plans?.name || "Free"} •{" "}
@@ -942,11 +1204,14 @@ export default function AdminDashboard() {
                           <Icon className="h-4 w-4 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-white truncate">
-                            {post.content?.substring(0, 40) || "No content"}...
+                          <p
+                            className="text-xs text-slate-400 truncate"
+                            title={post.user_email}
+                          >
+                            {post.user_email || "Unknown"}
                           </p>
-                          <p className="text-xs text-slate-400">
-                            {formatDateTime(post.created_at)}
+                          <p className="text-sm text-white truncate">
+                            {post.content?.substring(0, 30) || "No content"}...
                           </p>
                         </div>
                         <Badge
@@ -992,12 +1257,14 @@ export default function AdminDashboard() {
                         <Workflow className="h-4 w-4 text-blue-400" />
                       </div>
                       <div className="flex-1 min-w-0">
+                        <p
+                          className="text-xs text-slate-400 truncate"
+                          title={workflow.user_email}
+                        >
+                          {workflow.user_email || "Unknown"}
+                        </p>
                         <p className="text-sm text-white truncate">
                           {workflow.name}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {workflow.type || "Standard"} •{" "}
-                          {formatDateTime(workflow.created_at)}
                         </p>
                       </div>
                     </div>

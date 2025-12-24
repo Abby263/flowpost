@@ -3,7 +3,11 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 // Admin user IDs - add your Clerk user ID here
-const ADMIN_USER_IDS = process.env.ADMIN_USER_IDS?.split(",") || [];
+const ADMIN_USER_IDS =
+  process.env.ADMIN_USER_IDS?.split(",").map((id) => id.trim()) || [];
+
+// Cache for user emails to avoid repeated Clerk API calls
+const userEmailCache = new Map<string, { email: string; name: string }>();
 
 export async function GET() {
   try {
@@ -31,6 +35,7 @@ export async function GET() {
       creditStats,
       platformStats,
       costTracking,
+      userCostBreakdown,
     ] = await Promise.all([
       getUserStats(),
       getSubscriptionStats(),
@@ -40,6 +45,7 @@ export async function GET() {
       getCreditStats(),
       getPlatformStats(),
       getCostTracking(),
+      getUserCostBreakdown(),
     ]);
 
     return NextResponse.json({
@@ -51,6 +57,7 @@ export async function GET() {
       creditStats,
       platformStats,
       costTracking,
+      userCostBreakdown,
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -60,6 +67,66 @@ export async function GET() {
       { status: 500 },
     );
   }
+}
+
+// Helper function to get user email from Clerk
+async function getUserEmail(
+  userId: string,
+): Promise<{ email: string; name: string }> {
+  // Check cache first
+  if (userEmailCache.has(userId)) {
+    return userEmailCache.get(userId)!;
+  }
+
+  try {
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
+    const result = {
+      email: user.emailAddresses[0]?.emailAddress || userId,
+      name:
+        `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+        user.emailAddresses[0]?.emailAddress ||
+        userId,
+    };
+    userEmailCache.set(userId, result);
+    return result;
+  } catch (error) {
+    console.error(`Failed to fetch user ${userId}:`, error);
+    return { email: userId, name: userId };
+  }
+}
+
+// Batch fetch user emails
+async function batchGetUserEmails(
+  userIds: string[],
+): Promise<Map<string, { email: string; name: string }>> {
+  const uniqueIds = [...new Set(userIds)];
+  const results = new Map<string, { email: string; name: string }>();
+
+  // Check cache and collect missing IDs
+  const missingIds: string[] = [];
+  for (const id of uniqueIds) {
+    if (userEmailCache.has(id)) {
+      results.set(id, userEmailCache.get(id)!);
+    } else {
+      missingIds.push(id);
+    }
+  }
+
+  // Fetch missing users from Clerk (in parallel with limit)
+  if (missingIds.length > 0) {
+    const batchSize = 10;
+    for (let i = 0; i < missingIds.length; i += batchSize) {
+      const batch = missingIds.slice(i, i + batchSize);
+      const fetchPromises = batch.map((id) => getUserEmail(id));
+      const fetchedUsers = await Promise.all(fetchPromises);
+      batch.forEach((id, index) => {
+        results.set(id, fetchedUsers[index]);
+      });
+    }
+  }
+
+  return results;
 }
 
 async function getUserStats() {
@@ -372,10 +439,42 @@ async function getRecentActivity() {
     .order("created_at", { ascending: false })
     .limit(10);
 
+  // Collect all user IDs
+  const allUserIds = [
+    ...(recentSubscriptions?.map((s) => s.user_id) || []),
+    ...(recentPosts?.map((p) => p.user_id) || []),
+    ...(recentWorkflows?.map((w) => w.user_id) || []),
+  ];
+
+  // Batch fetch user emails
+  const userEmails = await batchGetUserEmails(allUserIds);
+
+  // Enrich data with emails
+  const enrichedSubscriptions =
+    recentSubscriptions?.map((s) => ({
+      ...s,
+      user_email: userEmails.get(s.user_id)?.email || s.user_id,
+      user_name: userEmails.get(s.user_id)?.name || s.user_id,
+    })) || [];
+
+  const enrichedPosts =
+    recentPosts?.map((p) => ({
+      ...p,
+      user_email: userEmails.get(p.user_id)?.email || p.user_id,
+      user_name: userEmails.get(p.user_id)?.name || p.user_id,
+    })) || [];
+
+  const enrichedWorkflows =
+    recentWorkflows?.map((w) => ({
+      ...w,
+      user_email: userEmails.get(w.user_id)?.email || w.user_id,
+      user_name: userEmails.get(w.user_id)?.name || w.user_id,
+    })) || [];
+
   return {
-    recentSubscriptions: recentSubscriptions || [],
-    recentPosts: recentPosts || [],
-    recentWorkflows: recentWorkflows || [],
+    recentSubscriptions: enrichedSubscriptions,
+    recentPosts: enrichedPosts,
+    recentWorkflows: enrichedWorkflows,
   };
 }
 
@@ -448,50 +547,176 @@ async function getPlatformStats() {
 }
 
 async function getCostTracking() {
-  // Get cost tracking data if table exists
-  const { data: costs } = await supabaseAdmin
+  // Get cost tracking data (last 30 days)
+  const thirtyDaysAgo = new Date(
+    Date.now() - 30 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const { data: costs, error } = await supabaseAdmin
     .from("cost_tracking")
     .select("*")
-    .order("created_at", { ascending: false })
-    .limit(30);
+    .gte("created_at", thirtyDaysAgo)
+    .order("created_at", { ascending: false });
 
-  if (!costs || costs.length === 0) {
+  // If table doesn't exist or no data, return empty
+  if (error || !costs || costs.length === 0) {
     return {
       totalCost: 0,
-      costBreakdown: {},
+      costByService: {},
+      costByServiceType: {},
       dailyCosts: [],
       estimatedMonthly: 0,
+      apiCalls: 0,
+      totalTokens: { input: 0, output: 0 },
     };
   }
 
   const totalCost = costs.reduce((sum, c) => sum + (c.amount || 0), 0);
+  const apiCalls = costs.reduce((sum, c) => sum + (c.api_calls || 1), 0);
+  const totalTokensInput = costs.reduce(
+    (sum, c) => sum + (c.tokens_input || 0),
+    0,
+  );
+  const totalTokensOutput = costs.reduce(
+    (sum, c) => sum + (c.tokens_output || 0),
+    0,
+  );
 
-  const costBreakdown: Record<string, number> = {};
+  // Cost by service (gemini, openai, firecrawl, etc.)
+  const costByService: Record<string, { cost: number; calls: number }> = {};
   costs.forEach((c) => {
-    costBreakdown[c.service] =
-      (costBreakdown[c.service] || 0) + (c.amount || 0);
+    if (!costByService[c.service]) {
+      costByService[c.service] = { cost: 0, calls: 0 };
+    }
+    costByService[c.service].cost += c.amount || 0;
+    costByService[c.service].calls += c.api_calls || 1;
   });
 
-  // Group by date
-  const dailyCosts: { date: string; amount: number }[] = [];
+  // Cost by service type
+  const costByServiceType: Record<string, number> = {};
+  costs.forEach((c) => {
+    costByServiceType[c.service_type] =
+      (costByServiceType[c.service_type] || 0) + (c.amount || 0);
+  });
+
+  // Group by date for chart
   const costsByDate: Record<string, number> = {};
   costs.forEach((c) => {
     const date = new Date(c.created_at).toISOString().split("T")[0];
     costsByDate[date] = (costsByDate[date] || 0) + (c.amount || 0);
   });
 
-  Object.entries(costsByDate).forEach(([date, amount]) => {
-    dailyCosts.push({ date, amount: Math.round(amount * 100) / 100 });
-  });
+  const dailyCosts = Object.entries(costsByDate)
+    .map(([date, amount]) => ({
+      date,
+      amount: Math.round(amount * 10000) / 10000,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   // Estimate monthly cost based on daily average
-  const avgDailyCost = totalCost / Math.max(costs.length, 1);
+  const daysWithData = Object.keys(costsByDate).length || 1;
+  const avgDailyCost = totalCost / daysWithData;
   const estimatedMonthly = avgDailyCost * 30;
 
   return {
-    totalCost: Math.round(totalCost * 100) / 100,
-    costBreakdown,
-    dailyCosts: dailyCosts.sort((a, b) => a.date.localeCompare(b.date)),
+    totalCost: Math.round(totalCost * 10000) / 10000,
+    costByService,
+    costByServiceType,
+    dailyCosts,
     estimatedMonthly: Math.round(estimatedMonthly * 100) / 100,
+    apiCalls,
+    totalTokens: { input: totalTokensInput, output: totalTokensOutput },
+  };
+}
+
+async function getUserCostBreakdown() {
+  // Get costs grouped by user (last 30 days)
+  const thirtyDaysAgo = new Date(
+    Date.now() - 30 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const { data: costs, error } = await supabaseAdmin
+    .from("cost_tracking")
+    .select(
+      "user_id, service, service_type, amount, tokens_input, tokens_output, api_calls",
+    )
+    .gte("created_at", thirtyDaysAgo);
+
+  if (error || !costs || costs.length === 0) {
+    return {
+      userCosts: [],
+      topUsers: [],
+      avgCostPerUser: 0,
+    };
+  }
+
+  // Aggregate costs per user
+  const userCostMap: Record<
+    string,
+    {
+      totalCost: number;
+      apiCalls: number;
+      tokensInput: number;
+      tokensOutput: number;
+      services: Record<string, number>;
+    }
+  > = {};
+
+  costs.forEach((c) => {
+    const userId = c.user_id || "anonymous";
+    if (!userCostMap[userId]) {
+      userCostMap[userId] = {
+        totalCost: 0,
+        apiCalls: 0,
+        tokensInput: 0,
+        tokensOutput: 0,
+        services: {},
+      };
+    }
+    userCostMap[userId].totalCost += c.amount || 0;
+    userCostMap[userId].apiCalls += c.api_calls || 1;
+    userCostMap[userId].tokensInput += c.tokens_input || 0;
+    userCostMap[userId].tokensOutput += c.tokens_output || 0;
+    userCostMap[userId].services[c.service] =
+      (userCostMap[userId].services[c.service] || 0) + (c.amount || 0);
+  });
+
+  // Get user emails for top users
+  const userIds = Object.keys(userCostMap).filter((id) => id !== "anonymous");
+  const userEmails = await batchGetUserEmails(userIds);
+
+  // Build user costs array
+  const userCosts = Object.entries(userCostMap)
+    .map(([userId, data]) => ({
+      userId,
+      email:
+        userId === "anonymous"
+          ? "Anonymous"
+          : userEmails.get(userId)?.email || userId,
+      name:
+        userId === "anonymous"
+          ? "Anonymous"
+          : userEmails.get(userId)?.name || userId,
+      totalCost: Math.round(data.totalCost * 10000) / 10000,
+      apiCalls: data.apiCalls,
+      tokensInput: data.tokensInput,
+      tokensOutput: data.tokensOutput,
+      services: data.services,
+    }))
+    .sort((a, b) => b.totalCost - a.totalCost);
+
+  // Top 10 users by cost
+  const topUsers = userCosts.slice(0, 10);
+
+  // Average cost per user
+  const totalUsers = userCosts.length || 1;
+  const totalCost = userCosts.reduce((sum, u) => sum + u.totalCost, 0);
+  const avgCostPerUser = totalCost / totalUsers;
+
+  return {
+    userCosts,
+    topUsers,
+    avgCostPerUser: Math.round(avgCostPerUser * 10000) / 10000,
+    totalTrackedUsers: totalUsers,
   };
 }
