@@ -683,6 +683,21 @@ async function savePostToDb(
         `   📊 Updating workflow ${state.workflowId} status to: ${finalStatus}`,
       );
 
+      // First, get the workflow to retrieve user_id for credit deduction
+      const { data: workflow, error: fetchError } = await supabase
+        .from("workflows")
+        .select("user_id, name")
+        .eq("id", state.workflowId)
+        .single();
+
+      if (fetchError) {
+        console.error(
+          "❌ Failed to fetch workflow for credit deduction:",
+          fetchError,
+        );
+      }
+
+      // Update workflow status
       const { error: updateError } = await supabase
         .from("workflows")
         .update({
@@ -697,24 +712,51 @@ async function savePostToDb(
       } else {
         console.log(`✅ Workflow status updated to: ${finalStatus}`);
       }
+
+      // Deduct credits ONLY on successful completion
+      if (finalStatus === "completed" && workflow?.user_id) {
+        try {
+          const CREDITS_PER_WORKFLOW = 1;
+          const { error: creditError } = await supabase.rpc("deduct_credits", {
+            p_user_id: workflow.user_id,
+            p_amount: CREDITS_PER_WORKFLOW,
+            p_description: `Workflow completed: ${workflow.name || state.workflowId}`,
+          });
+
+          if (creditError) {
+            console.error("❌ Failed to deduct credits:", creditError);
+          } else {
+            console.log(
+              `💰 Deducted ${CREDITS_PER_WORKFLOW} credit(s) from user ${workflow.user_id}`,
+            );
+          }
+        } catch (creditErr) {
+          console.error("❌ Error deducting credits:", creditErr);
+        }
+      } else if (finalStatus === "failed") {
+        console.log(`ℹ️ No credits deducted - workflow failed`);
+      }
     } catch (e) {
       console.error("❌ Failed to update workflow status:", e);
     }
   }
 
-  // Print cost summary
+  // Print workflow summary
+  const statusEmoji = state.publishStatus === "success" ? "✅" : "❌";
+  const creditsDeducted = state.publishStatus === "success" ? 1 : 0;
   console.log(`\n
 ╔═══════════════════════════════════════════════════════════╗
 ║                    WORKFLOW SUMMARY                       ║
-╠═══════════════════════════════════════════════════════════╣`);
-  console.log(`║ Workflow: ${state.workflowId?.substring(0, 36) || "N/A"}`);
-  console.log(`║ Platform: ${state.platform || "N/A"}`);
-  console.log(`║ Status: ${state.publishStatus || "N/A"}`);
-  console.log(`╠═══════════════════════════════════════════════════════════╣`);
-  console.log(`║               WORKFLOW COMPLETED SUCCESSFULLY             ║`);
-  console.log(
-    `╚═══════════════════════════════════════════════════════════╝\n`,
-  );
+╠═══════════════════════════════════════════════════════════╣
+║ Workflow ID: ${(state.workflowId || "N/A").padEnd(42)}║
+║ User ID:     ${(state.userId || "N/A").substring(0, 42).padEnd(42)}║
+║ Platform:    ${(state.platform || "N/A").padEnd(42)}║
+║ Status:      ${statusEmoji} ${(state.publishStatus || "N/A").padEnd(39)}║
+║ Credits:     ${creditsDeducted > 0 ? `-${creditsDeducted} (deducted)` : "0 (not charged - failed)".padEnd(39)}║
+╠═══════════════════════════════════════════════════════════╣
+║          ${state.publishStatus === "success" ? "WORKFLOW COMPLETED SUCCESSFULLY" : "WORKFLOW FAILED - NO CREDITS CHARGED"}             ║
+╚═══════════════════════════════════════════════════════════╝
+`);
 
   return {};
 }
