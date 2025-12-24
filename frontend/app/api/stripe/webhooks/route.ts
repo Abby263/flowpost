@@ -192,9 +192,11 @@ export async function POST(request: Request) {
 
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = invoice.subscription as string;
+        // Use type assertion for subscription property (changed in Stripe SDK v20)
+        const subscriptionId = (invoice as any).subscription as string | null;
+        const billingReason = (invoice as any).billing_reason as string | null;
 
-        if (subscriptionId && invoice.billing_reason === "subscription_cycle") {
+        if (subscriptionId && billingReason === "subscription_cycle") {
           // Get subscription from Stripe
           const subscription =
             await stripe.subscriptions.retrieve(subscriptionId);
@@ -242,7 +244,8 @@ export async function POST(request: Request) {
 
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = invoice.subscription as string;
+        // Use type assertion for subscription property (changed in Stripe SDK v20)
+        const subscriptionId = (invoice as any).subscription as string | null;
 
         if (subscriptionId) {
           const subscription =
