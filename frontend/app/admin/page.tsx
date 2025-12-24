@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -32,6 +33,7 @@ import {
   RefreshCw,
   ArrowUpRight,
   ArrowDownRight,
+  ArrowLeft,
   Activity,
   BarChart3,
   PieChart,
@@ -279,18 +281,30 @@ export default function AdminDashboard() {
                 </p>
               </div>
             </div>
-            <Button
-              onClick={fetchStats}
-              disabled={refreshing}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              {refreshing ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
-              )}
-              Refresh
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                asChild
+                variant="outline"
+                className="border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300"
+              >
+                <Link href="/dashboard">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Dashboard
+                </Link>
+              </Button>
+              <Button
+                onClick={fetchStats}
+                disabled={refreshing}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {refreshing ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Refresh
+              </Button>
+            </div>
           </div>
         </div>
       </div>
