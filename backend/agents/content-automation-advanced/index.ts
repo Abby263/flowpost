@@ -581,15 +581,11 @@ async function publishToInstagram(
   }
 }
 
-// Node to save post to DB
+// Node to save post to DB and update workflow status
 async function savePostToDb(
   state: typeof ContentAutomationAdvancedState.State,
 ) {
   console.log("--- SAVING POST TO DB ---");
-  if (!state.post) {
-    console.log("No post to save.");
-    return {};
-  }
 
   // Check if Supabase is configured (support both NEXT_PUBLIC and regular env vars)
   const supabaseUrl =
@@ -607,66 +603,103 @@ async function savePostToDb(
     return {};
   }
 
-  try {
-    console.log(`   📊 Connecting to Supabase...`);
-    const { createClient } = await import("@supabase/supabase-js");
-    const supabase = createClient(supabaseUrl, supabaseKey);
+  const { createClient } = await import("@supabase/supabase-js");
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Prepare post data - only include fields if they have values
-    const postData: any = {
-      workflow_id: state.workflowId,
-      user_id: state.userId,
-      content: state.post,
-      platform: state.platform,
-      status: state.publishStatus === "success" ? "published" : "failed",
-      posted_at: new Date().toISOString(),
-    };
+  // Save post to DB if we have content
+  if (state.post) {
+    try {
+      console.log(`   📊 Connecting to Supabase...`);
 
-    let connectionId: string | null = null;
-    if (state.workflowId) {
-      const { data: workflow, error: workflowError } = await supabase
-        .from("workflows")
-        .select("connection_id")
-        .eq("id", state.workflowId)
-        .single();
+      // Prepare post data - only include fields if they have values
+      const postData: any = {
+        workflow_id: state.workflowId,
+        user_id: state.userId,
+        content: state.post,
+        platform: state.platform,
+        status: state.publishStatus === "success" ? "published" : "failed",
+        posted_at: new Date().toISOString(),
+      };
 
-      if (workflowError) {
-        console.warn(
-          "WARN: Failed to load workflow connection:",
-          workflowError.message,
-        );
-      } else if (workflow?.connection_id) {
-        connectionId = workflow.connection_id;
+      let connectionId: string | null = null;
+      if (state.workflowId) {
+        const { data: workflow, error: workflowError } = await supabase
+          .from("workflows")
+          .select("connection_id")
+          .eq("id", state.workflowId)
+          .single();
+
+        if (workflowError) {
+          console.warn(
+            "WARN: Failed to load workflow connection:",
+            workflowError.message,
+          );
+        } else if (workflow?.connection_id) {
+          connectionId = workflow.connection_id;
+        }
       }
-    }
 
-    // Add optional fields if they exist
-    if (state.imageUrl) {
-      postData.image_url = state.imageUrl;
-    }
-    if (state.publishedUrl) {
-      postData.published_url = state.publishedUrl;
-    }
-    if (connectionId) {
-      postData.connection_id = connectionId;
-    }
+      // Add optional fields if they exist
+      if (state.imageUrl) {
+        postData.image_url = state.imageUrl;
+      }
+      if (state.publishedUrl) {
+        postData.published_url = state.publishedUrl;
+      }
+      if (connectionId) {
+        postData.connection_id = connectionId;
+      }
 
-    console.log(`   💾 Inserting post data:`, {
-      workflow_id: postData.workflow_id,
-      status: postData.status,
-      has_image: !!postData.image_url,
-      has_url: !!postData.published_url,
-    });
+      console.log(`   💾 Inserting post data:`, {
+        workflow_id: postData.workflow_id,
+        status: postData.status,
+        has_image: !!postData.image_url,
+        has_url: !!postData.published_url,
+      });
 
-    const { error } = await supabase.from("posts").insert(postData);
+      const { error } = await supabase.from("posts").insert(postData);
 
-    if (error) {
-      console.error("❌ Supabase insert error:", error);
-    } else {
-      console.log("✅ Post saved to DB successfully.");
+      if (error) {
+        console.error("❌ Supabase insert error:", error);
+      } else {
+        console.log("✅ Post saved to DB successfully.");
+      }
+    } catch (e) {
+      console.error("❌ Failed to save post:", e);
     }
-  } catch (e) {
-    console.error("❌ Failed to save post:", e);
+  } else {
+    console.log("No post content to save.");
+  }
+
+  // Update workflow run status to completed/failed
+  if (state.workflowId) {
+    try {
+      const finalStatus =
+        state.publishStatus === "success" ? "completed" : "failed";
+      const errorMessage =
+        state.publishStatus !== "success" ? state.publishError : null;
+
+      console.log(
+        `   📊 Updating workflow ${state.workflowId} status to: ${finalStatus}`,
+      );
+
+      const { error: updateError } = await supabase
+        .from("workflows")
+        .update({
+          run_status: finalStatus,
+          run_completed_at: new Date().toISOString(),
+          last_error: errorMessage,
+        })
+        .eq("id", state.workflowId);
+
+      if (updateError) {
+        console.error("❌ Failed to update workflow status:", updateError);
+      } else {
+        console.log(`✅ Workflow status updated to: ${finalStatus}`);
+      }
+    } catch (e) {
+      console.error("❌ Failed to update workflow status:", e);
+    }
   }
 
   // Print cost summary

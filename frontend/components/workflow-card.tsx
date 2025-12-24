@@ -43,6 +43,7 @@ export function WorkflowCard({
 }: WorkflowCardProps) {
   const router = useRouter();
   const isRunning = status === "running" || status === "starting";
+  const isDisabled = isRunning || !workflow.is_active;
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
 
   const handleSchedule = (scheduleData: ScheduleData) => {
@@ -67,16 +68,18 @@ export function WorkflowCard({
           </Badge>
         );
       case "success":
+      case "completed":
         return (
           <Badge
             variant="secondary"
             className="bg-green-100 text-green-800 hover:bg-green-100"
           >
             <CheckCircle2 className="mr-1 h-3 w-3" />
-            Success
+            Completed
           </Badge>
         );
       case "error":
+      case "failed":
         return (
           <Badge
             variant="secondary"

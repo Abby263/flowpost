@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+// Track workflows being triggered to prevent duplicate clicks
+const pendingTriggers = new Set<string>();
+
 export default function WorkflowsPage() {
   const { user } = useUser();
   const [workflows, setWorkflows] = useState<any[]>([]);
@@ -47,13 +50,11 @@ export default function WorkflowsPage() {
     requires_approval: false,
   });
 
-  // Status polling state
+  // Status polling state - track which workflows are being polled
   const [workflowStatuses, setWorkflowStatuses] = useState<
-    Record<string, string>
+    Record<string, { status: string; error?: string }>
   >({});
-  const [activeRuns, setActiveRuns] = useState<
-    Record<string, { threadId: string; runId: string }>
-  >({});
+  const pollingIntervals = useRef<Record<string, NodeJS.Timeout>>({});
 
   // Notification state
   const [notification, setNotification] = useState<{
@@ -61,13 +62,20 @@ export default function WorkflowsPage() {
     message: string;
   } | null>(null);
 
-  const showNotification = (
-    type: "success" | "error" | "info",
-    message: string,
-  ) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 5000);
-  };
+  const showNotification = useCallback(
+    (type: "success" | "error" | "info", message: string) => {
+      setNotification({ type, message });
+      setTimeout(() => setNotification(null), 5000);
+    },
+    [],
+  );
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(pollingIntervals.current).forEach(clearInterval);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -75,41 +83,68 @@ export default function WorkflowsPage() {
     fetchConnections();
   }, [user]);
 
-  // Auto-refresh for active runs (threadless runs can't be polled, so we refresh workflows list)
-  useEffect(() => {
-    if (Object.keys(activeRuns).length === 0) return;
+  // Poll status for running workflows
+  const startPollingStatus = useCallback(
+    (workflowId: string) => {
+      // Don't start duplicate polling
+      if (pollingIntervals.current[workflowId]) return;
 
-    // For threadless streaming runs, we can't poll the LangGraph API directly
-    // Instead, refresh the workflows list periodically to check for new posts
-    const interval = setInterval(() => {
-      fetchWorkflows();
-    }, 10000); // Refresh every 10 seconds
+      const pollStatus = async () => {
+        try {
+          const res = await fetch(
+            `/api/workflow-status?workflowId=${workflowId}`,
+          );
+          const data = await res.json();
 
-    // Auto-complete running status after 60 seconds (typical run duration)
-    const timeout = setTimeout(() => {
-      for (const workflowId of Object.keys(activeRuns)) {
-        setWorkflowStatuses((prev) => {
-          const status = prev[workflowId];
-          // Only update if still running
-          if (status === "running") {
-            return { ...prev, [workflowId]: "completed" };
+          if (data.status === "completed" || data.status === "failed") {
+            // Stop polling
+            if (pollingIntervals.current[workflowId]) {
+              clearInterval(pollingIntervals.current[workflowId]);
+              delete pollingIntervals.current[workflowId];
+            }
+
+            setWorkflowStatuses((prev) => ({
+              ...prev,
+              [workflowId]: {
+                status: data.status,
+                error: data.error,
+              },
+            }));
+
+            // Show notification
+            if (data.status === "completed") {
+              showNotification(
+                "success",
+                "Workflow completed successfully! Check posts for results.",
+              );
+            } else {
+              showNotification(
+                "error",
+                data.error || "Workflow failed. Check logs for details.",
+              );
+            }
+
+            // Refresh workflows to get latest post data
+            fetchWorkflows();
+          } else {
+            setWorkflowStatuses((prev) => ({
+              ...prev,
+              [workflowId]: { status: data.status || "running" },
+            }));
           }
-          return prev;
-        });
-      }
-      setActiveRuns({});
-      fetchWorkflows();
-      showNotification(
-        "info",
-        "Workflow processing complete. Check posts for results.",
-      );
-    }, 60000);
+        } catch (error) {
+          console.error("Failed to poll status:", error);
+        }
+      };
 
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout);
-    };
-  }, [activeRuns]);
+      // Initial poll
+      pollStatus();
+
+      // Start interval polling (every 5 seconds)
+      pollingIntervals.current[workflowId] = setInterval(pollStatus, 5000);
+    },
+    [showNotification],
+  );
 
   async function fetchWorkflows() {
     setLoading(true);
@@ -126,6 +161,17 @@ export default function WorkflowsPage() {
           (a: any, b: any) =>
             new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime(),
         )[0];
+
+        // Update local status from database
+        if (wf.run_status === "running") {
+          setWorkflowStatuses((prev) => ({
+            ...prev,
+            [wf.id]: { status: "running" },
+          }));
+          // Start polling if not already
+          startPollingStatus(wf.id);
+        }
+
         return {
           ...wf,
           post_count: posts.length,
@@ -264,13 +310,38 @@ export default function WorkflowsPage() {
   }
 
   async function runWorkflow(workflow: any) {
-    setWorkflowStatuses((prev) => ({ ...prev, [workflow.id]: "starting" }));
+    // Prevent duplicate triggers with client-side guard
+    if (pendingTriggers.has(workflow.id)) {
+      showNotification("info", "Workflow is being started, please wait...");
+      return;
+    }
+
+    // Check if already running based on local state
+    const currentStatus = workflowStatuses[workflow.id]?.status;
+    if (currentStatus === "running" || currentStatus === "starting") {
+      showNotification(
+        "info",
+        "Workflow is already running. Please wait for it to complete.",
+      );
+      return;
+    }
+
+    // Mark as pending
+    pendingTriggers.add(workflow.id);
+    setWorkflowStatuses((prev) => ({
+      ...prev,
+      [workflow.id]: { status: "starting" },
+    }));
 
     // Get connection details
     const connection = connections.find((c) => c.id === workflow.connection_id);
     if (!connection) {
+      pendingTriggers.delete(workflow.id);
       showNotification("error", "Connection not found for this workflow");
-      setWorkflowStatuses((prev) => ({ ...prev, [workflow.id]: "error" }));
+      setWorkflowStatuses((prev) => ({
+        ...prev,
+        [workflow.id]: { status: "error", error: "Connection not found" },
+      }));
       return;
     }
 
@@ -284,30 +355,67 @@ export default function WorkflowsPage() {
         }),
       });
       const data = await res.json();
-      if (data.success) {
-        // Store threadId and runId to poll status
-        setActiveRuns((prev) => ({
+
+      if (res.status === 409) {
+        // Workflow is already running (conflict)
+        setWorkflowStatuses((prev) => ({
           ...prev,
-          [workflow.id]: { threadId: data.threadId, runId: data.runId },
+          [workflow.id]: { status: "running" },
         }));
-        setWorkflowStatuses((prev) => ({ ...prev, [workflow.id]: "running" }));
+        showNotification(
+          "info",
+          data.error ||
+            "Workflow is already running. Please wait for it to complete.",
+        );
+        // Start polling since we now know it's running
+        startPollingStatus(workflow.id);
+        return;
+      }
+
+      if (data.success) {
+        setWorkflowStatuses((prev) => ({
+          ...prev,
+          [workflow.id]: { status: "running" },
+        }));
         showNotification(
           "success",
           `Workflow "${workflow.name}" is now running!`,
         );
+        // Start polling for status
+        startPollingStatus(workflow.id);
       } else {
-        setWorkflowStatuses((prev) => ({ ...prev, [workflow.id]: "error" }));
+        setWorkflowStatuses((prev) => ({
+          ...prev,
+          [workflow.id]: { status: "error", error: data.error },
+        }));
         showNotification("error", "Failed to start workflow: " + data.error);
       }
-    } catch (e) {
-      setWorkflowStatuses((prev) => ({ ...prev, [workflow.id]: "error" }));
+    } catch (e: any) {
+      setWorkflowStatuses((prev) => ({
+        ...prev,
+        [workflow.id]: { status: "error", error: e.message },
+      }));
       console.error(e);
       showNotification(
         "error",
         "Failed to trigger workflow. Check console for details.",
       );
+    } finally {
+      // Clear pending guard after a short delay to prevent rapid re-clicks
+      setTimeout(() => {
+        pendingTriggers.delete(workflow.id);
+      }, 2000);
     }
   }
+
+  // Get display status for workflow card
+  const getWorkflowStatus = (workflowId: string, dbStatus?: string) => {
+    const localStatus = workflowStatuses[workflowId]?.status;
+    // Prefer local status if we're tracking it, otherwise use DB status
+    if (localStatus) return localStatus;
+    if (dbStatus === "running") return "running";
+    return "idle";
+  };
 
   return (
     <div className="space-y-8 relative px-6 py-4 max-w-[1400px]">
@@ -539,7 +647,7 @@ export default function WorkflowsPage() {
             <WorkflowCard
               key={workflow.id}
               workflow={workflow}
-              status={workflowStatuses[workflow.id] || "idle"}
+              status={getWorkflowStatus(workflow.id, workflow.run_status)}
               postCount={workflow.post_count}
               lastPostedAt={workflow.last_posted_at}
               onRun={() => runWorkflow(workflow)}

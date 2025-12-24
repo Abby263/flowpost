@@ -13,6 +13,12 @@ const ALLOWED_UPDATE_FIELDS = new Set([
   "connection_id",
   "location",
   "style_prompt",
+  // Run tracking fields (internal use)
+  "run_status",
+  "current_run_id",
+  "run_started_at",
+  "run_completed_at",
+  "last_error",
 ]);
 
 export async function GET(request: Request) {
@@ -25,6 +31,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const includePosts = searchParams.get("includePosts") !== "false";
 
+  // Always include run tracking fields
   const selectFields = includePosts ? "*, posts (id, posted_at)" : "*";
 
   const { data, error } = await supabaseAdmin

@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
-import { Client } from "@langchain/langgraph-sdk";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-// Initialize LangGraph Client
-const client = new Client({
-  apiUrl: process.env.LANGGRAPH_API_URL || "http://localhost:54367",
-});
+// Timeout for workflow runs (10 minutes)
+const WORKFLOW_TIMEOUT_MS = 10 * 60 * 1000;
 
 export async function POST(request: Request) {
   try {
@@ -17,9 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log("Received workflow trigger request:", {
-      workflowId,
-    });
+    console.log("Received workflow trigger request:", { workflowId });
 
     if (!workflowId) {
       return NextResponse.json(
@@ -28,6 +23,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // 1. Fetch workflow and check ownership
     const { data: workflow, error: workflowError } = await supabaseAdmin
       .from("workflows")
       .select("*")
@@ -49,6 +45,77 @@ export async function POST(request: Request) {
       );
     }
 
+    // 2. Check if workflow is already running (with stale run detection)
+    if (workflow.run_status === "running") {
+      const runStartedAt = workflow.run_started_at
+        ? new Date(workflow.run_started_at).getTime()
+        : 0;
+      const now = Date.now();
+
+      // If run has been going for more than timeout, consider it stale and allow restart
+      if (now - runStartedAt < WORKFLOW_TIMEOUT_MS) {
+        const remainingSeconds = Math.ceil(
+          (WORKFLOW_TIMEOUT_MS - (now - runStartedAt)) / 1000,
+        );
+        return NextResponse.json(
+          {
+            error: `Workflow is already running. Please wait ${remainingSeconds} seconds or until it completes.`,
+            isRunning: true,
+            runId: workflow.current_run_id,
+            startedAt: workflow.run_started_at,
+          },
+          { status: 409 }, // Conflict status code
+        );
+      }
+
+      // Stale run detected - log and continue
+      console.warn(
+        `Stale run detected for workflow ${workflowId}. Previous run started at ${workflow.run_started_at}. Allowing new run.`,
+      );
+    }
+
+    // 3. Acquire lock with atomic update (optimistic locking)
+    const { data: lockedWorkflow, error: lockError } = await supabaseAdmin
+      .from("workflows")
+      .update({
+        run_status: "running",
+        run_started_at: new Date().toISOString(),
+        current_run_id: null, // Will be set after we get the run ID
+        last_error: null,
+      })
+      .eq("id", workflowId)
+      .eq("user_id", userId)
+      .not("run_status", "eq", "running") // Only update if not already running (race condition protection)
+      .select()
+      .single();
+
+    // If we couldn't acquire the lock, another request got there first
+    if (lockError || !lockedWorkflow) {
+      // Check if it's because workflow is now running
+      const { data: checkWorkflow } = await supabaseAdmin
+        .from("workflows")
+        .select("run_status, run_started_at")
+        .eq("id", workflowId)
+        .single();
+
+      if (checkWorkflow?.run_status === "running") {
+        return NextResponse.json(
+          {
+            error:
+              "Workflow was just started by another request. Please wait for it to complete.",
+            isRunning: true,
+          },
+          { status: 409 },
+        );
+      }
+
+      return NextResponse.json(
+        { error: "Failed to start workflow. Please try again." },
+        { status: 500 },
+      );
+    }
+
+    // 4. Fetch connection credentials
     const { data: connection, error: connectionError } = await supabaseAdmin
       .from("connections")
       .select("*")
@@ -57,13 +124,23 @@ export async function POST(request: Request) {
       .single();
 
     if (connectionError || !connection) {
+      // Release the lock since we can't proceed
+      await supabaseAdmin
+        .from("workflows")
+        .update({
+          run_status: "failed",
+          run_completed_at: new Date().toISOString(),
+          last_error: "Connection not found",
+        })
+        .eq("id", workflowId);
+
       return NextResponse.json(
         { error: "Connection not found" },
         { status: 404 },
       );
     }
 
-    // 2. Prepare Input for Agent
+    // 5. Prepare Input for Agent
     const input = {
       searchQuery: workflow.search_query || "AI News",
       location: workflow.location || "",
@@ -75,31 +152,55 @@ export async function POST(request: Request) {
       workflowId: workflow.id,
     };
 
-    // 3. Trigger LangGraph Run using streaming API (threadless run)
-    // This avoids the "Thread is already running" bug in the regular runs API
+    // 6. Trigger LangGraph Run using streaming API (threadless run)
     const apiUrl = process.env.LANGGRAPH_API_URL || "http://localhost:54367";
 
-    const runResponse = await fetch(`${apiUrl}/runs/stream`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        assistant_id: "content_automation_advanced",
-        input: input,
-        stream_mode: "updates",
-      }),
-    });
+    let runResponse: Response;
+    try {
+      runResponse = await fetch(`${apiUrl}/runs/stream`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assistant_id: "content_automation_advanced",
+          input: input,
+          stream_mode: "updates",
+        }),
+      });
+    } catch (fetchError: any) {
+      // Release the lock on network error
+      await supabaseAdmin
+        .from("workflows")
+        .update({
+          run_status: "failed",
+          run_completed_at: new Date().toISOString(),
+          last_error: `Failed to connect to LangGraph: ${fetchError.message}`,
+        })
+        .eq("id", workflowId);
+
+      throw new Error(`Failed to connect to LangGraph: ${fetchError.message}`);
+    }
 
     if (!runResponse.ok) {
       const errorText = await runResponse.text();
+
+      // Release the lock on API error
+      await supabaseAdmin
+        .from("workflows")
+        .update({
+          run_status: "failed",
+          run_completed_at: new Date().toISOString(),
+          last_error: `LangGraph API error: ${errorText}`,
+        })
+        .eq("id", workflowId);
+
       throw new Error(`Failed to start run: ${errorText}`);
     }
 
-    // Read the first chunk to get the run_id from metadata event
+    // 7. Read the first chunk to get the run_id from metadata event
     const reader = runResponse.body?.getReader();
     let runId = "";
-    let threadId = "";
 
     if (reader) {
       const decoder = new TextDecoder();
@@ -116,20 +217,29 @@ export async function POST(request: Request) {
         const runIdMatch = buffer.match(/"run_id":\s*"([^"]+)"/);
         if (runIdMatch) {
           runId = runIdMatch[1];
-          // For threadless runs, we don't have a thread_id, use run_id as a reference
-          threadId = runId;
           break;
         }
       }
 
-      // Don't close the reader - let the backend continue processing in the background
+      // Cancel the reader - let the backend continue processing
       reader.cancel();
     }
+
+    // 8. Update workflow with the run ID
+    await supabaseAdmin
+      .from("workflows")
+      .update({
+        current_run_id: runId || "unknown",
+      })
+      .eq("id", workflowId);
+
+    console.log(`Workflow ${workflowId} started with run ID: ${runId}`);
 
     return NextResponse.json({
       success: true,
       runId: runId || "started",
-      threadId: threadId || "threadless",
+      workflowId: workflowId,
+      message: "Workflow started successfully",
     });
   } catch (error: any) {
     console.error("Trigger Error:", error);

@@ -37,8 +37,21 @@ CREATE TABLE IF NOT EXISTS workflows (
   frequency TEXT,
   is_active BOOLEAN DEFAULT true,
   requires_approval BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  -- Run tracking fields for concurrency control
+  current_run_id TEXT,
+  run_status TEXT DEFAULT 'idle' CHECK (run_status IN ('idle', 'running', 'completed', 'failed')),
+  run_started_at TIMESTAMP WITH TIME ZONE,
+  run_completed_at TIMESTAMP WITH TIME ZONE,
+  last_error TEXT
 );
+
+-- Add comments for run tracking fields
+COMMENT ON COLUMN workflows.current_run_id IS 'LangGraph run ID for the currently executing run';
+COMMENT ON COLUMN workflows.run_status IS 'Current execution status: idle, running, completed, failed';
+COMMENT ON COLUMN workflows.run_started_at IS 'When the current/last run started';
+COMMENT ON COLUMN workflows.run_completed_at IS 'When the last run completed';
+COMMENT ON COLUMN workflows.last_error IS 'Error message from the last failed run';
 
 -- ============================================================================
 -- POSTS TABLE
@@ -70,6 +83,7 @@ COMMENT ON COLUMN posts.source IS 'Values: workflow, manual, trending, ai-genera
 -- ============================================================================
 CREATE INDEX IF NOT EXISTS idx_connections_user_id ON connections(user_id);
 CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id);
+CREATE INDEX IF NOT EXISTS idx_workflows_run_status ON workflows(run_status) WHERE run_status = 'running';
 CREATE INDEX IF NOT EXISTS idx_posts_workflow_id ON posts(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
 CREATE INDEX IF NOT EXISTS idx_posts_posted_at ON posts(posted_at DESC);
