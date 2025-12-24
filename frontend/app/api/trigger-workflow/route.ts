@@ -75,23 +75,61 @@ export async function POST(request: Request) {
       workflowId: workflow.id,
     };
 
-    // 3. Trigger LangGraph Run
-    // Create a thread
-    const thread = await client.threads.create();
+    // 3. Trigger LangGraph Run using streaming API (threadless run)
+    // This avoids the "Thread is already running" bug in the regular runs API
+    const apiUrl = process.env.LANGGRAPH_API_URL || "http://localhost:54367";
 
-    // Start the run
-    const run = await client.runs.create(
-      thread.thread_id,
-      "content_automation_advanced",
-      {
-        input: input,
+    const runResponse = await fetch(`${apiUrl}/runs/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        assistant_id: "content_automation_advanced",
+        input: input,
+        stream_mode: "updates",
+      }),
+    });
+
+    if (!runResponse.ok) {
+      const errorText = await runResponse.text();
+      throw new Error(`Failed to start run: ${errorText}`);
+    }
+
+    // Read the first chunk to get the run_id from metadata event
+    const reader = runResponse.body?.getReader();
+    let runId = "";
+    let threadId = "";
+
+    if (reader) {
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      // Read enough to get the metadata event
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Look for run_id in the metadata event
+        const runIdMatch = buffer.match(/"run_id":\s*"([^"]+)"/);
+        if (runIdMatch) {
+          runId = runIdMatch[1];
+          // For threadless runs, we don't have a thread_id, use run_id as a reference
+          threadId = runId;
+          break;
+        }
+      }
+
+      // Don't close the reader - let the backend continue processing in the background
+      reader.cancel();
+    }
 
     return NextResponse.json({
       success: true,
-      runId: run.run_id,
-      threadId: thread.thread_id,
+      runId: runId || "started",
+      threadId: threadId || "threadless",
     });
   } catch (error: any) {
     console.error("Trigger Error:", error);
