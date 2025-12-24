@@ -287,6 +287,53 @@ export default function WorkflowsPage() {
     }
   }
 
+  async function resetWorkflowStatus(id: string) {
+    if (
+      !confirm(
+        "This will reset the workflow status to idle. Use this if the workflow is stuck in 'Running' state. Continue?",
+      )
+    )
+      return;
+
+    try {
+      const res = await fetch("/api/workflow-status", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workflowId: id,
+          status: "idle",
+          error: "Manually reset by user",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to reset workflow");
+      }
+
+      // Stop polling for this workflow
+      if (pollingIntervals.current[id]) {
+        clearInterval(pollingIntervals.current[id]);
+        delete pollingIntervals.current[id];
+      }
+
+      // Clear local status
+      setWorkflowStatuses((prev) => {
+        const newStatuses = { ...prev };
+        delete newStatuses[id];
+        return newStatuses;
+      });
+
+      // Update workflow in state
+      setWorkflows(
+        workflows.map((w) => (w.id === id ? { ...w, run_status: "idle" } : w)),
+      );
+
+      showNotification("success", "Workflow status reset successfully");
+    } catch (error) {
+      showNotification("error", "Failed to reset workflow status");
+    }
+  }
+
   async function updateWorkflow(updatedWorkflow: any) {
     const res = await fetch("/api/workflows", {
       method: "PATCH",
@@ -659,6 +706,7 @@ export default function WorkflowsPage() {
                 setEditingWorkflow(workflow);
                 setIsEditModalOpen(true);
               }}
+              onResetStatus={() => resetWorkflowStatus(workflow.id)}
             />
           ))}
         </div>

@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
+// Timeout for workflow runs (30 minutes) - if running longer, consider stale
+const STALE_RUN_TIMEOUT_MS = 30 * 60 * 1000;
+
 // GET: Check workflow run status from database
 export async function GET(request: Request) {
-  const { userId } = auth();
+  const { userId } = await auth();
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -39,19 +42,44 @@ export async function GET(request: Request) {
 
     // Calculate elapsed time if running
     let elapsedSeconds = 0;
+    let actualStatus = workflow.run_status;
+
     if (workflow.run_status === "running" && workflow.run_started_at) {
-      elapsedSeconds = Math.floor(
-        (Date.now() - new Date(workflow.run_started_at).getTime()) / 1000,
-      );
+      const runStartedAt = new Date(workflow.run_started_at).getTime();
+      elapsedSeconds = Math.floor((Date.now() - runStartedAt) / 1000);
+
+      // Auto-detect stale runs and mark them as failed
+      if (Date.now() - runStartedAt > STALE_RUN_TIMEOUT_MS) {
+        console.warn(
+          `Stale run detected for workflow ${workflowId}. Started at ${workflow.run_started_at}. Auto-resetting to failed.`,
+        );
+
+        // Auto-reset stale workflow
+        await supabaseAdmin
+          .from("workflows")
+          .update({
+            run_status: "failed",
+            run_completed_at: new Date().toISOString(),
+            last_error:
+              "Workflow timed out - run was interrupted or failed to complete",
+          })
+          .eq("id", workflowId)
+          .eq("user_id", userId);
+
+        actualStatus = "failed";
+      }
     }
 
     return NextResponse.json({
-      status: workflow.run_status,
+      status: actualStatus,
       runId: workflow.current_run_id,
       startedAt: workflow.run_started_at,
       completedAt: workflow.run_completed_at,
       elapsedSeconds,
-      error: workflow.last_error,
+      error:
+        actualStatus === "failed" && !workflow.last_error
+          ? "Workflow timed out - run was interrupted or failed to complete"
+          : workflow.last_error,
     });
   } catch (error: any) {
     console.error("Status Fetch Error:", error);

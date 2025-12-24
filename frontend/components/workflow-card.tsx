@@ -12,6 +12,7 @@ import {
   XCircle,
   Loader2,
   Calendar,
+  RotateCcw,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -29,6 +30,7 @@ interface WorkflowCardProps {
   onToggleActive: (active: boolean) => void;
   onDelete: () => void;
   onEdit: () => void;
+  onResetStatus?: () => void;
 }
 
 export function WorkflowCard({
@@ -40,6 +42,7 @@ export function WorkflowCard({
   onToggleActive,
   onDelete,
   onEdit,
+  onResetStatus,
 }: WorkflowCardProps) {
   const router = useRouter();
   const isRunning = status === "running" || status === "starting";
@@ -209,24 +212,37 @@ export function WorkflowCard({
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              size="sm"
-              onClick={onRun}
-              disabled={isRunning || !workflow.is_active}
-              className={isRunning ? "animate-pulse" : ""}
-            >
-              {isRunning ? (
-                <>
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  Running
-                </>
-              ) : (
-                <>
-                  <Play className="mr-1.5 h-3.5 w-3.5" />
-                  Run
-                </>
-              )}
-            </Button>
+            {isRunning && onResetStatus ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onResetStatus}
+                className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                title="Reset stuck workflow"
+              >
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Reset
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={onRun}
+                disabled={isRunning || !workflow.is_active}
+                className={isRunning ? "animate-pulse" : ""}
+              >
+                {isRunning ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Running
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-1.5 h-3.5 w-3.5" />
+                    Run
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </div>
