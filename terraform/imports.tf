@@ -20,9 +20,6 @@ import {
   id = "/subscriptions/${var.subscription_id}/resourceGroups/${local.resource_prefix}-rg/providers/Microsoft.OperationalInsights/workspaces/${local.resource_prefix}-env-logs"
 }
 
-# Import existing Container App Environment
-import {
-  to = module.container_environment.azurerm_container_app_environment.this
-  id = "/subscriptions/${var.subscription_id}/resourceGroups/${local.resource_prefix}-rg/providers/Microsoft.App/managedEnvironments/${local.resource_prefix}-env"
-}
+# Container App Environment will be created fresh
+# (Old environment in flowpost-dev-rg was deleted to free up the subscription quota)
 
