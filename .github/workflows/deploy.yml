@@ -34,11 +34,13 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       has-azure-creds: ${{ steps.check.outputs.has-azure-creds }}
+      has-clerk-publishable-key: ${{ steps.check.outputs.has-clerk-publishable-key }}
     steps:
       - name: Check if Azure credentials are available and valid
         id: check
         env:
           AZURE_CREDS: ${{ secrets.AZURE_CREDENTIALS }}
+          CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
         run: |
           if [ -z "$AZURE_CREDS" ]; then
             echo "has-azure-creds=false" >> $GITHUB_OUTPUT
@@ -47,13 +49,30 @@ jobs:
             echo "has-azure-creds=false" >> $GITHUB_OUTPUT
             echo "::warning::Azure credentials are not valid JSON. Skipping deployment."
           else
-            echo "has-azure-creds=true" >> $GITHUB_OUTPUT
+            CLIENT_ID=$(echo "$AZURE_CREDS" | jq -r '.clientId // empty')
+            CLIENT_SECRET=$(echo "$AZURE_CREDS" | jq -r '.clientSecret // empty')
+            SUBSCRIPTION_ID=$(echo "$AZURE_CREDS" | jq -r '.subscriptionId // empty')
+            TENANT_ID=$(echo "$AZURE_CREDS" | jq -r '.tenantId // empty')
+
+            if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$SUBSCRIPTION_ID" ] || [ -z "$TENANT_ID" ]; then
+              echo "has-azure-creds=false" >> $GITHUB_OUTPUT
+              echo "::warning::Azure credentials missing required fields. Skipping deployment."
+            else
+              echo "has-azure-creds=true" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+          if [ -z "$CLERK_PUBLISHABLE_KEY" ]; then
+            echo "has-clerk-publishable-key=false" >> $GITHUB_OUTPUT
+            echo "::warning::CLERK_PUBLISHABLE_KEY not configured. Skipping deployment."
+          else
+            echo "has-clerk-publishable-key=true" >> $GITHUB_OUTPUT
           fi
 
   determine-environment:
     name: Determine Environment
     needs: check-secrets
-    if: needs.check-secrets.outputs.has-azure-creds == 'true'
+    if: needs.check-secrets.outputs.has-azure-creds == 'true' && needs.check-secrets.outputs.has-clerk-publishable-key == 'true'
     runs-on: ubuntu-latest
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
@@ -79,7 +98,7 @@ jobs:
   test:
     name: Run Tests
     needs: check-secrets
-    if: needs.check-secrets.outputs.has-azure-creds == 'true'
+    if: needs.check-secrets.outputs.has-azure-creds == 'true' && needs.check-secrets.outputs.has-clerk-publishable-key == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -163,6 +182,7 @@ jobs:
           IMAGE_TAG="${{ github.sha }}"
 
           docker build \
+            --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.CLERK_PUBLISHABLE_KEY }}" \
             -t ${ACR_SERVER}/flowpost-frontend:${IMAGE_TAG} \
             -t ${ACR_SERVER}/flowpost-frontend:latest \
             -f frontend/Dockerfile frontend/

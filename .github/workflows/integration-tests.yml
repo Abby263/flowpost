@@ -28,8 +28,9 @@ jobs:
         id: check
         env:
           CLERK_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET: ${{ secrets.CLERK_SECRET_KEY }}
         run: |
-          if [ -n "$CLERK_KEY" ]; then
+          if [ -n "$CLERK_KEY" ] && [ -n "$CLERK_SECRET" ]; then
             echo "has-clerk-creds=true" >> $GITHUB_OUTPUT
           else
             echo "has-clerk-creds=false" >> $GITHUB_OUTPUT
@@ -45,6 +46,8 @@ jobs:
     env:
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -72,6 +75,11 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
+
+      - name: Set fallback env for server-only dependencies
+        run: |
+          echo "SUPABASE_URL=${SUPABASE_URL:-https://build-placeholder.supabase.co}" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-build-placeholder-key}" >> $GITHUB_ENV
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
