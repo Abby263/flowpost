@@ -1,6 +1,6 @@
 # UAT Environment Configuration
 
-environment  = "uat"
+environment = "uat"
 # Use a different region from dev/prod to stay under Azure's 1 env/region limit
 location     = "centralus"
 project_name = "flowpost"
