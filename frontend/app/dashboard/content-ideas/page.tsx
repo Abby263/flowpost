@@ -378,51 +378,49 @@ export default function ContentIdeasPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
-              <Lightbulb className="h-6 w-6 text-white" />
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+              <Lightbulb className="h-5 w-5 text-white" />
             </div>
             Content Ideas
           </h1>
-          <p className="text-muted-foreground mt-2">
-            Discover trending content and generate AI-powered post ideas based
-            on your interests.
+          <p className="text-muted-foreground mt-1 text-sm">
+            Discover trending content and generate AI-powered post ideas
           </p>
         </div>
       </div>
 
       {/* User Interests Section */}
-      <Card className="border-2 border-dashed border-amber-200 bg-gradient-to-br from-amber-50/50 to-orange-50/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Tag className="h-5 w-5 text-amber-600" />
+      <Card className="border-2 border-blue-100 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Tag className="h-4 w-4 text-blue-600" />
             Your Interests
           </CardTitle>
-          <CardDescription>
-            Select categories or add custom topics you care about. We'll find
-            trending content for these.
+          <CardDescription className="text-sm">
+            Select topics you care about to find relevant trending content
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-5">
           {/* Current Interests */}
           {userInterests.length > 0 && (
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">
-                Active Interests:
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Active:
               </Label>
               <div className="flex flex-wrap gap-2">
                 {userInterests.map((interest, index) => (
                   <Badge
                     key={index}
                     variant="secondary"
-                    className="px-3 py-2 text-sm bg-amber-100 border-amber-300 text-amber-900 flex items-center gap-2"
+                    className="px-3 py-1.5 text-sm bg-blue-100 border-blue-200 text-blue-800 flex items-center gap-2"
                   >
                     {interest}
                     <button
                       onClick={() => removeInterest(interest)}
-                      className="hover:text-red-600 transition-colors"
+                      className="hover:text-red-600 transition-colors ml-1"
                     >
-                      <span className="sr-only">Remove</span>×
+                      ×
                     </button>
                   </Badge>
                 ))}
@@ -432,8 +430,8 @@ export default function ContentIdeasPage() {
 
           {/* Suggested Categories */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground">
-              Suggested Categories:
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Suggested:
             </Label>
             <div className="flex flex-wrap gap-2">
               {SUGGESTED_CATEGORIES.map((category, index) => {
@@ -445,9 +443,9 @@ export default function ContentIdeasPage() {
                     size="sm"
                     onClick={() => addSuggestedCategory(category.label)}
                     disabled={isAdded}
-                    className={`text-xs ${isAdded ? "opacity-50 cursor-not-allowed" : "hover:bg-amber-50 hover:border-amber-300"}`}
+                    className={`text-xs h-8 ${isAdded ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-50 hover:border-blue-300"}`}
                   >
-                    <span className="mr-1.5">{category.icon}</span>
+                    <span className="mr-1">{category.icon}</span>
                     {category.label}
                   </Button>
                 );
@@ -456,28 +454,29 @@ export default function ContentIdeasPage() {
           </div>
 
           {/* Custom Interest Input */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground">
-              Or add custom interest:
-            </Label>
-            <div className="flex gap-2 max-w-md">
-              <Input
-                placeholder="e.g. Quantum Computing, K-Pop..."
-                value={newInterest}
-                onChange={(e) => setNewInterest(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addInterest()}
-              />
-              <Button onClick={addInterest} variant="outline" size="icon">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
+          <div className="flex gap-2 max-w-md">
+            <Input
+              placeholder="Add custom interest..."
+              value={newInterest}
+              onChange={(e) => setNewInterest(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addInterest()}
+              className="h-9"
+            />
+            <Button
+              onClick={addInterest}
+              variant="outline"
+              size="sm"
+              className="h-9"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
 
-          <div className="flex items-center gap-4 pt-4 border-t mt-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-4 border-t">
             <Button
               onClick={() => fetchTrendingContent()}
               disabled={loading || userInterests.length === 0}
-              className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-md"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
             >
               {loading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -487,28 +486,24 @@ export default function ContentIdeasPage() {
               Find Trending Posts
             </Button>
 
-            <div className="flex-1 ml-4 border-l pl-4">
-              <Label
-                htmlFor="custom-search"
-                className="text-sm text-muted-foreground mb-2 block"
-              >
-                Or search specifically:
-              </Label>
+            <div className="flex-1 sm:ml-4 sm:border-l sm:pl-4 w-full sm:w-auto">
               <div className="flex gap-2">
                 <Input
                   id="custom-search"
-                  placeholder="e.g., SpaceX updates..."
+                  placeholder="Or search specifically..."
                   value={customQuery}
                   onChange={(e) => setCustomQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleCustomSearch()}
-                  className="flex-1"
+                  className="flex-1 h-9"
                 />
                 <Button
                   onClick={handleCustomSearch}
                   disabled={!customQuery.trim() || loading}
                   variant="secondary"
+                  size="sm"
+                  className="h-9"
                 >
-                  <Search className="h-4 w-4 mr-2" />
+                  <Search className="h-4 w-4 mr-1" />
                   Search
                 </Button>
               </div>
@@ -521,8 +516,8 @@ export default function ContentIdeasPage() {
       <div className="space-y-6">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-green-600" />
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-emerald-600" />
               Trending Content
             </h2>
             {trendingContent.length > 0 && (
@@ -531,9 +526,10 @@ export default function ContentIdeasPage() {
                 size="sm"
                 onClick={() => fetchTrendingContent(customQuery || undefined)}
                 disabled={loading}
+                className="h-8"
               >
                 <RefreshCw
-                  className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+                  className={`h-3 w-3 mr-1 ${loading ? "animate-spin" : ""}`}
                 />
                 Refresh
               </Button>
@@ -542,43 +538,41 @@ export default function ContentIdeasPage() {
 
           {/* Show what queries were run */}
           {searchQueries.length > 0 && (
-            <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-md">
-              <span className="font-medium">Searched for: </span>
+            <div className="text-xs text-muted-foreground bg-slate-100 px-3 py-2 rounded-md">
+              <span className="font-medium">Searched: </span>
               {searchQueries.join(", ")}
             </div>
           )}
 
           {loading ? (
             <Card className="p-12">
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
-                <p className="text-muted-foreground">
+              <div className="flex flex-col items-center justify-center space-y-3">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <p className="text-muted-foreground text-sm">
                   Searching for trending content...
                 </p>
               </div>
             </Card>
           ) : trendingContent.length === 0 ? (
-            <Card className="p-12 border-2 border-dashed">
+            <Card className="p-10 border-2 border-dashed">
               <div className="text-center">
-                <Globe className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground text-lg mb-2">
-                  No content yet
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Add interests above and click "Discover" to find content.
+                <Globe className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+                <p className="text-muted-foreground mb-1">No content yet</p>
+                <p className="text-xs text-muted-foreground">
+                  Add interests and click &quot;Find Trending Posts&quot;
                 </p>
               </div>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {trendingContent.map((item, index) => (
                 <Card
                   key={index}
-                  className="hover:shadow-lg transition-all overflow-hidden border-2 hover:border-amber-200"
+                  className="hover:shadow-md transition-all overflow-hidden border hover:border-blue-200"
                 >
-                  <div className="flex gap-4 p-5">
-                    {/* Image Placeholder */}
-                    <div className="shrink-0 w-32 h-32 rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                  <div className="flex gap-4 p-4">
+                    {/* Image */}
+                    <div className="shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
                       {item.imageUrl ? (
                         <img
                           src={item.imageUrl}
@@ -586,22 +580,24 @@ export default function ContentIdeasPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <Newspaper className="h-12 w-12 text-amber-400" />
+                        <Newspaper className="h-8 w-8 text-slate-300" />
                       )}
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <h3 className="font-semibold text-lg mb-2 line-clamp-2 leading-tight">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm mb-1 line-clamp-2 leading-snug">
                         {item.title}
                       </h3>
-                      <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                      <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                         {item.snippet}
                       </p>
-                      <div className="flex items-center gap-3 pt-2">
+                      <div className="flex items-center gap-2">
                         {item.source && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Newspaper className="h-3 w-3 mr-1" />
+                          <Badge
+                            variant="secondary"
+                            className="text-xs h-5 px-2"
+                          >
                             {item.source}
                           </Badge>
                         )}
@@ -613,20 +609,19 @@ export default function ContentIdeasPage() {
                         )}
                         <div className="ml-auto flex gap-2">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
+                            className="h-7 px-2"
                             onClick={() => window.open(item.link, "_blank")}
                           >
-                            <ExternalLink className="h-3 w-3 mr-2" />
-                            Read
+                            <ExternalLink className="h-3 w-3" />
                           </Button>
                           <Button
-                            variant="default"
                             size="sm"
-                            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                            className="h-7 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                             onClick={() => openPublishDialogForContent(item)}
                           >
-                            <Share2 className="h-3 w-3 mr-2" />
+                            <Share2 className="h-3 w-3 mr-1" />
                             Publish
                           </Button>
                         </div>
@@ -641,26 +636,26 @@ export default function ContentIdeasPage() {
 
         {/* Generated Ideas Section */}
         {generatedIdeas.length > 0 && (
-          <div className="space-y-6 mt-8">
+          <div className="space-y-4 mt-8">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-md">
-                <Sparkles className="h-6 w-6 text-white" />
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold">AI-Powered Post Ideas</h2>
-                <p className="text-sm text-muted-foreground">
-                  Ready-to-publish content crafted from trending topics
+                <h2 className="text-lg font-bold">AI-Generated Post Ideas</h2>
+                <p className="text-xs text-muted-foreground">
+                  Ready-to-publish content based on trending topics
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 gap-4">
               {generatedIdeas.map((idea, index) => (
                 <Card
                   key={index}
-                  className="flex flex-col md:flex-row border-2 border-purple-100 hover:border-purple-300 hover:shadow-xl transition-all overflow-hidden"
+                  className="flex flex-col md:flex-row border hover:border-indigo-200 hover:shadow-lg transition-all overflow-hidden"
                 >
                   {/* Image Section */}
-                  <div className="md:w-64 h-48 md:h-auto shrink-0 bg-gradient-to-br from-purple-100 via-pink-100 to-indigo-100 flex items-center justify-center relative overflow-hidden">
+                  <div className="md:w-52 h-40 md:h-auto shrink-0 bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center relative overflow-hidden">
                     {idea.imageUrl ? (
                       <img
                         src={idea.imageUrl}
@@ -668,17 +663,15 @@ export default function ContentIdeasPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="text-center p-6">
-                        <Wand2 className="h-16 w-16 text-purple-400 mx-auto mb-2" />
-                        <p className="text-xs text-purple-600 font-medium">
-                          AI Generated
-                        </p>
+                      <div className="text-center p-4">
+                        <Wand2 className="h-10 w-10 text-indigo-300 mx-auto mb-1" />
+                        <p className="text-xs text-indigo-500">AI Generated</p>
                       </div>
                     )}
-                    <div className="absolute top-3 left-3">
+                    <div className="absolute top-2 left-2">
                       <Badge
                         variant="secondary"
-                        className="text-xs font-medium bg-white/90 text-purple-700 border-purple-200 shadow-sm"
+                        className="text-xs bg-white/90 text-indigo-700 border-0 shadow-sm"
                       >
                         {idea.style}
                       </Badge>
@@ -686,20 +679,20 @@ export default function ContentIdeasPage() {
                   </div>
 
                   {/* Content Section */}
-                  <div className="flex-1 flex flex-col p-6 space-y-4">
-                    <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 flex flex-col p-5">
+                    <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex-1">
-                        <h3 className="text-xl font-bold mb-3 text-gray-900">
+                        <h3 className="text-base font-bold mb-2 text-slate-900">
                           {idea.title}
                         </h3>
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed mb-4">
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed line-clamp-3">
                           {idea.caption}
                         </p>
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-9 w-9 text-muted-foreground hover:text-foreground shrink-0"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
                         onClick={() =>
                           copyToClipboard(
                             `${idea.title}\n\n${idea.caption}\n\n${idea.hashtags.join(" ")}`,
@@ -708,27 +701,28 @@ export default function ContentIdeasPage() {
                         }
                       >
                         {copiedIndex === index ? (
-                          <Check className="h-5 w-5 text-green-500" />
+                          <Check className="h-4 w-4 text-emerald-500" />
                         ) : (
-                          <Copy className="h-5 w-5" />
+                          <Copy className="h-4 w-4" />
                         )}
                       </Button>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5 mb-4">
                       {idea.hashtags.map((tag, i) => (
                         <span
                           key={i}
-                          className="text-xs text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full font-medium border border-blue-200"
+                          className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full"
                         >
                           {tag}
                         </span>
                       ))}
                     </div>
 
-                    <div className="flex gap-2 pt-2">
+                    <div className="mt-auto">
                       <Button
-                        className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md"
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                        size="sm"
                         onClick={() => openPublishDialog(idea)}
                       >
                         <Share2 className="mr-2 h-4 w-4" />

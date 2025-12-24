@@ -25,7 +25,7 @@ const plans = [
     price: { monthly: 0, yearly: 0 },
     credits: 10,
     features: [
-      "10 AI generations/month",
+      "10 AI credits/month",
       "1 workflow",
       "1 social connection",
       "Community support",
@@ -43,7 +43,7 @@ const plans = [
     price: { monthly: 19, yearly: 190 },
     credits: 100,
     features: [
-      "100 AI generations/month",
+      "100 AI credits/month",
       "5 workflows",
       "3 social connections",
       "Priority email support",
@@ -51,7 +51,7 @@ const plans = [
       "No watermark",
     ],
     limitations: [],
-    cta: "Start Free Trial",
+    cta: "Start Trial",
     popular: false,
     gradient: "from-blue-500 to-blue-600",
   },
@@ -63,82 +63,74 @@ const plans = [
     price: { monthly: 49, yearly: 490 },
     credits: 500,
     features: [
-      "500 AI generations/month",
+      "500 AI credits/month",
       "20 workflows",
       "10 social connections",
       "Priority support",
       "Advanced analytics",
       "Custom branding",
       "API access",
-      "Bulk scheduling",
     ],
     limitations: [],
-    cta: "Start Free Trial",
+    cta: "Start Trial",
     popular: true,
-    gradient: "from-violet-500 to-purple-600",
+    gradient: "from-blue-600 to-indigo-600",
   },
   {
     name: "Enterprise",
     slug: "enterprise",
     icon: Building2,
-    description: "Unlimited power for teams",
+    description: "For large teams",
     price: { monthly: 149, yearly: 1490 },
     credits: 2000,
     features: [
-      "2000 AI generations/month",
+      "2000 AI credits/month",
       "Unlimited workflows",
       "Unlimited connections",
-      "Dedicated account manager",
+      "Dedicated support",
       "Custom integrations",
       "Team collaboration",
       "SLA guarantee",
-      "Advanced security",
-      "Custom AI training",
     ],
     limitations: [],
     cta: "Contact Sales",
     popular: false,
-    gradient: "from-amber-500 to-orange-600",
+    gradient: "from-indigo-600 to-purple-600",
   },
 ];
 
 const creditPackages = [
-  { name: "Starter Pack", credits: 50, price: 9.99, bonus: 0 },
-  { name: "Growth Pack", credits: 150, price: 24.99, bonus: 15 },
-  { name: "Power Pack", credits: 500, price: 69.99, bonus: 75 },
-  { name: "Enterprise Pack", credits: 2000, price: 199.99, bonus: 500 },
+  { name: "Small", credits: 50, price: 9.99, bonus: 5 },
+  { name: "Growth", credits: 150, price: 24.99, bonus: 15 },
+  { name: "Power", credits: 500, price: 69.99, bonus: 75 },
+  { name: "Enterprise", credits: 2000, price: 199.99, bonus: 500 },
 ];
 
 const faqs = [
   {
-    question: "What counts as an AI generation?",
+    question: "What counts as an AI credit?",
     answer:
-      "Each workflow run that uses AI to discover content, generate images, or create captions counts as one AI generation. A single workflow run typically uses 1-3 credits depending on the features used.",
+      "Each workflow run uses 1 credit. Generating content ideas also uses 1 credit per generation. Credits are only charged on successful completion.",
   },
   {
-    question: "Can I upgrade or downgrade my plan?",
+    question: "Can I upgrade or downgrade anytime?",
     answer:
-      "Yes! You can change your plan at any time. When upgrading, you'll get immediate access to the new features. When downgrading, the change takes effect at the end of your billing cycle.",
+      "Yes! Change your plan anytime. Upgrades take effect immediately, downgrades at the end of your billing cycle.",
   },
   {
     question: "Do unused credits roll over?",
     answer:
-      "Monthly subscription credits reset each billing cycle. However, any bonus credits or credits purchased separately never expire.",
+      "Monthly subscription credits reset each cycle. Purchased credit packs and bonus credits never expire.",
   },
   {
     question: "Is there a free trial?",
     answer:
-      "Yes! All paid plans come with a 14-day free trial. No credit card required to start. You can explore all features before committing.",
+      "Yes! Start with 10 free credits. No credit card required. Paid plans include a 14-day trial.",
   },
   {
     question: "What payment methods do you accept?",
     answer:
-      "We accept all major credit cards (Visa, MasterCard, American Express) and PayPal through our secure payment processor, Stripe.",
-  },
-  {
-    question: "Can I cancel anytime?",
-    answer:
-      "Absolutely. There are no long-term contracts. Cancel anytime from your dashboard and you'll retain access until the end of your billing period.",
+      "We accept all major credit cards through Stripe. Enterprise customers can request invoicing.",
   },
 ];
 
@@ -149,55 +141,45 @@ export default function PricingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-slate-50">
+    <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar />
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative py-20 px-4 overflow-hidden">
-          {/* Background decorations */}
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
-          <div className="absolute top-0 right-1/4 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
-          <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000" />
+        <section className="relative py-16 px-4 overflow-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+          <div className='absolute inset-0 bg-[url(&apos;data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.03"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E&apos;)]' />
 
-          <div className="max-w-5xl mx-auto text-center relative">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-100 text-violet-700 text-sm font-medium mb-6">
-              <Sparkles className="h-4 w-4" />
-              Simple, transparent pricing
-            </div>
-
-            <h1 className="text-5xl md:text-6xl font-extrabold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-violet-900 to-slate-900">
-              Choose Your Plan
+          <div className="max-w-4xl mx-auto text-center relative">
+            <h1 className="text-4xl md:text-5xl font-extrabold mb-4 text-white">
+              Simple, Transparent Pricing
             </h1>
-
-            <p className="text-xl text-slate-600 mb-10 max-w-2xl mx-auto">
-              Start free and scale as you grow. No hidden fees, no surprises.
-              Cancel anytime.
+            <p className="text-lg text-slate-300 mb-8 max-w-xl mx-auto">
+              Start free and scale as you grow. No hidden fees.
             </p>
 
             {/* Billing Toggle */}
-            <div className="inline-flex items-center gap-4 p-1.5 bg-slate-100 rounded-full mb-12">
+            <div className="inline-flex items-center gap-1 p-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/10">
               <button
                 onClick={() => setBillingCycle("monthly")}
-                className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all ${
+                className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
                   billingCycle === "monthly"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white text-slate-900"
+                    : "text-white hover:bg-white/10"
                 }`}
               >
                 Monthly
               </button>
               <button
                 onClick={() => setBillingCycle("yearly")}
-                className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
                   billingCycle === "yearly"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white text-slate-900"
+                    : "text-white hover:bg-white/10"
                 }`}
               >
                 Yearly
-                <span className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  Save 17%
+                <span className="bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  -17%
                 </span>
               </button>
             </div>
@@ -205,9 +187,9 @@ export default function PricingPage() {
         </section>
 
         {/* Pricing Cards */}
-        <section className="px-4 pb-20 -mt-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <section className="px-4 py-16 -mt-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
               {plans.map((plan) => {
                 const Icon = plan.icon;
                 const price =
@@ -222,61 +204,59 @@ export default function PricingPage() {
                 return (
                   <Card
                     key={plan.slug}
-                    className={`relative overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ${
+                    className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-white ${
                       plan.popular
-                        ? "border-2 border-violet-500 shadow-xl shadow-violet-500/10"
+                        ? "border-2 border-blue-500 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500/20"
                         : "border border-slate-200"
                     }`}
                   >
                     {plan.popular && (
                       <div className="absolute top-0 right-0">
-                        <div className="bg-gradient-to-r from-violet-500 to-purple-600 text-white text-xs font-bold px-4 py-1 rounded-bl-lg">
-                          MOST POPULAR
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
+                          POPULAR
                         </div>
                       </div>
                     )}
 
                     <CardHeader className="pb-4">
                       <div
-                        className={`w-12 h-12 rounded-xl bg-gradient-to-br ${plan.gradient} flex items-center justify-center mb-4`}
+                        className={`w-11 h-11 rounded-xl bg-gradient-to-br ${plan.gradient} flex items-center justify-center mb-3`}
                       >
-                        <Icon className="h-6 w-6 text-white" />
+                        <Icon className="h-5 w-5 text-white" />
                       </div>
 
-                      <h3 className="text-xl font-bold text-slate-900">
+                      <h3 className="text-lg font-bold text-slate-900">
                         {plan.name}
                       </h3>
                       <p className="text-sm text-slate-500">
                         {plan.description}
                       </p>
 
-                      <div className="mt-4">
+                      <div className="mt-3">
                         <div className="flex items-baseline gap-1">
-                          <span className="text-4xl font-extrabold text-slate-900">
+                          <span className="text-3xl font-extrabold text-slate-900">
                             ${perMonth}
                           </span>
-                          <span className="text-slate-500">/month</span>
+                          <span className="text-slate-500 text-sm">/mo</span>
                         </div>
                         {billingCycle === "yearly" && price > 0 && (
-                          <p className="text-sm text-slate-500 mt-1">
+                          <p className="text-xs text-slate-500 mt-0.5">
                             ${price} billed yearly
                           </p>
                         )}
                       </div>
 
-                      <div className="mt-4 p-3 bg-slate-50 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-slate-600">
-                            AI Credits
-                          </span>
-                          <span className="text-lg font-bold text-slate-900">
-                            {plan.credits.toLocaleString()}/mo
+                      <div className="mt-3 py-2 px-3 bg-slate-50 rounded-lg">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-600">AI Credits</span>
+                          <span className="font-bold text-slate-900">
+                            {plan.credits}/mo
                           </span>
                         </div>
                       </div>
                     </CardHeader>
 
-                    <CardContent>
+                    <CardContent className="pt-0">
                       <Link
                         href={
                           plan.slug === "enterprise"
@@ -285,9 +265,9 @@ export default function PricingPage() {
                         }
                       >
                         <Button
-                          className={`w-full mb-6 ${
+                          className={`w-full mb-4 ${
                             plan.popular
-                              ? "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
+                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                               : ""
                           }`}
                           variant={plan.popular ? "default" : "outline"}
@@ -297,10 +277,10 @@ export default function PricingPage() {
                         </Button>
                       </Link>
 
-                      <ul className="space-y-3">
+                      <ul className="space-y-2">
                         {plan.features.map((feature, i) => (
-                          <li key={i} className="flex items-start gap-3">
-                            <Check className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+                          <li key={i} className="flex items-start gap-2">
+                            <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
                             <span className="text-sm text-slate-600">
                               {feature}
                             </span>
@@ -309,9 +289,9 @@ export default function PricingPage() {
                         {plan.limitations.map((limitation, i) => (
                           <li
                             key={i}
-                            className="flex items-start gap-3 text-slate-400"
+                            className="flex items-start gap-2 text-slate-400"
                           >
-                            <Check className="h-5 w-5 shrink-0 mt-0.5 opacity-50" />
+                            <Check className="h-4 w-4 shrink-0 mt-0.5 opacity-50" />
                             <span className="text-sm">{limitation}</span>
                           </li>
                         ))}
@@ -324,93 +304,88 @@ export default function PricingPage() {
           </div>
         </section>
 
-        {/* Credit Packs Section */}
-        <section className="py-20 px-4 bg-slate-900 text-white">
-          <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+        {/* Credit Packs - Simplified */}
+        <section className="py-16 px-4 bg-slate-900">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-10">
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
                 Need More Credits?
               </h2>
-              <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-                Running a big campaign? Purchase additional credits anytime.
-                Bonus credits never expire!
+              <p className="text-slate-400">
+                Purchase additional credits anytime. Bonus credits never expire.
               </p>
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {creditPackages.map((pkg, i) => (
-                <Card
+                <div
                   key={i}
-                  className="bg-slate-800 border-slate-700 hover:border-violet-500/50 transition-all"
+                  className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-blue-500/50 transition-all group"
                 >
-                  <CardContent className="pt-6">
-                    <h3 className="text-lg font-semibold text-white mb-2">
-                      {pkg.name}
-                    </h3>
-                    <div className="flex items-baseline gap-2 mb-4">
-                      <span className="text-3xl font-bold text-white">
-                        {pkg.credits}
-                      </span>
-                      <span className="text-slate-400">credits</span>
+                  <div className="text-sm text-slate-400 mb-1">{pkg.name}</div>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-2xl font-bold text-white">
+                      {pkg.credits}
+                    </span>
+                    <span className="text-slate-400 text-sm">credits</span>
+                  </div>
+                  {pkg.bonus > 0 && (
+                    <div className="text-emerald-400 text-xs mb-3">
+                      +{pkg.bonus} bonus
                     </div>
-                    {pkg.bonus > 0 && (
-                      <div className="bg-emerald-500/20 text-emerald-400 text-sm px-3 py-1 rounded-full inline-block mb-4">
-                        +{pkg.bonus} bonus credits
-                      </div>
-                    )}
-                    <div className="text-2xl font-bold text-white mb-4">
-                      ${pkg.price}
-                    </div>
-                    <Button
-                      variant="secondary"
-                      className="w-full bg-slate-700 hover:bg-slate-600 text-white"
-                    >
-                      Buy Now
-                    </Button>
-                  </CardContent>
-                </Card>
+                  )}
+                  <div className="text-xl font-bold text-white mb-3">
+                    ${pkg.price}
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full bg-slate-700 hover:bg-slate-600 text-white"
+                  >
+                    Buy Now
+                  </Button>
+                </div>
               ))}
             </div>
           </div>
         </section>
 
         {/* FAQ Section */}
-        <section className="py-20 px-4">
-          <div className="max-w-3xl mx-auto">
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-medium mb-4">
+        <section className="py-16 px-4 bg-white">
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center mb-10">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-sm font-medium mb-3">
                 <HelpCircle className="h-4 w-4" />
-                FAQs
+                FAQ
               </div>
-              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-                Frequently Asked Questions
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
+                Common Questions
               </h2>
-              <p className="text-lg text-slate-600">
-                Everything you need to know about FlowPost pricing
-              </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {faqs.map((faq, i) => (
                 <div
                   key={i}
-                  className="border border-slate-200 rounded-xl overflow-hidden"
+                  className="border border-slate-200 rounded-lg overflow-hidden"
                 >
                   <button
                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                    className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors"
+                    className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors"
                   >
-                    <span className="font-medium text-slate-900">
+                    <span className="font-medium text-slate-900 text-sm">
                       {faq.question}
                     </span>
                     <ChevronDown
-                      className={`h-5 w-5 text-slate-500 transition-transform ${
+                      className={`h-4 w-4 text-slate-500 transition-transform ${
                         openFaq === i ? "rotate-180" : ""
                       }`}
                     />
                   </button>
                   {openFaq === i && (
-                    <div className="px-6 pb-4 text-slate-600">{faq.answer}</div>
+                    <div className="px-5 pb-4 text-sm text-slate-600">
+                      {faq.answer}
+                    </div>
                   )}
                 </div>
               ))}
@@ -419,40 +394,28 @@ export default function PricingPage() {
         </section>
 
         {/* CTA Section */}
-        <section className="py-20 px-4 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 text-white">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Ready to Automate Your Social Media?
+        <section className="py-16 px-4 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-3xl font-bold text-white mb-4">
+              Ready to Get Started?
             </h2>
-            <p className="text-xl mb-10 opacity-90">
+            <p className="text-slate-300 mb-8">
               Start with 10 free credits. No credit card required.
             </p>
-            <div className="flex justify-center gap-4 flex-wrap">
-              <Link href="/sign-up">
-                <Button
-                  size="lg"
-                  className="text-lg px-10 h-14 bg-white text-violet-700 hover:bg-slate-100"
-                >
-                  Start Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="/contact">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="text-lg px-10 h-14 border-2 border-white/30 text-white hover:bg-white/10"
-                >
-                  Talk to Sales
-                </Button>
-              </Link>
-            </div>
+            <Link href="/sign-up">
+              <Button
+                size="lg"
+                className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-8"
+              >
+                Start Free Trial
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="py-8 px-4 bg-slate-900 text-slate-400 text-center text-sm">
+      <footer className="py-8 px-4 bg-slate-900 text-slate-400 text-center text-sm border-t border-slate-800">
         <p>© 2024 FlowPost. All rights reserved.</p>
       </footer>
     </div>
