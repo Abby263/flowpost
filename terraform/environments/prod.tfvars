@@ -1,7 +1,8 @@
 # Production Environment Configuration
 
 environment  = "prod"
-location     = "eastus"
+# East US is already used by other environments; use a different region to avoid the 1 env/region quota
+location     = "eastus2"
 project_name = "flowpost"
 
 # Backend Configuration (production-grade)

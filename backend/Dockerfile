@@ -21,7 +21,7 @@ COPY tsconfig.json ./
 RUN yarn install --frozen-lockfile
 
 # Install Playwright with dependencies for screenshot capabilities
-RUN npx -y playwright@1.49.1 install --with-deps chromium
+RUN npx -y playwright@1.57.0 install --with-deps chromium
 
 # Build TypeScript
 RUN yarn build

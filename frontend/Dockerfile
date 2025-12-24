@@ -9,6 +9,9 @@ RUN npm install -g pnpm
 
 WORKDIR /app
 
+# Ensure public directory exists even if empty (git doesn't track empty dirs)
+RUN mkdir -p public
+
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 

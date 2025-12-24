@@ -1,7 +1,8 @@
 # UAT Environment Configuration
 
 environment  = "uat"
-location     = "eastus"
+# Use a different region from dev/prod to stay under Azure's 1 env/region limit
+location     = "centralus"
 project_name = "flowpost"
 
 # Backend Configuration (moderate for testing)
