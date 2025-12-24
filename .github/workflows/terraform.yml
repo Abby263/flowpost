@@ -62,6 +62,7 @@ jobs:
           ARM_SUB: ${{ secrets.ARM_SUBSCRIPTION_ID }}
           ARM_TENANT: ${{ secrets.ARM_TENANT_ID }}
           GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
@@ -73,7 +74,10 @@ jobs:
           [ -z "$ARM_SECRET" ] && missing+=("ARM_CLIENT_SECRET")
           [ -z "$ARM_SUB" ] && missing+=("ARM_SUBSCRIPTION_ID")
           [ -z "$ARM_TENANT" ] && missing+=("ARM_TENANT_ID")
-          [ -z "$GEMINI_KEY" ] && missing+=("GEMINI_API_KEY")
+          # Require at least one AI provider key
+          if [ -z "$GEMINI_KEY" ] && [ -z "$OPENAI_KEY" ]; then
+            missing+=("GEMINI_API_KEY or OPENAI_API_KEY")
+          fi
           [ -z "$SUPABASE_URL" ] && missing+=("SUPABASE_URL")
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing+=("SUPABASE_SERVICE_ROLE_KEY")
           [ -z "$CLERK_PUBLISHABLE_KEY" ] && missing+=("CLERK_PUBLISHABLE_KEY")
@@ -129,6 +133,7 @@ jobs:
       - name: Terraform Init
         run: |
           terraform init \
+            -upgrade \
             -backend-config="environments/${{ needs.determine-environment.outputs.environment }}.backend.tfvars"
 
       - name: Terraform Validate
@@ -136,17 +141,23 @@ jobs:
 
       - name: Terraform Plan
         id: plan
+        env:
+          # Use empty string defaults for optional API keys
+          GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LANGCHAIN_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+          SERPER_KEY: ${{ secrets.SERPER_API_KEY }}
         run: |
           terraform plan \
             -var-file="environments/${{ needs.determine-environment.outputs.environment }}.tfvars" \
-            -var="gemini_api_key=${{ secrets.GEMINI_API_KEY }}" \
-            -var="openai_api_key=${{ secrets.OPENAI_API_KEY }}" \
+            -var="gemini_api_key=${GEMINI_KEY:-}" \
+            -var="openai_api_key=${OPENAI_KEY:-}" \
             -var="supabase_url=${{ secrets.SUPABASE_URL }}" \
             -var="supabase_service_role_key=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -var="clerk_publishable_key=${{ secrets.CLERK_PUBLISHABLE_KEY }}" \
             -var="clerk_secret_key=${{ secrets.CLERK_SECRET_KEY }}" \
-            -var="langchain_api_key=${{ secrets.LANGCHAIN_API_KEY }}" \
-            -var="serper_api_key=${{ secrets.SERPER_API_KEY }}" \
+            -var="langchain_api_key=${LANGCHAIN_KEY:-}" \
+            -var="serper_api_key=${SERPER_KEY:-}" \
             -out=tfplan \
             -no-color
         continue-on-error: true
@@ -209,6 +220,7 @@ jobs:
       - name: Terraform Init
         run: |
           terraform init \
+            -upgrade \
             -backend-config="environments/${{ needs.determine-environment.outputs.environment }}.backend.tfvars"
 
       - name: Download Plan
