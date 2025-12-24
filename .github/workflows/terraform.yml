@@ -147,6 +147,9 @@ jobs:
           OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
           LANGCHAIN_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
           SERPER_KEY: ${{ secrets.SERPER_API_KEY }}
+          FIRECRAWL_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          STRIPE_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_KEY: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
         run: |
           terraform plan \
             -var-file="environments/${{ needs.determine-environment.outputs.environment }}.tfvars" \
@@ -159,6 +162,9 @@ jobs:
             -var="clerk_secret_key=${{ secrets.CLERK_SECRET_KEY }}" \
             -var="langchain_api_key=${LANGCHAIN_KEY:-}" \
             -var="serper_api_key=${SERPER_KEY:-}" \
+            -var="firecrawl_api_key=${FIRECRAWL_KEY:-}" \
+            -var="stripe_secret_key=${STRIPE_KEY:-}" \
+            -var="stripe_webhook_secret=${STRIPE_WEBHOOK_KEY:-}" \
             -out=tfplan \
             -no-color
         continue-on-error: true

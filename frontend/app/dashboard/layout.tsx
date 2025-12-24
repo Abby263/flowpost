@@ -16,6 +16,8 @@ import {
   CreditCard,
   Coins,
   Zap,
+  Menu,
+  X,
 } from "lucide-react";
 
 interface CreditsData {
@@ -34,6 +36,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [credits, setCredits] = useState<CreditsData | null>(null);
   const [isLoadingCredits, setIsLoadingCredits] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Fetch user credits
   useEffect(() => {
@@ -53,6 +56,11 @@ export default function DashboardLayout({
 
     fetchCredits();
   }, [pathname]); // Refetch when route changes
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   const navItems = [
     {
@@ -96,7 +104,121 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
       <Navbar />
+
+      {/* Mobile Menu Button */}
+      <div className="md:hidden fixed bottom-4 right-4 z-50">
+        <Button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="h-14 w-14 rounded-full shadow-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+        >
+          {isMobileMenuOpen ? (
+            <X className="h-6 w-6" />
+          ) : (
+            <Menu className="h-6 w-6" />
+          )}
+        </Button>
+      </div>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile Slide-out Menu */}
+      <aside
+        className={`md:hidden fixed inset-y-0 left-0 w-72 bg-white z-50 transform transition-transform duration-300 ease-in-out ${
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        } overflow-y-auto`}
+      >
+        <div className="p-4 space-y-4">
+          {/* Mobile Header */}
+          <div className="flex items-center justify-between pb-4 border-b">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-white" />
+              </div>
+              <span className="font-semibold text-lg">Dashboard</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+
+          {/* Mobile Navigation */}
+          <nav className="space-y-1">
+            {navItems.map((item) => {
+              const isActive =
+                pathname === item.href || pathname.startsWith(item.href + "/");
+              const Icon = item.icon;
+
+              return (
+                <Link key={item.href} href={item.href}>
+                  <Button
+                    variant={isActive ? "default" : "ghost"}
+                    className={`w-full justify-start h-auto py-2.5 px-3 ${
+                      isActive
+                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                        : "hover:bg-slate-100"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 w-full">
+                      <Icon
+                        className={`h-5 w-5 shrink-0 ${isActive ? "" : "text-slate-600"}`}
+                      />
+                      <span className="font-medium text-sm">{item.label}</span>
+                    </div>
+                  </Button>
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Mobile Credits */}
+          <div className="pt-2">
+            <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg p-3 border border-violet-100">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Coins className="h-4 w-4 text-violet-600" />
+                  <span className="text-sm font-semibold text-violet-900">
+                    Credits
+                  </span>
+                </div>
+              </div>
+              {credits ? (
+                <>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-xl font-bold text-violet-900">
+                      {credits.total_credits}
+                    </span>
+                    <span className="text-xs text-violet-600">remaining</span>
+                  </div>
+                  <div className="w-full bg-violet-200 rounded-full h-1.5">
+                    <div
+                      className="bg-gradient-to-r from-violet-500 to-purple-500 h-1.5 rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(100, (credits.total_credits / (credits.total_credits + credits.credits_used_this_month || 1)) * 100)}%`,
+                      }}
+                    ></div>
+                  </div>
+                </>
+              ) : (
+                <div className="animate-pulse h-6 bg-violet-200 rounded w-16"></div>
+              )}
+            </div>
+          </div>
+        </div>
+      </aside>
+
       <div className="flex flex-1">
+        {/* Desktop Sidebar */}
         <aside className="w-72 border-r bg-white/80 backdrop-blur-sm p-6 hidden md:block shadow-sm">
           <div className="space-y-6">
             {/* Brand Section */}
@@ -223,7 +345,9 @@ export default function DashboardLayout({
             </div>
           </div>
         </aside>
-        <main className="flex-1 bg-white overflow-auto">{children}</main>
+        <main className="flex-1 bg-white overflow-auto pb-20 md:pb-0">
+          {children}
+        </main>
       </div>
     </div>
   );

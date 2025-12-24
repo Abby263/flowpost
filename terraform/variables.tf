@@ -151,8 +151,22 @@ variable "serper_api_key" {
   default     = ""
 }
 
+variable "firecrawl_api_key" {
+  description = "FireCrawl API key for web scraping (optional)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "stripe_secret_key" {
   description = "Stripe secret key for payment processing (optional)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "stripe_webhook_secret" {
+  description = "Stripe webhook signing secret for verifying webhook events (optional)"
   type        = string
   sensitive   = true
   default     = ""

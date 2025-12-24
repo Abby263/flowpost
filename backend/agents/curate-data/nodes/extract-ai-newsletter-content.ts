@@ -1,4 +1,3 @@
-import { FireCrawlLoader } from "@langchain/community/document_loaders/web/firecrawl";
 import { CurateDataState } from "../state.js";
 import { extractTweetId, extractUrls, getUrlType, sleep } from "../../utils.js";
 import { RedditPostsWithExternalData } from "../../verify-reddit-post/types.js";
@@ -6,6 +5,10 @@ import { TwitterClient } from "../../../clients/twitter/client.js";
 import { TweetV2 } from "twitter-api-v2";
 import { RedditClient } from "../../../clients/reddit/client.js";
 import { SimpleRedditPostWithComments } from "../../../clients/reddit/types.js";
+import {
+  createFireCrawlLoader,
+  isFireCrawlConfigured,
+} from "../../../utils/firecrawl.js";
 
 function checkTwitterURLExists(url: string, validatedTweets: TweetV2[]) {
   const tweetId = extractTweetId(url);
@@ -31,13 +34,16 @@ export async function extractAINewsletterContent(
   for await (const url of state.aiNewsPosts) {
     let docsText: string;
 
+    if (!isFireCrawlConfigured()) {
+      console.warn(
+        `⚠️  FireCrawl not configured. Skipping AI newsletter from ${url}`,
+      );
+      continue;
+    }
+
     try {
-      const loader = new FireCrawlLoader({
-        url,
-        mode: "scrape",
-        params: {
-          formats: ["markdown"],
-        },
+      const loader = createFireCrawlLoader(url, {
+        formats: ["markdown"],
       });
 
       const docs = await loader.load();

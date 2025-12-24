@@ -189,32 +189,32 @@ export default function ConnectionsPage() {
   };
 
   return (
-    <div className="space-y-8 px-6 py-6 max-w-[1400px]">
+    <div className="space-y-6 sm:space-y-8 px-4 sm:px-6 py-4 sm:py-6 max-w-[1400px]">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
-            <Shield className="h-5 w-5 text-white" />
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2 sm:gap-3">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+            <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
           </div>
           Connections
         </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
+        <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
           Connect your social media accounts to automate content posting
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Add New Connection Form */}
         <Card className="lg:col-span-1 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
               Add New Connection
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-xs sm:text-sm">
               Connect a new social media account
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
             <div className="space-y-2">
               <Label htmlFor="platform" className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
@@ -340,7 +340,10 @@ export default function ConnectionsPage() {
               </>
             )}
 
-            <Button onClick={addConnection} className="w-full">
+            <Button
+              onClick={addConnection}
+              className="w-full h-9 sm:h-10 text-sm"
+            >
               <Plus className="mr-2 h-4 w-4" />
               Connect Account
             </Button>
@@ -348,83 +351,86 @@ export default function ConnectionsPage() {
         </Card>
 
         {/* Your Connections List */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Your Connections</h2>
-            <Badge variant="secondary" className="text-sm">
+            <h2 className="text-lg sm:text-xl font-semibold">
+              Your Connections
+            </h2>
+            <Badge variant="secondary" className="text-xs sm:text-sm">
               {connections.length}{" "}
               {connections.length === 1 ? "account" : "accounts"}
             </Badge>
           </div>
 
           {loading ? (
-            <Card className="p-12">
+            <Card className="p-8 sm:p-12">
               <div className="flex items-center justify-center space-x-3 text-muted-foreground">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                <span>Loading connections...</span>
+                <div className="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-b-2 border-primary"></div>
+                <span className="text-sm">Loading connections...</span>
               </div>
             </Card>
           ) : connections.length === 0 ? (
-            <Card className="p-12 border-2 border-dashed">
+            <Card className="p-8 sm:p-12 border-2 border-dashed">
               <div className="text-center">
-                <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground text-lg mb-2">
+                <Shield className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
+                <p className="text-muted-foreground text-base sm:text-lg mb-2">
                   No connections yet
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Connect your first social media account to get started
                 </p>
               </div>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {connections.map((conn) => (
                 <Card
                   key={conn.id}
                   className="hover:shadow-md transition-shadow"
                 >
-                  <div className="flex items-center p-4 gap-4">
+                  <div className="flex items-center p-3 sm:p-4 gap-3 sm:gap-4">
                     {/* Platform Icon */}
                     <div
-                      className={`w-14 h-14 rounded-xl ${getPlatformColor(conn.platform)} flex items-center justify-center shadow-md shrink-0`}
+                      className={`w-10 h-10 sm:w-14 sm:h-14 rounded-xl ${getPlatformColor(conn.platform)} flex items-center justify-center shadow-md shrink-0`}
                     >
                       <div className="text-white">
                         {conn.platform === "instagram" && (
-                          <Instagram className="h-7 w-7" />
+                          <Instagram className="h-5 w-5 sm:h-7 sm:w-7" />
                         )}
                         {conn.platform === "twitter" && (
-                          <Twitter className="h-7 w-7" />
+                          <Twitter className="h-5 w-5 sm:h-7 sm:w-7" />
                         )}
                         {conn.platform === "linkedin" && (
-                          <Linkedin className="h-7 w-7" />
+                          <Linkedin className="h-5 w-5 sm:h-7 sm:w-7" />
                         )}
                       </div>
                     </div>
 
                     {/* Connection Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold capitalize text-lg">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
+                        <h3 className="font-semibold capitalize text-sm sm:text-lg">
                           {conn.platform}
                         </h3>
                         <Badge
                           variant="outline"
-                          className="bg-green-50 text-green-700 border-green-200"
+                          className="bg-green-50 text-green-700 border-green-200 text-[10px] sm:text-xs px-1.5 sm:px-2"
                         >
-                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                          <CheckCircle2 className="mr-0.5 sm:mr-1 h-2.5 w-2.5 sm:h-3 sm:w-3" />
                           Active
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground truncate">
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">
                         @{conn.profile_name}
                       </p>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                       <Button
                         variant="outline"
                         size="sm"
+                        className="h-8 w-8 sm:h-9 sm:w-auto p-0 sm:px-3"
                         onClick={() =>
                           window.open(
                             `https://${conn.platform}.com/${conn.profile_name}`,
@@ -437,8 +443,8 @@ export default function ConnectionsPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="h-8 w-8 sm:h-9 sm:w-auto p-0 sm:px-3 hover:bg-destructive hover:text-destructive-foreground"
                         onClick={() => deleteConnection(conn.id)}
-                        className="hover:bg-destructive hover:text-destructive-foreground"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

@@ -472,12 +472,12 @@ export default function WorkflowsPage() {
   };
 
   return (
-    <div className="space-y-8 relative px-6 py-4 max-w-[1400px]">
+    <div className="space-y-6 sm:space-y-8 relative px-4 sm:px-6 py-4 max-w-[1400px]">
       {/* Notification Toast */}
       {notification && (
-        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 duration-300">
+        <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-md z-50 animate-in slide-in-from-top-2 duration-300">
           <div
-            className={`flex items-center space-x-3 rounded-lg border-2 px-4 py-3 shadow-lg backdrop-blur-sm ${
+            className={`flex items-center space-x-2 sm:space-x-3 rounded-lg border-2 px-3 sm:px-4 py-2.5 sm:py-3 shadow-lg backdrop-blur-sm ${
               notification.type === "success"
                 ? "bg-green-50 border-green-300 text-green-800"
                 : notification.type === "error"
@@ -486,16 +486,18 @@ export default function WorkflowsPage() {
             }`}
           >
             {notification.type === "success" ? (
-              <CheckCircle2 className="h-5 w-5" />
+              <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
             ) : notification.type === "error" ? (
-              <AlertCircle className="h-5 w-5" />
+              <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
             ) : (
-              <Info className="h-5 w-5" />
+              <Info className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
             )}
-            <span className="font-medium">{notification.message}</span>
+            <span className="font-medium text-xs sm:text-sm flex-1">
+              {notification.message}
+            </span>
             <button
               onClick={() => setNotification(null)}
-              className="ml-4 text-lg font-semibold opacity-70 hover:opacity-100"
+              className="text-lg font-semibold opacity-70 hover:opacity-100 shrink-0"
             >
               ×
             </button>
@@ -503,30 +505,32 @@ export default function WorkflowsPage() {
         </div>
       )}
 
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
-              <Workflow className="h-5 w-5 text-white" />
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+              <Workflow className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
             </div>
             Workflows
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
             Manage and monitor your content automation workflows
           </p>
         </div>
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
           <DialogTrigger asChild>
-            <Button className="shrink-0">
+            <Button className="shrink-0 w-full sm:w-auto h-9 sm:h-10 text-sm">
               <Plus className="mr-2 h-4 w-4" />
               New Workflow
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create New Workflow</DialogTitle>
+              <DialogTitle className="text-base sm:text-lg">
+                Create New Workflow
+              </DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-3 sm:gap-4 py-3 sm:py-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">Name</Label>
                 <Input
@@ -687,21 +691,21 @@ export default function WorkflowsPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center p-12">
+        <div className="flex justify-center p-8 sm:p-12">
           <div className="flex items-center space-x-3 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Loading workflows...</span>
+            <span className="text-sm">Loading workflows...</span>
           </div>
         </div>
       ) : workflows.length === 0 ? (
-        <div className="text-center p-12 border-2 border-dashed rounded-lg bg-muted/10">
-          <Plus className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground text-lg">
+        <div className="text-center p-8 sm:p-12 border-2 border-dashed rounded-lg bg-muted/10">
+          <Plus className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
+          <p className="text-muted-foreground text-base sm:text-lg">
             No workflows found. Create one to get started.
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {workflows.map((workflow) => (
             <WorkflowCard
               key={workflow.id}

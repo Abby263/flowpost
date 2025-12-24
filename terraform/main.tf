@@ -73,7 +73,8 @@ module "backend" {
     var.openai_api_key != "" ? { openai-api-key = var.openai_api_key } : {},
     var.gemini_api_key != "" ? { gemini-api-key = var.gemini_api_key } : {},
     var.langchain_api_key != "" ? { langchain-key = var.langchain_api_key } : {},
-    var.serper_api_key != "" ? { serper-key = var.serper_api_key } : {}
+    var.serper_api_key != "" ? { serper-key = var.serper_api_key } : {},
+    var.firecrawl_api_key != "" ? { firecrawl-key = var.firecrawl_api_key } : {}
   )
 
   secret_environment_variables = merge(
@@ -84,7 +85,8 @@ module "backend" {
     var.openai_api_key != "" ? { OPENAI_API_KEY = "openai-api-key" } : {},
     var.gemini_api_key != "" ? { GEMINI_API_KEY = "gemini-api-key" } : {},
     var.langchain_api_key != "" ? { LANGCHAIN_API_KEY = "langchain-key" } : {},
-    var.serper_api_key != "" ? { SERPER_API_KEY = "serper-key" } : {}
+    var.serper_api_key != "" ? { SERPER_API_KEY = "serper-key" } : {},
+    var.firecrawl_api_key != "" ? { FIRECRAWL_API_KEY = "firecrawl-key" } : {}
   )
 
   health_check_path = "/ok"
@@ -130,7 +132,8 @@ module "frontend" {
       supabase-url  = var.supabase_url
       supabase-key  = var.supabase_service_role_key
     },
-    var.stripe_secret_key != "" ? { stripe-secret = var.stripe_secret_key } : {}
+    var.stripe_secret_key != "" ? { stripe-secret = var.stripe_secret_key } : {},
+    var.stripe_webhook_secret != "" ? { stripe-webhook-secret = var.stripe_webhook_secret } : {}
   )
 
   secret_environment_variables = merge(
@@ -140,7 +143,8 @@ module "frontend" {
       SUPABASE_URL                      = "supabase-url"
       SUPABASE_SERVICE_ROLE_KEY         = "supabase-key"
     },
-    var.stripe_secret_key != "" ? { STRIPE_SECRET_KEY = "stripe-secret" } : {}
+    var.stripe_secret_key != "" ? { STRIPE_SECRET_KEY = "stripe-secret" } : {},
+    var.stripe_webhook_secret != "" ? { STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret" } : {}
   )
 
   health_check_path = "/api/health"

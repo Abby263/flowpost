@@ -99,13 +99,6 @@ const plans = [
   },
 ];
 
-const creditPackages = [
-  { name: "Small", credits: 50, price: 9.99, bonus: 5 },
-  { name: "Growth", credits: 150, price: 24.99, bonus: 15 },
-  { name: "Power", credits: 500, price: 69.99, bonus: 75 },
-  { name: "Enterprise", credits: 2000, price: 199.99, bonus: 500 },
-];
-
 const faqs = [
   {
     question: "What counts as an AI credit?",
@@ -146,12 +139,12 @@ export default function PricingPage() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="py-16 px-4 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+        <section className="py-10 sm:py-16 px-4 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
           <div className="max-w-4xl mx-auto text-center relative">
-            <h1 className="text-4xl md:text-5xl font-extrabold mb-4 text-white">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold mb-3 sm:mb-4 text-white">
               Simple, Transparent Pricing
             </h1>
-            <p className="text-lg text-slate-300 mb-8 max-w-xl mx-auto">
+            <p className="text-sm sm:text-lg text-slate-300 mb-6 sm:mb-8 max-w-xl mx-auto px-2">
               Start free and scale as you grow. No hidden fees.
             </p>
 
@@ -159,7 +152,7 @@ export default function PricingPage() {
             <div className="inline-flex items-center gap-1 p-1 bg-white/10 backdrop-blur-sm rounded-full border border-white/10">
               <button
                 onClick={() => setBillingCycle("monthly")}
-                className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+                className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
                   billingCycle === "monthly"
                     ? "bg-white text-slate-900"
                     : "text-white hover:bg-white/10"
@@ -169,14 +162,14 @@ export default function PricingPage() {
               </button>
               <button
                 onClick={() => setBillingCycle("yearly")}
-                className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center gap-1 sm:gap-2 ${
                   billingCycle === "yearly"
                     ? "bg-white text-slate-900"
                     : "text-white hover:bg-white/10"
                 }`}
               >
                 Yearly
-                <span className="bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full">
+                <span className="bg-emerald-500 text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full">
                   -17%
                 </span>
               </button>
@@ -185,9 +178,9 @@ export default function PricingPage() {
         </section>
 
         {/* Pricing Cards */}
-        <section className="px-4 py-16 -mt-8">
+        <section className="px-3 sm:px-4 py-8 sm:py-16 -mt-4 sm:-mt-8">
           <div className="max-w-6xl mx-auto">
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
               {plans.map((plan) => {
                 const Icon = plan.icon;
                 const price =
@@ -204,48 +197,50 @@ export default function PricingPage() {
                     key={plan.slug}
                     className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-white ${
                       plan.popular
-                        ? "border-2 border-blue-500 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500/20"
+                        ? "border-2 border-blue-500 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500/20 order-first sm:order-none"
                         : "border border-slate-200"
                     }`}
                   >
                     {plan.popular && (
                       <div className="absolute top-0 right-0">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1 rounded-bl-lg">
                           POPULAR
                         </div>
                       </div>
                     )}
 
-                    <CardHeader className="pb-4">
+                    <CardHeader className="pb-3 sm:pb-4 p-4 sm:p-6">
                       <div
-                        className={`w-11 h-11 rounded-xl bg-gradient-to-br ${plan.gradient} flex items-center justify-center mb-3`}
+                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br ${plan.gradient} flex items-center justify-center mb-2 sm:mb-3`}
                       >
-                        <Icon className="h-5 w-5 text-white" />
+                        <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                       </div>
 
-                      <h3 className="text-lg font-bold text-slate-900">
+                      <h3 className="text-base sm:text-lg font-bold text-slate-900">
                         {plan.name}
                       </h3>
-                      <p className="text-sm text-slate-500">
+                      <p className="text-xs sm:text-sm text-slate-500">
                         {plan.description}
                       </p>
 
-                      <div className="mt-3">
+                      <div className="mt-2 sm:mt-3">
                         <div className="flex items-baseline gap-1">
-                          <span className="text-3xl font-extrabold text-slate-900">
+                          <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
                             ${perMonth}
                           </span>
-                          <span className="text-slate-500 text-sm">/mo</span>
+                          <span className="text-slate-500 text-xs sm:text-sm">
+                            /mo
+                          </span>
                         </div>
                         {billingCycle === "yearly" && price > 0 && (
-                          <p className="text-xs text-slate-500 mt-0.5">
+                          <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5">
                             ${price} billed yearly
                           </p>
                         )}
                       </div>
 
-                      <div className="mt-3 py-2 px-3 bg-slate-50 rounded-lg">
-                        <div className="flex items-center justify-between text-sm">
+                      <div className="mt-2 sm:mt-3 py-2 px-2.5 sm:px-3 bg-slate-50 rounded-lg">
+                        <div className="flex items-center justify-between text-xs sm:text-sm">
                           <span className="text-slate-600">AI Credits</span>
                           <span className="font-bold text-slate-900">
                             {plan.credits}/mo
@@ -254,7 +249,7 @@ export default function PricingPage() {
                       </div>
                     </CardHeader>
 
-                    <CardContent className="pt-0">
+                    <CardContent className="pt-0 px-4 pb-4 sm:px-6 sm:pb-6">
                       <Link
                         href={
                           plan.slug === "enterprise"
@@ -263,7 +258,7 @@ export default function PricingPage() {
                         }
                       >
                         <Button
-                          className={`w-full mb-4 ${
+                          className={`w-full mb-3 sm:mb-4 h-9 sm:h-10 text-sm ${
                             plan.popular
                               ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                               : ""
@@ -271,15 +266,18 @@ export default function PricingPage() {
                           variant={plan.popular ? "default" : "outline"}
                         >
                           {plan.cta}
-                          <ArrowRight className="ml-2 h-4 w-4" />
+                          <ArrowRight className="ml-1.5 sm:ml-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </Button>
                       </Link>
 
-                      <ul className="space-y-2">
+                      <ul className="space-y-1.5 sm:space-y-2">
                         {plan.features.map((feature, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-                            <span className="text-sm text-slate-600">
+                          <li
+                            key={i}
+                            className="flex items-start gap-1.5 sm:gap-2"
+                          >
+                            <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-500 shrink-0 mt-0.5" />
+                            <span className="text-xs sm:text-sm text-slate-600">
                               {feature}
                             </span>
                           </li>
@@ -287,10 +285,12 @@ export default function PricingPage() {
                         {plan.limitations.map((limitation, i) => (
                           <li
                             key={i}
-                            className="flex items-start gap-2 text-slate-400"
+                            className="flex items-start gap-1.5 sm:gap-2 text-slate-400"
                           >
-                            <Check className="h-4 w-4 shrink-0 mt-0.5 opacity-50" />
-                            <span className="text-sm">{limitation}</span>
+                            <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 mt-0.5 opacity-50" />
+                            <span className="text-xs sm:text-sm">
+                              {limitation}
+                            </span>
                           </li>
                         ))}
                       </ul>
@@ -302,66 +302,20 @@ export default function PricingPage() {
           </div>
         </section>
 
-        {/* Credit Packs - Simplified */}
-        <section className="py-16 px-4 bg-slate-900">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-10">
-              <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
-                Need More Credits?
-              </h2>
-              <p className="text-slate-400">
-                Purchase additional credits anytime. Bonus credits never expire.
-              </p>
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {creditPackages.map((pkg, i) => (
-                <div
-                  key={i}
-                  className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-blue-500/50 transition-all group"
-                >
-                  <div className="text-sm text-slate-400 mb-1">{pkg.name}</div>
-                  <div className="flex items-baseline gap-1 mb-2">
-                    <span className="text-2xl font-bold text-white">
-                      {pkg.credits}
-                    </span>
-                    <span className="text-slate-400 text-sm">credits</span>
-                  </div>
-                  {pkg.bonus > 0 && (
-                    <div className="text-emerald-400 text-xs mb-3">
-                      +{pkg.bonus} bonus
-                    </div>
-                  )}
-                  <div className="text-xl font-bold text-white mb-3">
-                    ${pkg.price}
-                  </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full bg-slate-700 hover:bg-slate-600 text-white"
-                  >
-                    Buy Now
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* FAQ Section */}
-        <section className="py-16 px-4 bg-white">
+        <section className="py-10 sm:py-16 px-4 bg-white">
           <div className="max-w-2xl mx-auto">
-            <div className="text-center mb-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-sm font-medium mb-3">
-                <HelpCircle className="h-4 w-4" />
+            <div className="text-center mb-6 sm:mb-10">
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs sm:text-sm font-medium mb-2 sm:mb-3">
+                <HelpCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 FAQ
               </div>
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">
                 Common Questions
               </h2>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {faqs.map((faq, i) => (
                 <div
                   key={i}
@@ -369,19 +323,19 @@ export default function PricingPage() {
                 >
                   <button
                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                    className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors"
+                    className="w-full px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors gap-3"
                   >
-                    <span className="font-medium text-slate-900 text-sm">
+                    <span className="font-medium text-slate-900 text-xs sm:text-sm">
                       {faq.question}
                     </span>
                     <ChevronDown
-                      className={`h-4 w-4 text-slate-500 transition-transform ${
+                      className={`h-4 w-4 text-slate-500 transition-transform shrink-0 ${
                         openFaq === i ? "rotate-180" : ""
                       }`}
                     />
                   </button>
                   {openFaq === i && (
-                    <div className="px-5 pb-4 text-sm text-slate-600">
+                    <div className="px-4 sm:px-5 pb-3 sm:pb-4 text-xs sm:text-sm text-slate-600">
                       {faq.answer}
                     </div>
                   )}
@@ -392,28 +346,28 @@ export default function PricingPage() {
         </section>
 
         {/* CTA Section */}
-        <section className="py-16 px-4 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+        <section className="py-10 sm:py-16 px-4 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-3xl font-bold text-white mb-4">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 sm:mb-4">
               Start Growing Today
             </h2>
-            <p className="text-slate-300 mb-8">
+            <p className="text-sm sm:text-base text-slate-300 mb-6 sm:mb-8">
               10 free credits. No card required.
             </p>
             <Link href="/sign-up">
               <Button
                 size="lg"
-                className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-8"
+                className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-6 sm:px-8 h-10 sm:h-11 text-sm sm:text-base"
               >
                 Get Started Free
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <ArrowRight className="ml-1.5 sm:ml-2 h-4 w-4" />
               </Button>
             </Link>
           </div>
         </section>
       </main>
 
-      <footer className="py-8 px-4 bg-slate-900 text-slate-400 text-center text-sm border-t border-slate-800">
+      <footer className="py-6 sm:py-8 px-4 bg-slate-900 text-slate-400 text-center text-xs sm:text-sm border-t border-slate-800">
         <p>© 2025 FlowPost. All rights reserved.</p>
       </footer>
     </div>

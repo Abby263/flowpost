@@ -5,14 +5,17 @@ import {
   extractAllImageUrlsFromMarkdown,
   getUrlType,
 } from "../../../utils.js";
-import { FireCrawlLoader } from "@langchain/community/document_loaders/web/firecrawl";
 import {
   getFullThreadText,
   getMediaUrls,
   resolveAndReplaceTweetTextLinks,
 } from "../../../../clients/twitter/utils.js";
 import { getVideoSummary } from "../../../shared/youtube/video-summary.js";
-import { getImagesFromFireCrawlMetadata } from "../../../../utils/firecrawl.js";
+import {
+  getImagesFromFireCrawlMetadata,
+  createFireCrawlLoader,
+  isFireCrawlConfigured,
+} from "../../../../utils/firecrawl.js";
 
 async function getGeneralContent(url: string): Promise<{
   contents: string;
@@ -28,13 +31,15 @@ async function getGeneralContent(url: string): Promise<{
     );
   }
 
+  if (!isFireCrawlConfigured()) {
+    throw new Error(
+      `FireCrawl API key not configured. Cannot scrape ${url}. Please set FIRECRAWL_API_KEY in your environment.`,
+    );
+  }
+
   try {
-    const loader = new FireCrawlLoader({
-      url,
-      mode: "scrape",
-      params: {
-        formats: ["markdown"],
-      },
+    const loader = createFireCrawlLoader(url, {
+      formats: ["markdown"],
     });
 
     const docs = await loader.load();
