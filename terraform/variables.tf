@@ -8,6 +8,12 @@ variable "environment" {
   }
 }
 
+variable "subscription_id" {
+  description = "Azure subscription ID (used for resource imports)"
+  type        = string
+  default     = ""
+}
+
 variable "location" {
   description = "Azure region for resources"
   type        = string

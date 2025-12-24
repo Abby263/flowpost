@@ -150,6 +150,7 @@ jobs:
         run: |
           terraform plan \
             -var-file="environments/${{ needs.determine-environment.outputs.environment }}.tfvars" \
+            -var="subscription_id=${{ secrets.ARM_SUBSCRIPTION_ID }}" \
             -var="gemini_api_key=${GEMINI_KEY:-}" \
             -var="openai_api_key=${OPENAI_KEY:-}" \
             -var="supabase_url=${{ secrets.SUPABASE_URL }}" \
