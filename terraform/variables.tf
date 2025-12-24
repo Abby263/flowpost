@@ -151,6 +151,13 @@ variable "serper_api_key" {
   default     = ""
 }
 
+variable "perplexity_api_key" {
+  description = "Perplexity API key for AI-powered search (optional)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "firecrawl_api_key" {
   description = "FireCrawl API key for web scraping (optional)"
   type        = string

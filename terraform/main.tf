@@ -134,7 +134,9 @@ module "frontend" {
     },
     var.stripe_secret_key != "" ? { stripe-secret = var.stripe_secret_key } : {},
     var.stripe_webhook_secret != "" ? { stripe-webhook-secret = var.stripe_webhook_secret } : {},
-    var.admin_user_ids != "" ? { admin-user-ids = var.admin_user_ids } : {}
+    var.admin_user_ids != "" ? { admin-user-ids = var.admin_user_ids } : {},
+    var.serper_api_key != "" ? { serper-key = var.serper_api_key } : {},
+    var.perplexity_api_key != "" ? { perplexity-key = var.perplexity_api_key } : {}
   )
 
   secret_environment_variables = merge(
@@ -146,7 +148,9 @@ module "frontend" {
     },
     var.stripe_secret_key != "" ? { STRIPE_SECRET_KEY = "stripe-secret" } : {},
     var.stripe_webhook_secret != "" ? { STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret" } : {},
-    var.admin_user_ids != "" ? { ADMIN_USER_IDS = "admin-user-ids" } : {}
+    var.admin_user_ids != "" ? { ADMIN_USER_IDS = "admin-user-ids" } : {},
+    var.serper_api_key != "" ? { SERPER_API_KEY = "serper-key" } : {},
+    var.perplexity_api_key != "" ? { PERPLEXITY_API_KEY = "perplexity-key" } : {}
   )
 
   health_check_path = "/api/health"
