@@ -12,16 +12,92 @@ FlowPost automates content discovery, image generation with DALL-E 3, and postin
 
 ![FlowPost Landing Page](./docs/landing_page.png)
 
+## 📸 Screenshots
+
+<details>
+<summary><strong>Click to view all screenshots</strong></summary>
+
+### Landing Page
+
+Beautiful marketing page with feature highlights and pricing information.
+
+![Landing Page](./docs/landing_page.png)
+
+### Dashboard - Connections
+
+Manage your social media platform credentials securely.
+
+![Connections](./docs/connections.png)
+
+### Dashboard - Workflows
+
+Create and manage automated content workflows.
+
+![Workflows](./docs/workflows.png)
+
+### Dashboard - Analytics
+
+Track your post performance with detailed analytics.
+
+![Analytics](./docs/analytics.png)
+
+### Dashboard - Content Ideas
+
+Get AI-powered content suggestions based on trending topics.
+
+![Content Ideas](./docs/content_ideas.png)
+
+### Dashboard - Schedule Post
+
+Manually schedule posts with AI-generated content.
+
+![Schedule Post](./docs/schedule_post.png)
+
+### Dashboard - Billing
+
+Manage your subscription, credits, and payment methods.
+
+![Billing](./docs/billing.png)
+
+### Pricing Page
+
+View subscription plans and credit packages.
+
+![Pricing](./docs/pricing.png)
+
+### Admin Dashboard (Admin Only)
+
+Comprehensive analytics for platform administrators.
+
+![Admin Dashboard](./docs/admin_dashboard.png)
+
+**Admin Dashboard Features:**
+
+- 📊 User growth analytics with daily signup charts
+- 💰 Revenue metrics (MRR, ARR, ARPU)
+- 📈 Subscription breakdown by plan
+- 💳 Conversion and churn rate tracking
+- 🔢 Platform-wide usage statistics
+- 💵 Cost tracking for AI APIs
+- 📱 Platform usage breakdown (Instagram, Twitter, LinkedIn)
+- ⚡ Credit usage monitoring
+- 📋 Recent activity feeds
+
+</details>
+
 ## Features
 
 - 🤖 **AI Content Discovery** - Find relevant content using Serper API
 - 🎨 **AI Image Generation** - Create visuals with DALL-E 3 or Gemini
 - 📱 **Multi-Platform Support** - Post to Instagram, Twitter, and LinkedIn
 - ⏰ **Smart Scheduling** - Daily, weekly, or monthly automation
-- 📊 **Analytics Dashboard** - Track post performance
+- 📊 **Analytics Dashboard** - Track post performance and engagement
 - 🔐 **Secure Credentials** - Manage platform credentials via UI
 - 💳 **Credit System** - Pay-as-you-go with subscription plans
 - 💰 **Stripe Integration** - Secure payment processing
+- 💡 **Content Ideas** - AI-powered trending content suggestions
+- 👨‍💼 **Admin Dashboard** - Comprehensive platform analytics for admins
+- 📈 **Cost Tracking** - Monitor AI API costs and profit margins
 
 ## Quick Start
 
@@ -131,6 +207,10 @@ STRIPE_SECRET_KEY=sk_your_key
 STRIPE_WEBHOOK_SECRET=whsec_your_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
+# Optional - Admin Dashboard Access
+ADMIN_USER_IDS=user_xxx,user_yyy
+NEXT_PUBLIC_ADMIN_USER_IDS=user_xxx,user_yyy
+
 # Optional - Platform Credentials (can add via UI instead)
 INSTAGRAM_USERNAME=your_username
 INSTAGRAM_PASSWORD=your_password
@@ -164,7 +244,48 @@ Go to **Dashboard > Workflows** and configure:
 
 - **Manual Run**: Click "Run Now" to test
 - **Automatic**: Scheduled workflows run automatically
-- **View Details**: See run history and analytics
+- **View Analytics**: Track post performance in the Analytics dashboard
+
+### 4. Get Content Ideas
+
+Visit **Dashboard > Content Ideas** to:
+
+- Get AI-generated content suggestions
+- Explore trending topics in your niche
+- One-click scheduling of suggested content
+
+### 5. Schedule Posts Manually
+
+Use **Dashboard > Schedule Post** to:
+
+- Create posts with AI-generated content
+- Add custom images
+- Schedule for optimal posting times
+
+## Admin Dashboard
+
+FlowPost includes a powerful admin dashboard for platform administrators to monitor:
+
+- **User Analytics**: Total users, growth rate, daily signups
+- **Revenue Metrics**: MRR, ARR, ARPU, revenue by plan
+- **Subscription Stats**: Plan distribution, conversion rate, churn rate
+- **Usage Statistics**: Workflows, posts, connections across all users
+- **Cost Tracking**: Monitor AI API costs (OpenAI, Anthropic, etc.)
+- **Platform Breakdown**: Usage by social media platform
+- **Credit Usage**: Platform-wide credit consumption
+- **Recent Activity**: Latest subscriptions, posts, and workflows
+
+### Enabling Admin Access
+
+1. Get your Clerk user ID from the [Clerk Dashboard](https://dashboard.clerk.com)
+2. Add to your environment variables:
+   ```bash
+   ADMIN_USER_IDS=user_xxx,user_yyy
+   NEXT_PUBLIC_ADMIN_USER_IDS=user_xxx,user_yyy
+   ```
+3. Admin link appears in the dashboard sidebar for authorized users
+
+![Admin Dashboard](./docs/admin_dashboard.png)
 
 ## Credit System
 

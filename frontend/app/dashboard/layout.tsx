@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +19,7 @@ import {
   Zap,
   Menu,
   X,
+  ShieldCheck,
 } from "lucide-react";
 
 interface CreditsData {
@@ -61,6 +63,11 @@ export default function DashboardLayout({
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
+
+  // Admin user IDs from environment
+  const adminUserIds = process.env.NEXT_PUBLIC_ADMIN_USER_IDS?.split(",") || [];
+  const { user } = useUser();
+  const isAdmin = user?.id && adminUserIds.includes(user.id);
 
   const navItems = [
     {
@@ -179,6 +186,32 @@ export default function DashboardLayout({
                 </Link>
               );
             })}
+
+            {/* Admin Link - Mobile */}
+            {isAdmin && (
+              <>
+                <div className="my-2 border-t border-slate-200" />
+                <Link href="/admin">
+                  <Button
+                    variant={pathname === "/admin" ? "default" : "ghost"}
+                    className={`w-full justify-start h-auto py-2.5 px-3 ${
+                      pathname === "/admin"
+                        ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                        : "hover:bg-slate-100"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 w-full">
+                      <ShieldCheck
+                        className={`h-5 w-5 shrink-0 ${pathname === "/admin" ? "" : "text-emerald-600"}`}
+                      />
+                      <span className="font-medium text-sm">
+                        Admin Dashboard
+                      </span>
+                    </div>
+                  </Button>
+                </Link>
+              </>
+            )}
           </nav>
 
           {/* Mobile Credits */}
@@ -272,6 +305,40 @@ export default function DashboardLayout({
                   </Link>
                 );
               })}
+
+              {/* Admin Link - Only visible to admins */}
+              {isAdmin && (
+                <>
+                  <div className="my-2 border-t border-slate-200" />
+                  <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    Admin
+                  </p>
+                  <Link href="/admin">
+                    <Button
+                      variant={pathname === "/admin" ? "default" : "ghost"}
+                      className={`w-full justify-start h-auto py-3 px-3 ${
+                        pathname === "/admin"
+                          ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                          : "hover:bg-slate-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 w-full">
+                        <ShieldCheck
+                          className={`h-5 w-5 shrink-0 ${pathname === "/admin" ? "" : "text-emerald-600"}`}
+                        />
+                        <div className="flex flex-col items-start text-left">
+                          <span className="font-medium">Admin Dashboard</span>
+                          <span
+                            className={`text-xs ${pathname === "/admin" ? "text-emerald-100" : "text-muted-foreground"}`}
+                          >
+                            Analytics & users
+                          </span>
+                        </div>
+                      </div>
+                    </Button>
+                  </Link>
+                </>
+              )}
             </nav>
 
             {/* Credits Section */}

@@ -212,6 +212,7 @@ jobs:
 
           docker build \
             --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.CLERK_PUBLISHABLE_KEY }}" \
+            --build-arg NEXT_PUBLIC_ADMIN_USER_IDS="${{ secrets.ADMIN_USER_IDS }}" \
             -t ${ACR_SERVER}/flowpost-frontend:${IMAGE_TAG} \
             -t ${ACR_SERVER}/flowpost-frontend:latest \
             -f frontend/Dockerfile frontend/

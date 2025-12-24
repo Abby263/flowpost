@@ -133,7 +133,8 @@ module "frontend" {
       supabase-key  = var.supabase_service_role_key
     },
     var.stripe_secret_key != "" ? { stripe-secret = var.stripe_secret_key } : {},
-    var.stripe_webhook_secret != "" ? { stripe-webhook-secret = var.stripe_webhook_secret } : {}
+    var.stripe_webhook_secret != "" ? { stripe-webhook-secret = var.stripe_webhook_secret } : {},
+    var.admin_user_ids != "" ? { admin-user-ids = var.admin_user_ids } : {}
   )
 
   secret_environment_variables = merge(
@@ -144,7 +145,8 @@ module "frontend" {
       SUPABASE_SERVICE_ROLE_KEY         = "supabase-key"
     },
     var.stripe_secret_key != "" ? { STRIPE_SECRET_KEY = "stripe-secret" } : {},
-    var.stripe_webhook_secret != "" ? { STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret" } : {}
+    var.stripe_webhook_secret != "" ? { STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret" } : {},
+    var.admin_user_ids != "" ? { ADMIN_USER_IDS = "admin-user-ids" } : {}
   )
 
   health_check_path = "/api/health"

@@ -172,6 +172,13 @@ variable "stripe_webhook_secret" {
   default     = ""
 }
 
+variable "admin_user_ids" {
+  description = "Comma-separated list of Clerk user IDs with admin access"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # Tags
 variable "tags" {
   description = "Tags to apply to all resources"
