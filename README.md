@@ -1,5 +1,11 @@
 # FlowPost
 
+[![CI](https://github.com/Abby263/flowpost/actions/workflows/ci.yml/badge.svg)](https://github.com/Abby263/flowpost/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-Powered-green.svg)](https://github.com/langchain-ai/langgraph)
+
 **AI-Powered Social Media Automation Platform**
 
 FlowPost automates content discovery, image generation with DALL-E 3, and posting to Instagram, Twitter, and LinkedIn. Create custom workflows to maintain a consistent social media presence.
@@ -32,8 +38,8 @@ FlowPost automates content discovery, image generation with DALL-E 3, and postin
 
 ```bash
 # Clone and install
-git clone https://github.com/langchain-ai/social-media-agent.git
-cd social-media-agent
+git clone https://github.com/Abby263/flowpost.git
+cd flowpost
 yarn install
 
 # Install frontend dependencies (requires pnpm)
