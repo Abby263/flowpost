@@ -428,15 +428,15 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-              <TrendingUp className="h-6 w-6 text-white" />
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+              <TrendingUp className="h-5 w-5 text-white" />
             </div>
             Analytics
           </h1>
-          <p className="text-muted-foreground mt-2">
-            Track performance, engagement, and insights across all your social
-            media posts. Select a connection and click Refresh to load data.
+          <p className="text-muted-foreground mt-1 text-sm">
+            Track performance and engagement. Select a connection and click
+            Refresh to load data.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

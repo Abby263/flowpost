@@ -16,7 +16,14 @@ import {
 import { WorkflowCard } from "@/components/workflow-card";
 import { EditWorkflowModal } from "@/components/edit-workflow-modal";
 import { Switch } from "@/components/ui/switch";
-import { Plus, AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react";
+import {
+  Plus,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  Loader2,
+  Workflow,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -498,9 +505,14 @@ export default function WorkflowsPage() {
 
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">Workflows</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage and monitor your content automation workflows.
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+              <Workflow className="h-5 w-5 text-white" />
+            </div>
+            Workflows
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Manage and monitor your content automation workflows
           </p>
         </div>
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>

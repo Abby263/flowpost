@@ -18,21 +18,16 @@ import {
   Linkedin,
   Clock,
   TrendingUp,
-  Users,
 } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col">
       <Navbar />
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative py-20 lg:py-28 px-4 overflow-hidden">
-          {/* Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 -z-10" />
-          <div className='absolute inset-0 bg-[url(&apos;data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.03"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E&apos;)] -z-10' />
-
+        <section className="relative py-20 lg:py-28 px-4 overflow-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
           <div className="max-w-6xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               {/* Left: Text Content */}
@@ -170,7 +165,7 @@ export default function Home() {
         </section>
 
         {/* Stats Section */}
-        <section className="py-12 px-4 bg-white border-y">
+        <section className="py-12 px-4 bg-white border-b">
           <div className="max-w-5xl mx-auto">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               <div className="text-center">
@@ -202,10 +197,10 @@ export default function Home() {
         </section>
 
         {/* How It Works Section */}
-        <section id="how-it-works" className="py-20 px-4 bg-white">
+        <section id="how-it-works" className="py-20 px-4 bg-slate-50">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-700 text-sm font-medium mb-4">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-medium mb-4">
                 <Workflow className="h-4 w-4" />
                 Simple 3-Step Process
               </div>
@@ -224,9 +219,9 @@ export default function Home() {
                 <div className="absolute -top-4 left-0 w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">
                   1
                 </div>
-                <Card className="pt-8 h-full border-2 hover:border-blue-200 hover:shadow-lg transition-all">
+                <Card className="pt-8 h-full border-2 hover:border-blue-200 hover:shadow-lg transition-all bg-white">
                   <CardContent>
-                    <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center mb-5">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center mb-5">
                       <Workflow className="h-7 w-7 text-blue-600" />
                     </div>
                     <h3 className="text-xl font-bold mb-3 text-slate-900">
@@ -246,9 +241,9 @@ export default function Home() {
                 <div className="absolute -top-4 left-0 w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">
                   2
                 </div>
-                <Card className="pt-8 h-full border-2 hover:border-indigo-200 hover:shadow-lg transition-all">
+                <Card className="pt-8 h-full border-2 hover:border-indigo-200 hover:shadow-lg transition-all bg-white">
                   <CardContent>
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center mb-5">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center mb-5">
                       <Sparkles className="h-7 w-7 text-indigo-600" />
                     </div>
                     <h3 className="text-xl font-bold mb-3 text-slate-900">
@@ -268,9 +263,9 @@ export default function Home() {
                 <div className="absolute -top-4 left-0 w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">
                   3
                 </div>
-                <Card className="pt-8 h-full border-2 hover:border-emerald-200 hover:shadow-lg transition-all">
+                <Card className="pt-8 h-full border-2 hover:border-emerald-200 hover:shadow-lg transition-all bg-white">
                   <CardContent>
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mb-5">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center mb-5">
                       <Zap className="h-7 w-7 text-emerald-600" />
                     </div>
                     <h3 className="text-xl font-bold mb-3 text-slate-900">
@@ -289,13 +284,10 @@ export default function Home() {
         </section>
 
         {/* Features Section */}
-        <section
-          id="features"
-          className="py-20 px-4 bg-gradient-to-b from-slate-50 to-white"
-        >
+        <section id="features" className="py-20 px-4 bg-white">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 text-indigo-700 text-sm font-medium mb-4">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium mb-4">
                 <Zap className="h-4 w-4" />
                 Powerful Features
               </div>
@@ -309,9 +301,9 @@ export default function Home() {
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="hover:shadow-lg transition-all border-2 hover:border-blue-100 group">
+              <Card className="hover:shadow-lg transition-all border-2 hover:border-blue-100 group bg-white">
                 <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <Globe className="h-6 w-6 text-blue-600" />
                   </div>
                   <h3 className="text-lg font-bold mb-2 text-slate-900">
@@ -324,9 +316,9 @@ export default function Home() {
                 </CardContent>
               </Card>
 
-              <Card className="hover:shadow-lg transition-all border-2 hover:border-indigo-100 group">
+              <Card className="hover:shadow-lg transition-all border-2 hover:border-indigo-100 group bg-white">
                 <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <TrendingUp className="h-6 w-6 text-indigo-600" />
                   </div>
                   <h3 className="text-lg font-bold mb-2 text-slate-900">
@@ -339,9 +331,9 @@ export default function Home() {
                 </CardContent>
               </Card>
 
-              <Card className="hover:shadow-lg transition-all border-2 hover:border-purple-100 group">
+              <Card className="hover:shadow-lg transition-all border-2 hover:border-purple-100 group bg-white">
                 <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <ImageIcon className="h-6 w-6 text-purple-600" />
                   </div>
                   <h3 className="text-lg font-bold mb-2 text-slate-900">
@@ -354,9 +346,9 @@ export default function Home() {
                 </CardContent>
               </Card>
 
-              <Card className="hover:shadow-lg transition-all border-2 hover:border-emerald-100 group">
+              <Card className="hover:shadow-lg transition-all border-2 hover:border-emerald-100 group bg-white">
                 <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <Calendar className="h-6 w-6 text-emerald-600" />
                   </div>
                   <h3 className="text-lg font-bold mb-2 text-slate-900">
@@ -369,9 +361,9 @@ export default function Home() {
                 </CardContent>
               </Card>
 
-              <Card className="hover:shadow-lg transition-all border-2 hover:border-orange-100 group">
+              <Card className="hover:shadow-lg transition-all border-2 hover:border-orange-100 group bg-white">
                 <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <BarChart3 className="h-6 w-6 text-orange-600" />
                   </div>
                   <h3 className="text-lg font-bold mb-2 text-slate-900">
@@ -384,9 +376,9 @@ export default function Home() {
                 </CardContent>
               </Card>
 
-              <Card className="hover:shadow-lg transition-all border-2 hover:border-pink-100 group">
+              <Card className="hover:shadow-lg transition-all border-2 hover:border-pink-100 group bg-white">
                 <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl bg-pink-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 rounded-xl bg-pink-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <Clock className="h-6 w-6 text-pink-600" />
                   </div>
                   <h3 className="text-lg font-bold mb-2 text-slate-900">

@@ -346,15 +346,14 @@ export default function SchedulePostPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg">
-            <CalendarPlus className="h-6 w-6 text-white" />
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+            <CalendarPlus className="h-5 w-5 text-white" />
           </div>
           Schedule Post
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground mt-1 text-sm">
           Create and schedule posts manually when you already have your content
-          ready.
         </p>
       </div>
 

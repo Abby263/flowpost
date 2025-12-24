@@ -191,9 +191,14 @@ export default function ConnectionsPage() {
   return (
     <div className="space-y-8 px-6 py-6 max-w-[1400px]">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Connections</h1>
-        <p className="text-muted-foreground mt-1">
-          Connect your social media accounts to automate content posting.
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+            <Shield className="h-5 w-5 text-white" />
+          </div>
+          Connections
+        </h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Connect your social media accounts to automate content posting
         </p>
       </div>
 
