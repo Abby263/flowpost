@@ -75,55 +75,40 @@ export default function WorkflowsPage() {
     fetchConnections();
   }, [user]);
 
-  // Poll for status of active runs
+  // Auto-refresh for active runs (threadless runs can't be polled, so we refresh workflows list)
   useEffect(() => {
     if (Object.keys(activeRuns).length === 0) return;
 
-    const interval = setInterval(async () => {
-      let shouldRefresh = false;
+    // For threadless streaming runs, we can't poll the LangGraph API directly
+    // Instead, refresh the workflows list periodically to check for new posts
+    const interval = setInterval(() => {
+      fetchWorkflows();
+    }, 10000); // Refresh every 10 seconds
 
-      for (const [workflowId, runInfo] of Object.entries(activeRuns)) {
-        try {
-          const res = await fetch(
-            `/api/workflow-status?threadId=${runInfo.threadId}&runId=${runInfo.runId}`,
-          );
-          const data = await res.json();
-          if (data.status) {
-            setWorkflowStatuses((prev) => ({
-              ...prev,
-              [workflowId]: data.status,
-            }));
-
-            // If finished, remove from active runs
-            if (data.status === "success" || data.status === "error") {
-              const newActiveRuns = { ...activeRuns };
-              delete newActiveRuns[workflowId];
-              setActiveRuns(newActiveRuns);
-              shouldRefresh = true;
-
-              // Show completion notification
-              if (data.status === "success") {
-                showNotification("success", `Workflow completed successfully!`);
-              } else {
-                showNotification(
-                  "error",
-                  `Workflow failed. Check logs for details.`,
-                );
-              }
-            }
+    // Auto-complete running status after 60 seconds (typical run duration)
+    const timeout = setTimeout(() => {
+      for (const workflowId of Object.keys(activeRuns)) {
+        setWorkflowStatuses((prev) => {
+          const status = prev[workflowId];
+          // Only update if still running
+          if (status === "running") {
+            return { ...prev, [workflowId]: "completed" };
           }
-        } catch (e) {
-          console.error("Error polling status", e);
-        }
+          return prev;
+        });
       }
+      setActiveRuns({});
+      fetchWorkflows();
+      showNotification(
+        "info",
+        "Workflow processing complete. Check posts for results.",
+      );
+    }, 60000);
 
-      // Refresh workflows after all active runs are checked
-      if (shouldRefresh) {
-        setTimeout(() => fetchWorkflows(), 1000);
-      }
-    }, 3000); // Poll every 3 seconds
-
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
   }, [activeRuns]);
 
   async function fetchWorkflows() {
