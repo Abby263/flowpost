@@ -189,6 +189,7 @@ jobs:
             })
 
       - name: Upload Plan
+        if: steps.plan.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: tfplan-${{ needs.determine-environment.outputs.environment }}
@@ -197,7 +198,13 @@ jobs:
 
       - name: Plan Status
         if: steps.plan.outcome == 'failure'
-        run: exit 1
+        run: |
+          echo "::error::Terraform plan failed. Check the plan step output above for details."
+          echo "Plan stdout:"
+          echo "${{ steps.plan.outputs.stdout }}"
+          echo "Plan stderr:"
+          echo "${{ steps.plan.outputs.stderr }}"
+          exit 1
 
   terraform-apply:
     name: Terraform Apply

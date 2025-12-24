@@ -11,6 +11,7 @@ on:
       - uat
     paths-ignore:
       - "terraform/**"
+      - ".github/workflows/terraform.yml"
       - "docs/**"
       - "*.md"
   workflow_dispatch:
