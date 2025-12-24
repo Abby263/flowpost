@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -140,18 +138,15 @@ const serviceTypeIcons: Record<string, any> = {
 };
 
 export default function AdminDashboard() {
-  const { user, isLoaded } = useUser();
-  const router = useRouter();
+  // Server-side auth already verified in layout.tsx - user is guaranteed to be admin
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (isLoaded) {
-      fetchStats();
-    }
-  }, [isLoaded]);
+    fetchStats();
+  }, []);
 
   const fetchStats = async () => {
     try {
@@ -179,7 +174,7 @@ export default function AdminDashboard() {
     }
   };
 
-  if (!isLoaded || isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center">
@@ -196,13 +191,15 @@ export default function AdminDashboard() {
         <Card className="bg-slate-900 border-red-500/30 max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <ShieldAlert className="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
+            <h2 className="text-xl font-bold text-white mb-2">
+              Error Loading Data
+            </h2>
             <p className="text-slate-400 mb-6">{error}</p>
             <Button
-              onClick={() => router.push("/dashboard")}
+              onClick={fetchStats}
               className="bg-slate-800 hover:bg-slate-700"
             >
-              Return to Dashboard
+              Retry
             </Button>
           </CardContent>
         </Card>

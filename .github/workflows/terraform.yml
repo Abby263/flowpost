@@ -150,6 +150,7 @@ jobs:
           FIRECRAWL_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
           STRIPE_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_KEY: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          ADMIN_IDS: ${{ secrets.ADMIN_USER_IDS }}
         run: |
           terraform plan \
             -var-file="environments/${{ needs.determine-environment.outputs.environment }}.tfvars" \
@@ -165,6 +166,7 @@ jobs:
             -var="firecrawl_api_key=${FIRECRAWL_KEY:-}" \
             -var="stripe_secret_key=${STRIPE_KEY:-}" \
             -var="stripe_webhook_secret=${STRIPE_WEBHOOK_KEY:-}" \
+            -var="admin_user_ids=${ADMIN_IDS:-}" \
             -out=tfplan \
             -no-color
         continue-on-error: true
