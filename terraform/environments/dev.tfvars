@@ -1,7 +1,7 @@
 # Development Environment Configuration
 
 environment  = "dev"
-location     = "eastus"
+location     = "eastus2"
 project_name = "flowpost"
 
 # Backend Configuration (smaller for dev)
