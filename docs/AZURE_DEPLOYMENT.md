@@ -299,12 +299,23 @@ Example:
 | Secret                      | Value                        | How to Get                                                  |
 | --------------------------- | ---------------------------- | ----------------------------------------------------------- |
 | `OPENAI_API_KEY`            | OpenAI API key               | [platform.openai.com](https://platform.openai.com/api-keys) |
+| `GEMINI_API_KEY`            | Google Gemini API key        | [Google AI Studio](https://aistudio.google.com/apikey)      |
 | `SUPABASE_URL`              | Supabase project URL         | Supabase Dashboard → Settings → API                         |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key    | Supabase Dashboard → Settings → API                         |
 | `CLERK_PUBLISHABLE_KEY`     | Clerk publishable key        | [Clerk Dashboard](https://dashboard.clerk.com) → API Keys   |
 | `CLERK_SECRET_KEY`          | Clerk secret key             | [Clerk Dashboard](https://dashboard.clerk.com) → API Keys   |
 | `LANGCHAIN_API_KEY`         | LangChain API key (optional) | [smith.langchain.com](https://smith.langchain.com)          |
 | `SERPER_API_KEY`            | Serper API key (optional)    | [serper.dev](https://serper.dev)                            |
+
+### Stripe Payment Secrets (Required for Subscriptions & Credits)
+
+| Secret                  | Value                         | How to Get                                                                                  |
+| ----------------------- | ----------------------------- | ------------------------------------------------------------------------------------------- |
+| `STRIPE_SECRET_KEY`     | Stripe secret key             | [Stripe Dashboard](https://dashboard.stripe.com/apikeys) → Secret key                       |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | See [Stripe Webhook Setup](#stripe-webhook-setup) below                                     |
+| `NEXT_PUBLIC_APP_URL`   | Your frontend application URL | Your Azure Container App URL (e.g., `https://flowpost-prod-frontend.azurecontainerapps.io`) |
+
+> **Note**: Use `sk_test_...` keys for dev/uat environments and `sk_live_...` for production.
 
 ### E2E Test Secrets (Required for Integration Tests workflow)
 
@@ -314,6 +325,102 @@ Example:
 | `CLERK_SECRET_KEY`      | Clerk secret key      | Use test key (`sk_test_...`) for CI |
 
 > **Note**: The E2E tests require valid Clerk credentials. If not configured, the Integration Tests workflow will be skipped.
+
+## Stripe Webhook Setup
+
+Stripe webhooks are required for the subscription and credits system to work properly. They notify your app when payments succeed, subscriptions change, etc.
+
+### Step 1: Get Your Frontend URL
+
+After deploying to Azure, get your frontend URL:
+
+```bash
+# Get the frontend URL
+az containerapp show \
+  --name flowpost-prod-frontend \
+  --resource-group flowpost-prod-rg \
+  --query "properties.configuration.ingress.fqdn" \
+  -o tsv
+```
+
+This will output something like: `flowpost-prod-frontend.azurecontainerapps.io`
+
+Your `NEXT_PUBLIC_APP_URL` will be: `https://flowpost-prod-frontend.azurecontainerapps.io`
+
+### Step 2: Create Stripe Webhook Endpoint
+
+1. Go to [Stripe Dashboard → Webhooks](https://dashboard.stripe.com/webhooks)
+2. Click **"Add endpoint"**
+3. Enter your webhook URL:
+   ```
+   https://flowpost-prod-frontend.azurecontainerapps.io/api/stripe/webhooks
+   ```
+4. Select these events to listen to:
+   - `checkout.session.completed` - When a checkout is successful
+   - `customer.subscription.created` - When a new subscription starts
+   - `customer.subscription.updated` - When a subscription changes
+   - `customer.subscription.deleted` - When a subscription is canceled
+   - `invoice.payment_succeeded` - When a payment succeeds (for credit reset)
+   - `invoice.payment_failed` - When a payment fails
+5. Click **"Add endpoint"**
+
+### Step 3: Get the Webhook Signing Secret
+
+1. After creating the endpoint, click on it in the webhooks list
+2. Under **"Signing secret"**, click **"Reveal"**
+3. Copy the `whsec_...` value
+4. This is your `STRIPE_WEBHOOK_SECRET`
+
+### Step 4: Add Secrets to Azure Container App
+
+```bash
+# Add Stripe secrets to the frontend container app
+az containerapp secret set \
+  --name flowpost-prod-frontend \
+  --resource-group flowpost-prod-rg \
+  --secrets \
+    stripe-secret-key="sk_live_xxx" \
+    stripe-webhook-secret="whsec_xxx"
+
+# Update environment variables
+az containerapp update \
+  --name flowpost-prod-frontend \
+  --resource-group flowpost-prod-rg \
+  --set-env-vars \
+    STRIPE_SECRET_KEY=secretref:stripe-secret-key \
+    STRIPE_WEBHOOK_SECRET=secretref:stripe-webhook-secret \
+    NEXT_PUBLIC_APP_URL=https://flowpost-prod-frontend.azurecontainerapps.io
+```
+
+### Local Development with Stripe Webhooks
+
+For local testing, use the Stripe CLI to forward webhooks:
+
+```bash
+# Install Stripe CLI
+brew install stripe/stripe-cli/stripe
+
+# Login to Stripe
+stripe login
+
+# Forward webhooks to your local server
+stripe listen --forward-to localhost:3000/api/stripe/webhooks
+
+# Output:
+# > Ready! Your webhook signing secret is whsec_xxxxxxxxxxxxx
+# Use this whsec_... value as STRIPE_WEBHOOK_SECRET in your local .env
+```
+
+### Webhook Events Summary
+
+| Event                           | Purpose                                                       |
+| ------------------------------- | ------------------------------------------------------------- |
+| `checkout.session.completed`    | Process successful checkout (subscription or credit purchase) |
+| `customer.subscription.created` | Set up new subscription                                       |
+| `customer.subscription.updated` | Handle plan changes                                           |
+| `customer.subscription.deleted` | Downgrade to free plan                                        |
+| `invoice.payment_succeeded`     | Reset monthly credits                                         |
+| `invoice.payment_failed`        | Mark subscription as past_due                                 |
 
 ## CI/CD Pipeline
 
@@ -522,6 +629,9 @@ terraform destroy -var-file="environments/dev.tfvars" -var="..."
 - [ ] Service principal has minimum required permissions
 - [ ] Secrets stored in GitHub Secrets, not in code
 - [ ] Production uses `pk_live_` and `sk_live_` Clerk keys
+- [ ] Production uses `sk_live_` Stripe keys (not test keys)
+- [ ] Stripe webhook endpoint uses HTTPS
+- [ ] Stripe webhook signature verification enabled
 - [ ] HTTPS enforced on all ingress
 - [ ] Log Analytics enabled for audit trail
 - [ ] Regular secret rotation schedule

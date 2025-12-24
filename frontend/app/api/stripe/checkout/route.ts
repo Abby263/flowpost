@@ -5,9 +5,7 @@ import Stripe from "stripe";
 
 // Initialize Stripe (will be undefined if not configured)
 const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2024-11-20.acacia",
-    })
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
 
 export async function POST(request: Request) {
