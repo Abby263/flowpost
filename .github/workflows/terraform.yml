@@ -61,7 +61,7 @@ jobs:
           ARM_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
           ARM_SUB: ${{ secrets.ARM_SUBSCRIPTION_ID }}
           ARM_TENANT: ${{ secrets.ARM_TENANT_ID }}
-          OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
@@ -73,7 +73,7 @@ jobs:
           [ -z "$ARM_SECRET" ] && missing+=("ARM_CLIENT_SECRET")
           [ -z "$ARM_SUB" ] && missing+=("ARM_SUBSCRIPTION_ID")
           [ -z "$ARM_TENANT" ] && missing+=("ARM_TENANT_ID")
-          [ -z "$OPENAI_KEY" ] && missing+=("OPENAI_API_KEY")
+          [ -z "$GEMINI_KEY" ] && missing+=("GEMINI_API_KEY")
           [ -z "$SUPABASE_URL" ] && missing+=("SUPABASE_URL")
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing+=("SUPABASE_SERVICE_ROLE_KEY")
           [ -z "$CLERK_PUBLISHABLE_KEY" ] && missing+=("CLERK_PUBLISHABLE_KEY")
@@ -139,6 +139,7 @@ jobs:
         run: |
           terraform plan \
             -var-file="environments/${{ needs.determine-environment.outputs.environment }}.tfvars" \
+            -var="gemini_api_key=${{ secrets.GEMINI_API_KEY }}" \
             -var="openai_api_key=${{ secrets.OPENAI_API_KEY }}" \
             -var="supabase_url=${{ secrets.SUPABASE_URL }}" \
             -var="supabase_service_role_key=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \

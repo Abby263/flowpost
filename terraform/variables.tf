@@ -71,9 +71,40 @@ variable "frontend_max_replicas" {
 
 # Secrets - passed via environment variables or tfvars
 variable "openai_api_key" {
-  description = "OpenAI API key"
+  description = "OpenAI API key (optional if using Gemini)"
   type        = string
   sensitive   = true
+  default     = ""
+}
+
+variable "gemini_api_key" {
+  description = "Gemini API key"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "ai_provider" {
+  description = "AI provider to use: openai or gemini"
+  type        = string
+  default     = "gemini"
+
+  validation {
+    condition     = contains(["openai", "gemini"], var.ai_provider)
+    error_message = "AI provider must be one of: openai, gemini"
+  }
+}
+
+variable "llm_model" {
+  description = "LLM model to use (e.g., gpt-4o, gemini-2.5-flash)"
+  type        = string
+  default     = "gemini-2.5-flash"
+}
+
+variable "image_model" {
+  description = "Image generation model (e.g., dall-e-3, gemini-2.5-flash-image)"
+  type        = string
+  default     = "gemini-2.5-flash-image"
 }
 
 variable "supabase_url" {

@@ -136,7 +136,21 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Check if ACR exists
+        id: check-acr
+        run: |
+          ACR_NAME="${{ needs.determine-environment.outputs.acr_name }}"
+          if az acr show --name "$ACR_NAME" --query "name" -o tsv 2>/dev/null; then
+            echo "ACR $ACR_NAME exists"
+            echo "acr_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "::error::ACR $ACR_NAME does not exist. Please ensure Terraform has been applied first."
+            echo "acr_exists=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
       - name: Login to ACR
+        if: steps.check-acr.outputs.acr_exists == 'true'
         run: |
           az acr login --name ${{ needs.determine-environment.outputs.acr_name }}
 
@@ -171,7 +185,21 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Check if ACR exists
+        id: check-acr
+        run: |
+          ACR_NAME="${{ needs.determine-environment.outputs.acr_name }}"
+          if az acr show --name "$ACR_NAME" --query "name" -o tsv 2>/dev/null; then
+            echo "ACR $ACR_NAME exists"
+            echo "acr_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "::error::ACR $ACR_NAME does not exist. Please ensure Terraform has been applied first."
+            echo "acr_exists=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
       - name: Login to ACR
+        if: steps.check-acr.outputs.acr_exists == 'true'
         run: |
           az acr login --name ${{ needs.determine-environment.outputs.acr_name }}
 

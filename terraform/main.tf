@@ -57,27 +57,32 @@ module "backend" {
   max_replicas = var.backend_max_replicas
 
   environment_variables = {
-    NODE_ENV = var.environment == "prod" ? "production" : "development"
-    HOST     = "0.0.0.0"
-    PORT     = "54367"
+    NODE_ENV    = var.environment == "prod" ? "production" : "development"
+    HOST        = "0.0.0.0"
+    PORT        = "54367"
+    AI_PROVIDER = var.ai_provider
+    LLM_MODEL   = var.llm_model
+    IMAGE_MODEL = var.image_model
   }
 
   secrets = merge(
     {
-      openai-api-key = var.openai_api_key
-      supabase-url   = var.supabase_url
-      supabase-key   = var.supabase_service_role_key
+      supabase-url = var.supabase_url
+      supabase-key = var.supabase_service_role_key
     },
+    var.openai_api_key != "" ? { openai-api-key = var.openai_api_key } : {},
+    var.gemini_api_key != "" ? { gemini-api-key = var.gemini_api_key } : {},
     var.langchain_api_key != "" ? { langchain-key = var.langchain_api_key } : {},
     var.serper_api_key != "" ? { serper-key = var.serper_api_key } : {}
   )
 
   secret_environment_variables = merge(
     {
-      OPENAI_API_KEY            = "openai-api-key"
       SUPABASE_URL              = "supabase-url"
       SUPABASE_SERVICE_ROLE_KEY = "supabase-key"
     },
+    var.openai_api_key != "" ? { OPENAI_API_KEY = "openai-api-key" } : {},
+    var.gemini_api_key != "" ? { GEMINI_API_KEY = "gemini-api-key" } : {},
     var.langchain_api_key != "" ? { LANGCHAIN_API_KEY = "langchain-key" } : {},
     var.serper_api_key != "" ? { SERPER_API_KEY = "serper-key" } : {}
   )

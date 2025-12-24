@@ -10,6 +10,10 @@ terraform {
       source  = "Azure/azapi"
       version = "~> 1.12"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.10"
+    }
   }
 
   backend "azurerm" {
