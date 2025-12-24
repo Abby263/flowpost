@@ -290,7 +290,7 @@ export default function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/sign-up" className="hover:text-white">
+                  <Link href="/pricing" className="hover:text-white">
                     Pricing
                   </Link>
                 </li>

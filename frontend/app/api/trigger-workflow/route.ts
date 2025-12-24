@@ -5,9 +5,12 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 // Timeout for workflow runs (10 minutes)
 const WORKFLOW_TIMEOUT_MS = 10 * 60 * 1000;
 
+// Credits required per workflow run
+const CREDITS_PER_RUN = 1;
+
 export async function POST(request: Request) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     const { workflowId } = await request.json();
 
     if (!userId) {
@@ -21,6 +24,59 @@ export async function POST(request: Request) {
         { error: "Workflow ID is required" },
         { status: 400 },
       );
+    }
+
+    // 0. Check user credits before proceeding
+    const { data: credits, error: creditsError } = await supabaseAdmin
+      .from("user_credits")
+      .select("credits_balance, bonus_credits")
+      .eq("user_id", userId)
+      .single();
+
+    // If no credits record, initialize user with free plan
+    if (!credits || creditsError) {
+      // Try to initialize credits
+      try {
+        await supabaseAdmin.rpc("initialize_user_credits", {
+          p_user_id: userId,
+          p_plan_slug: "free",
+        });
+      } catch {
+        // Manual fallback
+        const { data: plan } = await supabaseAdmin
+          .from("plans")
+          .select("id, credits_per_month")
+          .eq("slug", "free")
+          .single();
+
+        await supabaseAdmin.from("user_credits").upsert({
+          user_id: userId,
+          credits_balance: plan?.credits_per_month || 10,
+          credits_used_this_month: 0,
+          bonus_credits: 0,
+        });
+
+        await supabaseAdmin.from("user_subscriptions").upsert({
+          user_id: userId,
+          plan_id: plan?.id,
+          status: "active",
+        });
+      }
+    } else {
+      const totalCredits =
+        (credits.credits_balance || 0) + (credits.bonus_credits || 0);
+
+      if (totalCredits < CREDITS_PER_RUN) {
+        return NextResponse.json(
+          {
+            error: "Insufficient credits",
+            message: `You need at least ${CREDITS_PER_RUN} credit to run a workflow. You have ${totalCredits} credits remaining.`,
+            credits_remaining: totalCredits,
+            credits_required: CREDITS_PER_RUN,
+          },
+          { status: 402 }, // Payment Required
+        );
+      }
     }
 
     // 1. Fetch workflow and check ownership
@@ -233,13 +289,37 @@ export async function POST(request: Request) {
       })
       .eq("id", workflowId);
 
-    console.log(`Workflow ${workflowId} started with run ID: ${runId}`);
+    // 9. Deduct credits for the workflow run
+    const { data: deductResult } = await supabaseAdmin.rpc("deduct_credits", {
+      p_user_id: userId,
+      p_amount: CREDITS_PER_RUN,
+      p_reference_type: "workflow",
+      p_reference_id: workflowId,
+      p_description: `Workflow run: ${workflow.name || workflowId}`,
+    });
+
+    // Get updated credits balance
+    const { data: updatedCredits } = await supabaseAdmin
+      .from("user_credits")
+      .select("credits_balance, bonus_credits")
+      .eq("user_id", userId)
+      .single();
+
+    const remainingCredits =
+      (updatedCredits?.credits_balance || 0) +
+      (updatedCredits?.bonus_credits || 0);
+
+    console.log(
+      `Workflow ${workflowId} started with run ID: ${runId}. Credits deducted: ${CREDITS_PER_RUN}. Remaining: ${remainingCredits}`,
+    );
 
     return NextResponse.json({
       success: true,
       runId: runId || "started",
       workflowId: workflowId,
       message: "Workflow started successfully",
+      credits_used: CREDITS_PER_RUN,
+      credits_remaining: remainingCredits,
     });
   } catch (error: any) {
     console.error("Trigger Error:", error);

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,8 +13,18 @@ import {
   TrendingUp,
   Lightbulb,
   CalendarPlus,
-  History,
+  CreditCard,
+  Coins,
+  Zap,
 } from "lucide-react";
+
+interface CreditsData {
+  credits_balance: number;
+  bonus_credits: number;
+  total_credits: number;
+  credits_used_this_month: number;
+  next_reset_at: string;
+}
 
 export default function DashboardLayout({
   children,
@@ -21,6 +32,27 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [credits, setCredits] = useState<CreditsData | null>(null);
+  const [isLoadingCredits, setIsLoadingCredits] = useState(true);
+
+  // Fetch user credits
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        const response = await fetch("/api/credits");
+        if (response.ok) {
+          const data = await response.json();
+          setCredits(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch credits:", error);
+      } finally {
+        setIsLoadingCredits(false);
+      }
+    };
+
+    fetchCredits();
+  }, [pathname]); // Refetch when route changes
 
   const navItems = [
     {
@@ -52,6 +84,12 @@ export default function DashboardLayout({
       label: "Schedule Post",
       icon: CalendarPlus,
       description: "Manual scheduling",
+    },
+    {
+      href: "/dashboard/billing",
+      label: "Billing",
+      icon: CreditCard,
+      description: "Plans & credits",
     },
   ];
 
@@ -114,8 +152,62 @@ export default function DashboardLayout({
               })}
             </nav>
 
-            {/* Stats/Info Section */}
+            {/* Credits Section */}
             <div className="px-3 pt-4 border-t">
+              <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg p-4 border border-violet-100">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Coins className="h-4 w-4 text-violet-600" />
+                    <span className="text-sm font-semibold text-violet-900">
+                      AI Credits
+                    </span>
+                  </div>
+                  <Link href="/dashboard/billing">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-violet-600 hover:text-violet-700 hover:bg-violet-100"
+                    >
+                      <Zap className="h-3 w-3 mr-1" />
+                      Get More
+                    </Button>
+                  </Link>
+                </div>
+                {isLoadingCredits ? (
+                  <div className="animate-pulse">
+                    <div className="h-8 bg-violet-200 rounded w-20 mb-2"></div>
+                    <div className="h-2 bg-violet-200 rounded w-full"></div>
+                  </div>
+                ) : credits ? (
+                  <>
+                    <div className="flex items-baseline gap-1 mb-2">
+                      <span className="text-2xl font-bold text-violet-900">
+                        {credits.total_credits}
+                      </span>
+                      <span className="text-xs text-violet-600">remaining</span>
+                    </div>
+                    <div className="w-full bg-violet-200 rounded-full h-2 mb-2">
+                      <div
+                        className="bg-gradient-to-r from-violet-500 to-purple-500 h-2 rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(100, (credits.total_credits / (credits.total_credits + credits.credits_used_this_month || 1)) * 100)}%`,
+                        }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-violet-600">
+                      {credits.credits_used_this_month} used this month
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-violet-600">
+                    Unable to load credits
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Pro Tip Section */}
+            <div className="px-3 pt-3">
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="h-4 w-4 text-blue-600" />

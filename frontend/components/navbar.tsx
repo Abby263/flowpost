@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LayoutDashboard } from "lucide-react";
+import { Sparkles, LayoutDashboard, Coins } from "lucide-react";
 
 export function Navbar() {
   const { isSignedIn } = useUser();
@@ -12,6 +12,7 @@ export function Navbar() {
 
   // Check if we're on the landing page (not in dashboard)
   const isLandingPage = pathname === "/" || pathname === "";
+  const isPricingPage = pathname === "/pricing";
 
   return (
     <nav className="border-b bg-white/95 backdrop-blur-md shadow-sm sticky top-0 z-50">
@@ -26,12 +27,40 @@ export function Navbar() {
           </span>
         </Link>
 
+        {/* Center Navigation Links */}
+        {(isLandingPage || isPricingPage) && (
+          <div className="hidden md:flex items-center gap-6">
+            <Link
+              href="/#features"
+              className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              Features
+            </Link>
+            <Link
+              href="/#how-it-works"
+              className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              How It Works
+            </Link>
+            <Link
+              href="/pricing"
+              className={`text-sm font-medium transition-colors ${
+                isPricingPage
+                  ? "text-violet-600"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Pricing
+            </Link>
+          </div>
+        )}
+
         {/* Navigation Items */}
         <div className="flex items-center gap-3">
           {isSignedIn ? (
             <>
               {/* On landing page, show simple Dashboard link. On dashboard pages, no need to show links since sidebar handles it */}
-              {isLandingPage && (
+              {(isLandingPage || isPricingPage) && (
                 <Link href="/dashboard/workflows">
                   <Button
                     variant="default"
@@ -42,7 +71,11 @@ export function Navbar() {
                   </Button>
                 </Link>
               )}
-              <div className={isLandingPage ? "ml-2 pl-2 border-l" : ""}>
+              <div
+                className={
+                  isLandingPage || isPricingPage ? "ml-2 pl-2 border-l" : ""
+                }
+              >
                 <UserButton afterSignOutUrl="/" />
               </div>
             </>
