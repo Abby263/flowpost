@@ -4,10 +4,11 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import Stripe from "stripe";
 
 const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  ? new Stripe(process.env.STRIPE_SECRET_KEY.trim())
   : null;
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+// Trim webhook secret to remove any accidental whitespace/newlines from env vars
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
 
 export async function POST(request: Request) {
   if (!stripe || !webhookSecret) {
