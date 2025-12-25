@@ -268,6 +268,10 @@ export async function POST(request: Request) {
         break;
       }
 
+      case "customer.created":
+        console.log("Customer created");
+        break;
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }

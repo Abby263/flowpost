@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import Stripe from "stripe";
@@ -26,6 +26,16 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { plan_slug, billing_cycle = "monthly", credit_package_id } = body;
 
+    // Determine base URL
+    const origin = request.headers.get("origin");
+    let baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || origin || "https://flowpost.xyz";
+
+    // Remove trailing slash if present
+    if (baseUrl.endsWith("/")) {
+      baseUrl = baseUrl.slice(0, -1);
+    }
+
     // Get or create Stripe customer
     let { data: subscription } = await supabaseAdmin
       .from("user_subscriptions")
@@ -36,8 +46,13 @@ export async function POST(request: Request) {
     let customerId = subscription?.stripe_customer_id;
 
     if (!customerId) {
+      // Get user email
+      const user = await currentUser();
+      const email = user?.emailAddresses[0]?.emailAddress;
+
       // Create Stripe customer
       const customer = await stripe.customers.create({
+        email: email,
         metadata: {
           user_id: userId,
         },
@@ -84,8 +99,8 @@ export async function POST(request: Request) {
           },
         ],
         mode: "payment",
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing?success=true&credits=${creditPackage.credits + creditPackage.bonus_credits}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?canceled=true`,
+        success_url: `${baseUrl}/dashboard/billing?success=true&credits=${creditPackage.credits + creditPackage.bonus_credits}`,
+        cancel_url: `${baseUrl}/pricing?canceled=true`,
         metadata: {
           user_id: userId,
           type: "credit_purchase",
@@ -139,8 +154,8 @@ export async function POST(request: Request) {
           },
         ],
         mode: "subscription",
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing?success=true&plan=${plan_slug}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?canceled=true`,
+        success_url: `${baseUrl}/dashboard/billing?success=true&plan=${plan_slug}`,
+        cancel_url: `${baseUrl}/pricing?canceled=true`,
         metadata: {
           user_id: userId,
           type: "subscription",
@@ -172,8 +187,8 @@ export async function POST(request: Request) {
         },
       ],
       mode: "subscription",
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing?success=true&plan=${plan_slug}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?canceled=true`,
+      success_url: `${baseUrl}/dashboard/billing?success=true&plan=${plan_slug}`,
+      cancel_url: `${baseUrl}/pricing?canceled=true`,
       metadata: {
         user_id: userId,
         type: "subscription",
@@ -194,8 +209,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("Stripe checkout error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
+      { error: `Failed to create checkout session: ${errorMessage}` },
       { status: 500 },
     );
   }
