@@ -8,7 +8,7 @@
 
 **AI-Powered Social Media Automation Platform**
 
-FlowPost automates content discovery, image generation with DALL-E 3, and posting to Instagram, Twitter, and LinkedIn. Create custom workflows to maintain a consistent social media presence.
+FlowPost automates content discovery, image generation with Gemini, and posting to Instagram, Twitter, and LinkedIn. Create custom workflows to maintain a consistent social media presence.
 
 ![FlowPost Landing Page](./docs/landing_page.png)
 
@@ -88,7 +88,7 @@ Comprehensive analytics for platform administrators.
 ## Features
 
 - 🤖 **AI Content Discovery** - Find relevant content using Serper API
-- 🎨 **AI Image Generation** - Create visuals with DALL-E 3 or Gemini
+- 🎨 **AI Image Generation** - Create visuals with Gemini
 - 📱 **Multi-Platform Support** - Post to Instagram, Twitter, and LinkedIn
 - ⏰ **Smart Scheduling** - Daily, weekly, or monthly automation
 - 📊 **Analytics Dashboard** - Track post performance and engagement
@@ -105,7 +105,7 @@ Comprehensive analytics for platform administrators.
 
 - **Node.js 20+** - Required for LangGraph
 - **pnpm** - For web UI dependencies (`npm install -g pnpm`)
-- [OpenAI API Key](https://platform.openai.com/) - For AI and image generation
+- [OpenAI API Key](https://platform.openai.com/) - For AI text generation
 - [Serper API Key](https://serper.dev/) - For content discovery
 - [Supabase Account](https://supabase.com/) - For database (free tier available)
 - [Clerk Account](https://clerk.com/) - For authentication (free tier available)
@@ -200,7 +200,7 @@ LANGSMITH_TRACING_V2=true
 # Optional - Model Configuration
 AI_PROVIDER=openai  # or 'gemini'
 LLM_MODEL=gpt-4o
-IMAGE_MODEL=dall-e-3
+IMAGE_MODEL=gemini-2.0-flash-exp
 
 # Optional - Stripe (for payments)
 STRIPE_SECRET_KEY=sk_your_key
@@ -401,8 +401,8 @@ For detailed documentation:
 
 **"Image generation failed"**
 
-- Check OpenAI API key has DALL-E access
-- Verify sufficient API credits
+- Check Gemini API key configuration
+- Verify sufficient API quota
 
 **Frontend dependency install fails**
 

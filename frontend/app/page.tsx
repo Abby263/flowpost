@@ -325,7 +325,7 @@ export default function Home() {
                     <ImageIcon className="h-6 w-6 text-purple-600" />
                   </div>
                   <h3 className="text-lg font-bold mb-2 text-slate-900">
-                    DALL-E 3 Images
+                    Gemini Generated Images
                   </h3>
                   <p className="text-slate-600 text-sm">
                     Stunning AI visuals that match your brand.
