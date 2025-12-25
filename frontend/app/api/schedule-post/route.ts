@@ -254,7 +254,10 @@ export async function POST(request: Request) {
           const run = await langGraphClient.runs.create(
             thread.thread_id,
             "upload_post",
-            { input: uploadInput },
+            {
+              input: uploadInput,
+              multitaskStrategy: "rollback", // Allow new runs to interrupt stuck/previous runs
+            },
           );
 
           // Wait for the run to complete (with timeout)
@@ -357,7 +360,11 @@ export async function POST(request: Request) {
             .update({ status: "failed" })
             .eq("id", post.id);
 
-          throw new Error(`Failed to publish: ${uploadError.message}`);
+          // Avoid duplicating "Failed to publish:" in error message
+          const errorMsg = uploadError.message?.startsWith("Failed to publish")
+            ? uploadError.message
+            : `Failed to publish: ${uploadError.message}`;
+          throw new Error(errorMsg);
         }
       } catch (error: any) {
         console.error("Post now error:", error);
