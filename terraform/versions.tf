@@ -6,10 +6,6 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 3.85"
     }
-    azapi = {
-      source  = "Azure/azapi"
-      version = "~> 1.12"
-    }
     time = {
       source  = "hashicorp/time"
       version = "~> 0.10"
@@ -29,5 +25,3 @@ provider "azurerm" {
     }
   }
 }
-
-provider "azapi" {}
