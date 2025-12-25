@@ -250,64 +250,21 @@ export async function POST(request: Request) {
             hasImage: !!imageUrl,
           });
 
-          // Run the upload_post graph and wait for completion
-          const run = await langGraphClient.runs.create(
+          // Run the upload_post graph and wait for completion using runs.wait()
+          // This handles all the polling internally and is more reliable
+          const finalState = await langGraphClient.runs.wait(
             thread.thread_id,
             "upload_post",
             {
               input: uploadInput,
-              multitaskStrategy: "rollback", // Allow new runs to interrupt stuck/previous runs
+              multitaskStrategy: "rollback",
             },
           );
 
-          // Wait for the run to complete (with timeout)
-          let runStatus = run;
-          const maxAttempts = 30; // 30 seconds timeout
-          let attempts = 0;
+          // Check the final state - runs.wait() returns the final run state
+          const runStatus = (finalState as any)?.status || "success";
 
-          while (
-            runStatus.status !== "success" &&
-            runStatus.status !== "error" &&
-            attempts < maxAttempts
-          ) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            runStatus = await langGraphClient.runs.get(
-              thread.thread_id,
-              run.run_id,
-            );
-            attempts++;
-          }
-
-          if (runStatus.status === "success") {
-            // Update post status to published
-            console.log(
-              `[Schedule Post API] Updating post ${post.id} status to published`,
-            );
-            const { error: updateError } = await supabaseAdmin
-              .from("posts")
-              .update({
-                status: "published",
-                posted_at: new Date().toISOString(),
-              })
-              .eq("id", post.id);
-
-            if (updateError) {
-              console.error(
-                `[Schedule Post API] Failed to update post status:`,
-                updateError,
-              );
-            } else {
-              console.log(
-                `[Schedule Post API] Successfully updated post ${post.id} to published`,
-              );
-            }
-
-            return NextResponse.json({
-              success: true,
-              post: { ...post, status: "published" },
-              message: "Post published successfully!",
-            });
-          } else if (runStatus.status === "error") {
+          if (runStatus === "error") {
             // Update post status to failed
             await supabaseAdmin
               .from("posts")
@@ -317,8 +274,8 @@ export async function POST(request: Request) {
             // Try to extract a meaningful error message
             let errorMsg = "Failed to publish post.";
 
-            if ((runStatus as any).error) {
-              const errorStr = String((runStatus as any).error);
+            if ((finalState as any)?.error) {
+              const errorStr = String((finalState as any).error);
               if (errorStr.includes("aspect ratio")) {
                 errorMsg =
                   "Image has incorrect aspect ratio for Instagram. Try regenerating with AI or use a square image (1:1 ratio).";
@@ -337,20 +294,36 @@ export async function POST(request: Request) {
             }
 
             throw new Error(errorMsg);
-          } else {
-            // Timeout - mark as pending
-            await supabaseAdmin
-              .from("posts")
-              .update({ status: "pending" })
-              .eq("id", post.id);
-
-            return NextResponse.json({
-              success: true,
-              post: { ...post, status: "pending" },
-              message:
-                "Post is being processed. Check back shortly for status.",
-            });
           }
+
+          // Success - update post status to published
+          console.log(
+            `[Schedule Post API] Updating post ${post.id} status to published`,
+          );
+          const { error: updateError } = await supabaseAdmin
+            .from("posts")
+            .update({
+              status: "published",
+              posted_at: new Date().toISOString(),
+            })
+            .eq("id", post.id);
+
+          if (updateError) {
+            console.error(
+              `[Schedule Post API] Failed to update post status:`,
+              updateError,
+            );
+          } else {
+            console.log(
+              `[Schedule Post API] Successfully updated post ${post.id} to published`,
+            );
+          }
+
+          return NextResponse.json({
+            success: true,
+            post: { ...post, status: "published" },
+            message: "Post published successfully!",
+          });
         } catch (uploadError: any) {
           console.error("Upload error:", uploadError);
 
