@@ -1,4 +1,5 @@
 import { Arcade } from "@arcadeai/arcadejs";
+import sharp from "sharp";
 import { AuthorizeUserResponse } from "./types.js";
 
 interface LinkedInPost {
@@ -53,6 +54,21 @@ export class LinkedInClient {
   private accessToken: string;
   private personUrn: string | undefined;
   private organizationId: string | undefined;
+
+  /**
+   * LinkedIn optimal image dimensions:
+   * - Landscape (recommended): 1200x627 (1.91:1)
+   * - Square: 1200x1200 (1:1)
+   * - Portrait: 1200x1500 (4:5)
+   *
+   * Maximum file size: 8MB for images
+   * Recommended format: JPEG or PNG
+   */
+  private static readonly LINKEDIN_DIMENSIONS = {
+    LANDSCAPE: { width: 1200, height: 627 }, // 1.91:1 - Best for feed
+    SQUARE: { width: 1200, height: 1200 }, // 1:1
+    PORTRAIT: { width: 1200, height: 1500 }, // 4:5
+  };
 
   constructor(input?: {
     accessToken: string | undefined;
@@ -123,6 +139,72 @@ export class LinkedInClient {
     return response.json();
   }
 
+  /**
+   * Process image to ensure optimal quality and dimensions for LinkedIn
+   * - Resizes to optimal dimensions (1200px width standard)
+   * - Maintains aspect ratio
+   * - Uses high-quality JPEG compression
+   */
+  private async processImageForLinkedIn(imageBuffer: Buffer): Promise<Buffer> {
+    const image = sharp(imageBuffer);
+    const metadata = await image.metadata();
+
+    if (!metadata.width || !metadata.height) {
+      throw new Error("Could not read image dimensions");
+    }
+
+    const aspectRatio = metadata.width / metadata.height;
+
+    console.log(
+      `   📐 Original dimensions: ${metadata.width}x${metadata.height} (aspect ratio: ${aspectRatio.toFixed(2)})`,
+    );
+
+    let targetWidth: number;
+    let targetHeight: number;
+
+    // Determine optimal dimensions based on aspect ratio
+    if (aspectRatio >= 0.95 && aspectRatio <= 1.05) {
+      // Close to square
+      targetWidth = LinkedInClient.LINKEDIN_DIMENSIONS.SQUARE.width;
+      targetHeight = LinkedInClient.LINKEDIN_DIMENSIONS.SQUARE.height;
+      console.log(`   🔄 Resizing to optimal square (1200x1200)...`);
+    } else if (aspectRatio < 1) {
+      // Portrait orientation
+      targetWidth = LinkedInClient.LINKEDIN_DIMENSIONS.PORTRAIT.width;
+      targetHeight = LinkedInClient.LINKEDIN_DIMENSIONS.PORTRAIT.height;
+      console.log(`   🔄 Resizing to optimal portrait (1200x1500)...`);
+    } else {
+      // Landscape orientation (default and recommended)
+      targetWidth = LinkedInClient.LINKEDIN_DIMENSIONS.LANDSCAPE.width;
+      targetHeight = LinkedInClient.LINKEDIN_DIMENSIONS.LANDSCAPE.height;
+      console.log(`   🔄 Resizing to optimal landscape (1200x627)...`);
+    }
+
+    // Process with high quality settings
+    const processedBuffer = await sharp(imageBuffer)
+      .resize(targetWidth, targetHeight, {
+        fit: "cover",
+        position: "center",
+        withoutEnlargement: false, // Allow upscaling for small images
+      })
+      // Sharpen slightly to maintain clarity after resize
+      .sharpen({ sigma: 0.5 })
+      // Use high-quality JPEG settings
+      .jpeg({
+        quality: 95, // High quality for crisp images
+        mozjpeg: true, // Use mozjpeg for better compression
+        chromaSubsampling: "4:4:4", // Better color preservation
+      })
+      .toBuffer();
+
+    const finalMetadata = await sharp(processedBuffer).metadata();
+    console.log(
+      `   ✅ Image optimized to ${finalMetadata.width}x${finalMetadata.height} (${(processedBuffer.length / 1024).toFixed(1)}KB)`,
+    );
+
+    return processedBuffer;
+  }
+
   // Create a text-only post
   async createTextPost(
     text: string,
@@ -186,10 +268,15 @@ export class LinkedInClient {
     );
 
     // Step 2: Get the image data from the URL
+    console.log(`📥 Downloading image from: ${imageUrl.substring(0, 50)}...`);
     const imageResponse = await fetch(imageUrl);
-    const imageBuffer = await imageResponse.arrayBuffer();
+    const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
 
-    // Step 3: Upload the image to LinkedIn
+    // Step 3: Process image for optimal LinkedIn quality
+    console.log(`🖼️  Processing image for LinkedIn...`);
+    const processedBuffer = await this.processImageForLinkedIn(imageBuffer);
+
+    // Step 4: Upload the optimized image to LinkedIn
     const uploadUrl =
       registerResponse.value.uploadMechanism[
         "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
@@ -201,13 +288,14 @@ export class LinkedInClient {
         Authorization: `Bearer ${this.accessToken}`,
         "Content-Type": "application/octet-stream",
       },
-      body: imageBuffer,
+      body: processedBuffer,
     });
 
     if (!uploadResponse.ok) {
       throw new Error(`Failed to upload image: ${uploadResponse.statusText}`);
     }
 
+    console.log(`✅ Image uploaded successfully to LinkedIn`);
     return registerResponse.value.asset;
   }
 

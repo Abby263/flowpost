@@ -11,8 +11,25 @@ export class InstagramClient {
   }
 
   /**
-   * Process image to ensure it meets Instagram's aspect ratio requirements
-   * Instagram accepts: 1.91:1 (landscape) to 4:5 (portrait), with 1:1 (square) being safest
+   * Instagram optimal image dimensions:
+   * - Square: 1080x1080 (1:1)
+   * - Portrait: 1080x1350 (4:5)
+   * - Landscape: 1080x566 (1.91:1)
+   *
+   * Maximum file size: 8MB for photos
+   * Recommended format: JPEG with high quality
+   */
+  private static readonly INSTAGRAM_DIMENSIONS = {
+    SQUARE: { width: 1080, height: 1080 }, // 1:1
+    PORTRAIT: { width: 1080, height: 1350 }, // 4:5
+    LANDSCAPE: { width: 1080, height: 566 }, // 1.91:1
+  };
+
+  /**
+   * Process image to ensure it meets Instagram's requirements with optimal quality
+   * - Resizes to optimal dimensions (1080px width standard)
+   * - Maintains aspect ratio within acceptable range
+   * - Uses high-quality JPEG compression
    */
   private async processImageForInstagram(imageBuffer: Buffer): Promise<Buffer> {
     const image = sharp(imageBuffer);
@@ -29,34 +46,62 @@ export class InstagramClient {
     const MAX_RATIO = 1.91; // 1.91:1 landscape
 
     console.log(
-      `   📐 Image dimensions: ${metadata.width}x${metadata.height} (aspect ratio: ${aspectRatio.toFixed(2)})`,
+      `   📐 Original dimensions: ${metadata.width}x${metadata.height} (aspect ratio: ${aspectRatio.toFixed(2)})`,
     );
 
-    // If aspect ratio is within acceptable range, return as-is
+    let targetWidth: number;
+    let targetHeight: number;
+
     if (aspectRatio >= MIN_RATIO && aspectRatio <= MAX_RATIO) {
-      console.log(`   ✅ Aspect ratio is acceptable for Instagram`);
-      return imageBuffer;
+      // Aspect ratio is acceptable - resize to optimal width while maintaining ratio
+      if (aspectRatio >= 0.95 && aspectRatio <= 1.05) {
+        // Close to square - use square dimensions
+        targetWidth = InstagramClient.INSTAGRAM_DIMENSIONS.SQUARE.width;
+        targetHeight = InstagramClient.INSTAGRAM_DIMENSIONS.SQUARE.height;
+        console.log(`   🔄 Resizing to optimal square (1080x1080)...`);
+      } else if (aspectRatio < 1) {
+        // Portrait orientation
+        targetWidth = InstagramClient.INSTAGRAM_DIMENSIONS.PORTRAIT.width;
+        targetHeight = InstagramClient.INSTAGRAM_DIMENSIONS.PORTRAIT.height;
+        console.log(`   🔄 Resizing to optimal portrait (1080x1350)...`);
+      } else {
+        // Landscape orientation
+        targetWidth = InstagramClient.INSTAGRAM_DIMENSIONS.LANDSCAPE.width;
+        targetHeight = InstagramClient.INSTAGRAM_DIMENSIONS.LANDSCAPE.height;
+        console.log(`   🔄 Resizing to optimal landscape (1080x566)...`);
+      }
+    } else {
+      // Aspect ratio outside acceptable range - crop to square (safest option)
+      console.log(
+        `   ⚠️  Aspect ratio ${aspectRatio.toFixed(2)} is outside Instagram's acceptable range`,
+      );
+      console.log(`   🔄 Cropping to optimal square (1080x1080)...`);
+      targetWidth = InstagramClient.INSTAGRAM_DIMENSIONS.SQUARE.width;
+      targetHeight = InstagramClient.INSTAGRAM_DIMENSIONS.SQUARE.height;
     }
 
-    // Otherwise, crop to square (1:1) which is always acceptable
-    console.log(
-      `   ⚠️  Aspect ratio ${aspectRatio.toFixed(2)} is outside Instagram's acceptable range`,
-    );
-    console.log(
-      `   🔄 Cropping to square (1:1) for Instagram compatibility...`,
-    );
-
-    const size = Math.min(metadata.width, metadata.height);
-
-    const processedBuffer = await image
-      .resize(size, size, {
+    // Process with high quality settings for crisp images
+    const processedBuffer = await sharp(imageBuffer)
+      .resize(targetWidth, targetHeight, {
         fit: "cover",
         position: "center",
+        withoutEnlargement: false, // Allow upscaling for small images
       })
-      .jpeg({ quality: 90 })
+      // Sharpen slightly to maintain clarity after resize
+      .sharpen({ sigma: 0.5 })
+      // Use high-quality JPEG settings
+      .jpeg({
+        quality: 95, // High quality for crisp images
+        mozjpeg: true, // Use mozjpeg for better compression
+        chromaSubsampling: "4:4:4", // Better color preservation
+      })
       .toBuffer();
 
-    console.log(`   ✅ Image processed to ${size}x${size} (1:1 square)`);
+    const finalMetadata = await sharp(processedBuffer).metadata();
+    console.log(
+      `   ✅ Image optimized to ${finalMetadata.width}x${finalMetadata.height} (${(processedBuffer.length / 1024).toFixed(1)}KB)`,
+    );
+
     return processedBuffer;
   }
 

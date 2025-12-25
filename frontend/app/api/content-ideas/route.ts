@@ -19,6 +19,7 @@ const USE_GOOGLE_SEARCH_GROUNDING =
 // Configuration
 const MAX_SEARCH_QUERIES = 2; // Limit number of parallel searches
 const RESULTS_PER_QUERY = 5; // Results per search query
+const MAX_TRENDING_RESULTS = 5; // Maximum trending content items to return
 
 // Credits required for generating content ideas
 const CREDITS_PER_GENERATION = 1;
@@ -757,13 +758,16 @@ Return ONLY a JSON array of strings. Example: ["latest AI tools 2024", "SpaceX S
         seenLinks.add(item.link);
         return true;
       });
+
+      // 4. Limit to MAX_TRENDING_RESULTS for better UX
+      const limitedContent = uniqueContent.slice(0, MAX_TRENDING_RESULTS);
       console.log(
-        `[Content Ideas API] Returning ${uniqueContent.length} unique results`,
+        `[Content Ideas API] Returning ${limitedContent.length} results (limited from ${uniqueContent.length} unique)`,
       );
 
       return NextResponse.json({
         success: true,
-        content: uniqueContent,
+        content: limitedContent,
         queries: queriesToRun,
       });
     }
