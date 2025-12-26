@@ -12,7 +12,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS connections (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id TEXT NOT NULL,
-  platform TEXT NOT NULL CHECK (platform IN ('instagram', 'twitter', 'linkedin', 'slack')),
+  platform TEXT NOT NULL CHECK (platform IN ('instagram', 'twitter', 'linkedin', 'slack', 'threads', 'facebook', 'youtube')),
   profile_name TEXT,
   credentials JSONB NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
