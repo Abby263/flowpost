@@ -3,10 +3,10 @@ import { auth } from "@clerk/nextjs/server";
 
 // Instagram API with Instagram Login
 const INSTAGRAM_APP_ID = process.env.INSTAGRAM_CLIENT_ID!;
-const REDIRECT_URI =
-  `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/instagram/callback`
-    .replace(/\/+$/, "")
-    .replace(/\/api/, "/api");
+
+// Clean the base URL by removing trailing slashes
+const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+const REDIRECT_URI = `${BASE_URL}/api/auth/instagram/callback`;
 
 export async function GET(request: NextRequest) {
   const { userId } = auth();
@@ -33,9 +33,6 @@ export async function GET(request: NextRequest) {
     JSON.stringify({ userId, accountType, timestamp: Date.now() }),
   ).toString("base64");
 
-  // Clean redirect URI (remove trailing slashes)
-  const cleanRedirectUri = REDIRECT_URI.replace(/\/+$/, "");
-
   // Scopes for Instagram API with Instagram Login
   // business_basic - Access profile info
   // business_content_publish - Publish content
@@ -49,13 +46,13 @@ export async function GET(request: NextRequest) {
   // This is the standard OAuth 2.0 flow for Instagram
   const authUrl = new URL("https://www.instagram.com/oauth/authorize");
   authUrl.searchParams.append("client_id", INSTAGRAM_APP_ID);
-  authUrl.searchParams.append("redirect_uri", cleanRedirectUri);
+  authUrl.searchParams.append("redirect_uri", REDIRECT_URI);
   authUrl.searchParams.append("response_type", "code");
   authUrl.searchParams.append("scope", scopes);
   authUrl.searchParams.append("state", state);
 
   console.log("Instagram OAuth URL:", authUrl.toString());
-  console.log("Redirect URI:", cleanRedirectUri);
+  console.log("Redirect URI:", REDIRECT_URI);
 
   return NextResponse.json({ authUrl: authUrl.toString() });
 }

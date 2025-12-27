@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
 const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID!;
-const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/linkedin/callback`;
+const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+const REDIRECT_URI = `${BASE_URL}/api/auth/linkedin/callback`;
 
 export async function GET() {
   const { userId } = auth();

@@ -5,7 +5,8 @@ const FACEBOOK_CLIENT_ID =
   process.env.FACEBOOK_CLIENT_ID || process.env.INSTAGRAM_CLIENT_ID!;
 const FACEBOOK_CLIENT_SECRET =
   process.env.FACEBOOK_CLIENT_SECRET || process.env.INSTAGRAM_CLIENT_SECRET!;
-const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/facebook/callback`;
+const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+const REDIRECT_URI = `${BASE_URL}/api/auth/facebook/callback`;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;

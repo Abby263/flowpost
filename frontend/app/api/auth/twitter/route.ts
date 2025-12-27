@@ -3,7 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import crypto from "crypto";
 
 const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID!;
-const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/twitter/callback`;
+const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+const REDIRECT_URI = `${BASE_URL}/api/auth/twitter/callback`;
 
 // Twitter OAuth 2.0 with PKCE
 export async function GET() {

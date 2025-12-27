@@ -3,7 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const THREADS_APP_ID = process.env.INSTAGRAM_CLIENT_ID!;
 const THREADS_APP_SECRET = process.env.INSTAGRAM_CLIENT_SECRET!;
-const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/threads/callback`;
+const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+const REDIRECT_URI = `${BASE_URL}/api/auth/threads/callback`;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;

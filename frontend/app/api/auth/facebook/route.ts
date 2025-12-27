@@ -3,7 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 
 const FACEBOOK_CLIENT_ID =
   process.env.FACEBOOK_CLIENT_ID || process.env.INSTAGRAM_CLIENT_ID!;
-const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/facebook/callback`;
+const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+const REDIRECT_URI = `${BASE_URL}/api/auth/facebook/callback`;
 
 export async function GET() {
   const { userId } = auth();
