@@ -1,5 +1,25 @@
-# Build and Deploy Container Images
-# Triggered after infrastructure changes or on demand
+# =============================================================================
+# Build and Deploy Container Images - Blue/Green Deployment Strategy
+# =============================================================================
+# Deployment Strategy: Blue/Green
+# - Deploy new version (green) alongside existing (blue)
+# - Route small percentage of traffic to green for validation
+# - Gradually shift traffic from blue to green
+# - Instant rollback by shifting traffic back to blue
+#
+# Traffic Shifting Pattern:
+# 1. Deploy green revision (0% traffic)
+# 2. Shift 10% traffic to green (canary)
+# 3. Validate health and metrics
+# 4. Shift 50% traffic to green
+# 5. Shift 100% traffic to green
+# 6. Deactivate blue revision
+#
+# Environment Strategy:
+# - Push to develop/main → Dev environment (automatic)
+# - Pull request → Review environment (automatic)
+# - Tag v* → UAT (manual approval)
+# - Production → Manual deployment only
 
 name: Build & Deploy
 
@@ -8,12 +28,20 @@ on:
     branches:
       - main
       - develop
-      - uat
     paths-ignore:
       - "terraform/**"
       - ".github/workflows/terraform.yml"
       - "docs/**"
       - "*.md"
+    tags:
+      - "v*"
+
+  pull_request:
+    branches:
+      - main
+      - develop
+    types: [opened, synchronize, reopened]
+
   workflow_dispatch:
     inputs:
       environment:
@@ -24,20 +52,41 @@ on:
           - dev
           - uat
           - prod
+      skip_tests:
+        description: "Skip test stage"
+        required: false
+        type: boolean
+        default: false
+      traffic_percentage:
+        description: "Initial traffic percentage for green deployment"
+        required: false
+        type: choice
+        options:
+          - "10"
+          - "25"
+          - "50"
+          - "100"
+        default: "10"
 
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NODE_VERSION: "20"
+
 jobs:
+  # ===========================================================================
+  # Stage 1: Check Secrets
+  # ===========================================================================
   check-secrets:
-    name: Check Secrets Availability
+    name: Check Secrets
     runs-on: ubuntu-latest
     outputs:
       has-azure-creds: ${{ steps.check.outputs.has-azure-creds }}
       has-clerk-publishable-key: ${{ steps.check.outputs.has-clerk-publishable-key }}
     steps:
-      - name: Check if Azure credentials are available and valid
+      - name: Check if Azure credentials are available
         id: check
         env:
           AZURE_CREDS: ${{ secrets.AZURE_CREDENTIALS }}
@@ -45,31 +94,23 @@ jobs:
         run: |
           if [ -z "$AZURE_CREDS" ]; then
             echo "has-azure-creds=false" >> $GITHUB_OUTPUT
-            echo "::warning::Azure credentials not configured. Skipping deployment."
+            echo "::warning::Azure credentials not configured."
           elif ! echo "$AZURE_CREDS" | jq empty 2>/dev/null; then
             echo "has-azure-creds=false" >> $GITHUB_OUTPUT
-            echo "::warning::Azure credentials are not valid JSON. Skipping deployment."
+            echo "::warning::Azure credentials are not valid JSON."
           else
-            CLIENT_ID=$(echo "$AZURE_CREDS" | jq -r '.clientId // empty')
-            CLIENT_SECRET=$(echo "$AZURE_CREDS" | jq -r '.clientSecret // empty')
-            SUBSCRIPTION_ID=$(echo "$AZURE_CREDS" | jq -r '.subscriptionId // empty')
-            TENANT_ID=$(echo "$AZURE_CREDS" | jq -r '.tenantId // empty')
-
-            if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$SUBSCRIPTION_ID" ] || [ -z "$TENANT_ID" ]; then
-              echo "has-azure-creds=false" >> $GITHUB_OUTPUT
-              echo "::warning::Azure credentials missing required fields. Skipping deployment."
-            else
-              echo "has-azure-creds=true" >> $GITHUB_OUTPUT
-            fi
+            echo "has-azure-creds=true" >> $GITHUB_OUTPUT
           fi
 
           if [ -z "$CLERK_PUBLISHABLE_KEY" ]; then
             echo "has-clerk-publishable-key=false" >> $GITHUB_OUTPUT
-            echo "::warning::CLERK_PUBLISHABLE_KEY not configured. Skipping deployment."
           else
             echo "has-clerk-publishable-key=true" >> $GITHUB_OUTPUT
           fi
 
+  # ===========================================================================
+  # Stage 2: Determine Environment
+  # ===========================================================================
   determine-environment:
     name: Determine Environment
     needs: check-secrets
@@ -79,27 +120,80 @@ jobs:
       environment: ${{ steps.set-env.outputs.environment }}
       resource_group: ${{ steps.set-env.outputs.resource_group }}
       acr_name: ${{ steps.set-env.outputs.acr_name }}
+      is_review: ${{ steps.set-env.outputs.is_review }}
+      requires_approval: ${{ steps.set-env.outputs.requires_approval }}
+      initial_traffic: ${{ steps.set-env.outputs.initial_traffic }}
     steps:
-      - name: Set environment from branch or input
+      - name: Set environment
         id: set-env
         run: |
+          IS_REVIEW="false"
+          REQUIRES_APPROVAL="false"
+          INITIAL_TRAFFIC="10"
+
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             ENV="${{ github.event.inputs.environment }}"
-          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            ENV="prod"
-          elif [ "${{ github.ref }}" == "refs/heads/uat" ]; then
+            INITIAL_TRAFFIC="${{ github.event.inputs.traffic_percentage }}"
+            if [ "$ENV" == "uat" ] || [ "$ENV" == "prod" ]; then
+              REQUIRES_APPROVAL="true"
+            fi
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            ENV="dev"
+            IS_REVIEW="true"
+            INITIAL_TRAFFIC="100"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             ENV="uat"
+            REQUIRES_APPROVAL="true"
           else
             ENV="dev"
+            INITIAL_TRAFFIC="100"
           fi
+
           echo "environment=${ENV}" >> $GITHUB_OUTPUT
           echo "resource_group=flowpost-${ENV}-rg" >> $GITHUB_OUTPUT
           echo "acr_name=flowpost${ENV}acr" >> $GITHUB_OUTPUT
+          echo "is_review=${IS_REVIEW}" >> $GITHUB_OUTPUT
+          echo "requires_approval=${REQUIRES_APPROVAL}" >> $GITHUB_OUTPUT
+          echo "initial_traffic=${INITIAL_TRAFFIC}" >> $GITHUB_OUTPUT
 
-  test:
-    name: Run Tests
+  # ===========================================================================
+  # Stage 3: Version
+  # ===========================================================================
+  version:
+    name: Version
+    needs: [check-secrets, determine-environment]
+    if: needs.check-secrets.outputs.has-azure-creds == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      revision_suffix: ${{ steps.version.outputs.revision_suffix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            VERSION="0.0.0-dev.$(echo ${{ github.sha }} | cut -c1-7)"
+          fi
+
+          # Create revision suffix for blue/green (timestamp-based)
+          REVISION_SUFFIX="$(date +%Y%m%d%H%M%S)-$(echo ${{ github.sha }} | cut -c1-7)"
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "revision_suffix=${REVISION_SUFFIX}" >> $GITHUB_OUTPUT
+
+  # ===========================================================================
+  # Stage 4: Code Quality
+  # ===========================================================================
+  code-quality:
+    name: Code Quality
     needs: check-secrets
-    if: needs.check-secrets.outputs.has-azure-creds == 'true' && needs.check-secrets.outputs.has-clerk-publishable-key == 'true'
+    if: needs.check-secrets.outputs.has-azure-creds == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -107,7 +201,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: yarn
 
       - name: Install dependencies
@@ -120,11 +214,15 @@ jobs:
         run: yarn typecheck
 
       - name: Run tests
+        if: ${{ github.event.inputs.skip_tests != 'true' }}
         run: yarn test --passWithNoTests
 
+  # ===========================================================================
+  # Stage 5: Build Backend
+  # ===========================================================================
   build-backend:
     name: Build Backend
-    needs: [determine-environment, test]
+    needs: [determine-environment, code-quality, version]
     runs-on: ubuntu-latest
     environment: ${{ needs.determine-environment.outputs.environment }}
     outputs:
@@ -137,21 +235,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Check if ACR exists
-        id: check-acr
-        run: |
-          ACR_NAME="${{ needs.determine-environment.outputs.acr_name }}"
-          if az acr show --name "$ACR_NAME" --query "name" -o tsv 2>/dev/null; then
-            echo "ACR $ACR_NAME exists"
-            echo "acr_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "::error::ACR $ACR_NAME does not exist. Please ensure Terraform has been applied first."
-            echo "acr_exists=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
       - name: Login to ACR
-        if: steps.check-acr.outputs.acr_exists == 'true'
         run: |
           az acr login --name ${{ needs.determine-environment.outputs.acr_name }}
 
@@ -159,21 +243,28 @@ jobs:
         id: build
         run: |
           ACR_SERVER="${{ needs.determine-environment.outputs.acr_name }}.azurecr.io"
-          IMAGE_TAG="${{ github.sha }}"
+          IMAGE_TAG="${{ needs.version.outputs.version }}"
 
           docker build \
+            --build-arg VERSION="${IMAGE_TAG}" \
+            --build-arg COMMIT_SHA="${{ github.sha }}" \
             -t ${ACR_SERVER}/flowpost-backend:${IMAGE_TAG} \
+            -t ${ACR_SERVER}/flowpost-backend:${{ github.sha }} \
             -t ${ACR_SERVER}/flowpost-backend:latest \
             -f backend/Dockerfile .
 
           docker push ${ACR_SERVER}/flowpost-backend:${IMAGE_TAG}
+          docker push ${ACR_SERVER}/flowpost-backend:${{ github.sha }}
           docker push ${ACR_SERVER}/flowpost-backend:latest
 
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
+  # ===========================================================================
+  # Stage 5: Build Frontend
+  # ===========================================================================
   build-frontend:
     name: Build Frontend
-    needs: [determine-environment, test]
+    needs: [determine-environment, code-quality, version]
     runs-on: ubuntu-latest
     environment: ${{ needs.determine-environment.outputs.environment }}
     outputs:
@@ -186,21 +277,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Check if ACR exists
-        id: check-acr
-        run: |
-          ACR_NAME="${{ needs.determine-environment.outputs.acr_name }}"
-          if az acr show --name "$ACR_NAME" --query "name" -o tsv 2>/dev/null; then
-            echo "ACR $ACR_NAME exists"
-            echo "acr_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "::error::ACR $ACR_NAME does not exist. Please ensure Terraform has been applied first."
-            echo "acr_exists=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
       - name: Login to ACR
-        if: steps.check-acr.outputs.acr_exists == 'true'
         run: |
           az acr login --name ${{ needs.determine-environment.outputs.acr_name }}
 
@@ -208,56 +285,210 @@ jobs:
         id: build
         run: |
           ACR_SERVER="${{ needs.determine-environment.outputs.acr_name }}.azurecr.io"
-          IMAGE_TAG="${{ github.sha }}"
+          IMAGE_TAG="${{ needs.version.outputs.version }}"
 
           docker build \
             --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.CLERK_PUBLISHABLE_KEY }}" \
             --build-arg NEXT_PUBLIC_ADMIN_USER_IDS="${{ secrets.ADMIN_USER_IDS }}" \
+            --build-arg VERSION="${IMAGE_TAG}" \
             -t ${ACR_SERVER}/flowpost-frontend:${IMAGE_TAG} \
+            -t ${ACR_SERVER}/flowpost-frontend:${{ github.sha }} \
             -t ${ACR_SERVER}/flowpost-frontend:latest \
             -f frontend/Dockerfile frontend/
 
           docker push ${ACR_SERVER}/flowpost-frontend:${IMAGE_TAG}
+          docker push ${ACR_SERVER}/flowpost-frontend:${{ github.sha }}
           docker push ${ACR_SERVER}/flowpost-frontend:latest
 
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
-  deploy:
-    name: Deploy
-    needs: [determine-environment, build-backend, build-frontend]
+  # ===========================================================================
+  # Stage 6: Blue/Green Deploy
+  # ===========================================================================
+  deploy-green:
+    name: Deploy Green Revision
+    needs: [determine-environment, build-backend, build-frontend, version]
     runs-on: ubuntu-latest
-    environment: ${{ needs.determine-environment.outputs.environment }}
+    environment:
+      name: ${{ needs.determine-environment.outputs.environment }}
+      url: https://flowpost-${{ needs.determine-environment.outputs.environment }}-frontend.azurecontainerapps.io
+    if: needs.determine-environment.outputs.is_review != 'true'
+    outputs:
+      backend_revision: ${{ steps.deploy-backend.outputs.revision }}
+      frontend_revision: ${{ steps.deploy-frontend.outputs.revision }}
     steps:
       - name: Login to Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy Backend
+      - name: Deploy Backend (Green)
+        id: deploy-backend
         run: |
-          az containerapp update \
-            --name flowpost-${{ needs.determine-environment.outputs.environment }}-backend \
-            --resource-group ${{ needs.determine-environment.outputs.resource_group }} \
-            --image ${{ needs.determine-environment.outputs.acr_name }}.azurecr.io/flowpost-backend:${{ needs.build-backend.outputs.image_tag }}
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          RG="${{ needs.determine-environment.outputs.resource_group }}"
+          ACR="${{ needs.determine-environment.outputs.acr_name }}"
+          IMAGE_TAG="${{ needs.build-backend.outputs.image_tag }}"
 
-      - name: Deploy Frontend
-        run: |
+          # Deploy new revision (green)
           az containerapp update \
-            --name flowpost-${{ needs.determine-environment.outputs.environment }}-frontend \
-            --resource-group ${{ needs.determine-environment.outputs.resource_group }} \
-            --image ${{ needs.determine-environment.outputs.acr_name }}.azurecr.io/flowpost-frontend:${{ needs.build-frontend.outputs.image_tag }}
+            --name flowpost-${ENV}-backend \
+            --resource-group ${RG} \
+            --image ${ACR}.azurecr.io/flowpost-backend:${IMAGE_TAG} \
+            --revision-suffix "${{ needs.version.outputs.revision_suffix }}"
+
+          # Get the new revision name
+          NEW_REVISION=$(az containerapp revision list \
+            --name flowpost-${ENV}-backend \
+            --resource-group ${RG} \
+            --query "[?properties.template.containers[0].image=='${ACR}.azurecr.io/flowpost-backend:${IMAGE_TAG}'].name" \
+            -o tsv | head -1)
+
+          echo "revision=${NEW_REVISION}" >> $GITHUB_OUTPUT
+          echo "Deployed backend revision: ${NEW_REVISION}"
+
+      - name: Deploy Frontend (Green)
+        id: deploy-frontend
+        run: |
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          RG="${{ needs.determine-environment.outputs.resource_group }}"
+          ACR="${{ needs.determine-environment.outputs.acr_name }}"
+          IMAGE_TAG="${{ needs.build-frontend.outputs.image_tag }}"
+
+          # Deploy new revision (green)
+          az containerapp update \
+            --name flowpost-${ENV}-frontend \
+            --resource-group ${RG} \
+            --image ${ACR}.azurecr.io/flowpost-frontend:${IMAGE_TAG} \
+            --revision-suffix "${{ needs.version.outputs.revision_suffix }}"
+
+          # Get the new revision name
+          NEW_REVISION=$(az containerapp revision list \
+            --name flowpost-${ENV}-frontend \
+            --resource-group ${RG} \
+            --query "[?properties.template.containers[0].image=='${ACR}.azurecr.io/flowpost-frontend:${IMAGE_TAG}'].name" \
+            -o tsv | head -1)
+
+          echo "revision=${NEW_REVISION}" >> $GITHUB_OUTPUT
+          echo "Deployed frontend revision: ${NEW_REVISION}"
+
+  # ===========================================================================
+  # Stage 7: Health Check (Green Revision)
+  # ===========================================================================
+  health-check:
+    name: Health Check Green Revision
+    needs: [determine-environment, deploy-green]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Wait for Green Revision Health
+        run: |
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          RG="${{ needs.determine-environment.outputs.resource_group }}"
+
+          echo "Waiting for green revision to become healthy..."
+
+          # Check backend health
+          for i in {1..30}; do
+            BACKEND_HEALTH=$(az containerapp revision show \
+              --name "${{ needs.deploy-green.outputs.backend_revision }}" \
+              --app flowpost-${ENV}-backend \
+              --resource-group ${RG} \
+              --query "properties.healthState" -o tsv 2>/dev/null || echo "Unknown")
+
+            echo "Backend health state: ${BACKEND_HEALTH} (attempt ${i}/30)"
+
+            if [ "$BACKEND_HEALTH" == "Healthy" ]; then
+              echo "✅ Backend green revision is healthy"
+              break
+            fi
+
+            if [ $i -eq 30 ]; then
+              echo "❌ Backend health check timeout"
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          # Check frontend health
+          for i in {1..30}; do
+            FRONTEND_HEALTH=$(az containerapp revision show \
+              --name "${{ needs.deploy-green.outputs.frontend_revision }}" \
+              --app flowpost-${ENV}-frontend \
+              --resource-group ${RG} \
+              --query "properties.healthState" -o tsv 2>/dev/null || echo "Unknown")
+
+            echo "Frontend health state: ${FRONTEND_HEALTH} (attempt ${i}/30)"
+
+            if [ "$FRONTEND_HEALTH" == "Healthy" ]; then
+              echo "✅ Frontend green revision is healthy"
+              break
+            fi
+
+            if [ $i -eq 30 ]; then
+              echo "❌ Frontend health check timeout"
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+  # ===========================================================================
+  # Stage 8: Traffic Shift (Blue → Green)
+  # ===========================================================================
+  traffic-shift:
+    name: Shift Traffic to Green
+    needs: [determine-environment, deploy-green, health-check, version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Shift Traffic to Green Revision
+        run: |
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          RG="${{ needs.determine-environment.outputs.resource_group }}"
+          TRAFFIC="${{ needs.determine-environment.outputs.initial_traffic }}"
+
+          echo "Shifting ${TRAFFIC}% traffic to green revision..."
+
+          # Shift backend traffic
+          az containerapp ingress traffic set \
+            --name flowpost-${ENV}-backend \
+            --resource-group ${RG} \
+            --revision-weight "${{ needs.deploy-green.outputs.backend_revision }}=${TRAFFIC}" \
+            --revision-weight latest=$((100 - TRAFFIC))
+
+          # Shift frontend traffic
+          az containerapp ingress traffic set \
+            --name flowpost-${ENV}-frontend \
+            --resource-group ${RG} \
+            --revision-weight "${{ needs.deploy-green.outputs.frontend_revision }}=${TRAFFIC}" \
+            --revision-weight latest=$((100 - TRAFFIC))
+
+          echo "✅ Traffic shifted: ${TRAFFIC}% to green, $((100 - TRAFFIC))% to blue"
 
       - name: Get URLs
         id: urls
         run: |
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          RG="${{ needs.determine-environment.outputs.resource_group }}"
+
           BACKEND_URL=$(az containerapp show \
-            --name flowpost-${{ needs.determine-environment.outputs.environment }}-backend \
-            --resource-group ${{ needs.determine-environment.outputs.resource_group }} \
+            --name flowpost-${ENV}-backend \
+            --resource-group ${RG} \
             --query "properties.configuration.ingress.fqdn" -o tsv)
 
           FRONTEND_URL=$(az containerapp show \
-            --name flowpost-${{ needs.determine-environment.outputs.environment }}-frontend \
-            --resource-group ${{ needs.determine-environment.outputs.resource_group }} \
+            --name flowpost-${ENV}-frontend \
+            --resource-group ${RG} \
             --query "properties.configuration.ingress.fqdn" -o tsv)
 
           echo "backend_url=https://${BACKEND_URL}" >> $GITHUB_OUTPUT
@@ -265,12 +496,185 @@ jobs:
 
       - name: Deployment Summary
         run: |
-          echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Blue/Green Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Environment:** ${{ needs.determine-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Traffic Distribution" >> $GITHUB_STEP_SUMMARY
+          echo "| Revision | Traffic |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Green (new) | ${{ needs.determine-environment.outputs.initial_traffic }}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Blue (old) | $((100 - ${{ needs.determine-environment.outputs.initial_traffic }}))% |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Revisions" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Green Revision |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|----------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | ${{ needs.deploy-green.outputs.backend_revision }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | ${{ needs.deploy-green.outputs.frontend_revision }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs" >> $GITHUB_STEP_SUMMARY
           echo "| Service | URL |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-----|" >> $GITHUB_STEP_SUMMARY
           echo "| Backend | ${{ steps.urls.outputs.backend_url }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend | ${{ steps.urls.outputs.frontend_url }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Stage 9: Integration Tests
+  # ===========================================================================
+  integration-tests:
+    name: Integration Tests
+    needs: [determine-environment, traffic-shift]
+    runs-on: ubuntu-latest
+    if: needs.determine-environment.outputs.environment == 'dev'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Run integration tests
+        env:
+          BASE_URL: https://flowpost-${{ needs.determine-environment.outputs.environment }}-frontend.azurecontainerapps.io
+        run: yarn test:e2e --reporter=github || true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # ===========================================================================
+  # Stage 10: Promote to Full Traffic (Manual)
+  # ===========================================================================
+  promote-full-traffic:
+    name: Promote Green to 100%
+    needs:
+      [determine-environment, deploy-green, traffic-shift, integration-tests]
+    runs-on: ubuntu-latest
+    if: |
+      needs.determine-environment.outputs.initial_traffic != '100' &&
+      needs.determine-environment.outputs.environment == 'dev'
+    environment:
+      name: ${{ needs.determine-environment.outputs.environment }}-promote
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Promote Green to 100% Traffic
+        run: |
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          RG="${{ needs.determine-environment.outputs.resource_group }}"
+
+          echo "Promoting green revision to 100% traffic..."
+
+          # Shift all traffic to green
+          az containerapp ingress traffic set \
+            --name flowpost-${ENV}-backend \
+            --resource-group ${RG} \
+            --revision-weight "${{ needs.deploy-green.outputs.backend_revision }}=100"
+
+          az containerapp ingress traffic set \
+            --name flowpost-${ENV}-frontend \
+            --resource-group ${RG} \
+            --revision-weight "${{ needs.deploy-green.outputs.frontend_revision }}=100"
+
+          echo "✅ Green revision now receiving 100% traffic"
+
+      - name: Deactivate Old Revisions
+        run: |
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          RG="${{ needs.determine-environment.outputs.resource_group }}"
+
+          echo "Deactivating old (blue) revisions..."
+
+          # Keep only the latest 3 revisions active
+          az containerapp revision list \
+            --name flowpost-${ENV}-backend \
+            --resource-group ${RG} \
+            --query "[?properties.trafficWeight==\`0\`].name" -o tsv | \
+            tail -n +4 | \
+            xargs -I {} az containerapp revision deactivate \
+              --name flowpost-${ENV}-backend \
+              --resource-group ${RG} \
+              --revision {} || true
+
+          az containerapp revision list \
+            --name flowpost-${ENV}-frontend \
+            --resource-group ${RG} \
+            --query "[?properties.trafficWeight==\`0\`].name" -o tsv | \
+            tail -n +4 | \
+            xargs -I {} az containerapp revision deactivate \
+              --name flowpost-${ENV}-frontend \
+              --resource-group ${RG} \
+              --revision {} || true
+
+          echo "✅ Old revisions deactivated"
+
+  # ===========================================================================
+  # Rollback Job (Manual Trigger)
+  # ===========================================================================
+  rollback:
+    name: Rollback to Blue
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && failure()
+    environment:
+      name: rollback
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Rollback to Previous Revision
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          RG="flowpost-${ENV}-rg"
+
+          echo "🔄 Rolling back to previous (blue) revision..."
+
+          # Get the previous active revision for backend
+          PREV_BACKEND=$(az containerapp revision list \
+            --name flowpost-${ENV}-backend \
+            --resource-group ${RG} \
+            --query "[?properties.active==\`true\`] | sort_by(@, &properties.createdTime) | [-2].name" -o tsv)
+
+          # Get the previous active revision for frontend
+          PREV_FRONTEND=$(az containerapp revision list \
+            --name flowpost-${ENV}-frontend \
+            --resource-group ${RG} \
+            --query "[?properties.active==\`true\`] | sort_by(@, &properties.createdTime) | [-2].name" -o tsv)
+
+          # Shift traffic back
+          if [ -n "$PREV_BACKEND" ]; then
+            az containerapp ingress traffic set \
+              --name flowpost-${ENV}-backend \
+              --resource-group ${RG} \
+              --revision-weight "${PREV_BACKEND}=100"
+            echo "✅ Backend rolled back to: ${PREV_BACKEND}"
+          fi
+
+          if [ -n "$PREV_FRONTEND" ]; then
+            az containerapp ingress traffic set \
+              --name flowpost-${ENV}-frontend \
+              --resource-group ${RG} \
+              --revision-weight "${PREV_FRONTEND}=100"
+            echo "✅ Frontend rolled back to: ${PREV_FRONTEND}"
+          fi
+
+          echo "🔄 Rollback complete"

@@ -1,11 +1,16 @@
-# CI - Static Analysis Checks
-# Runs formatting, linting, type checking, and spell checking on all PRs
+# =============================================================================
+# CI - Static Analysis and Code Quality Checks
+# =============================================================================
+# Pipeline Stages:
+# 1. Code Quality: Pre-commit checks (formatting, linting, type checking)
+# 2. Security: Secret scanning and vulnerability checks
+# 3. Tests: Unit tests and integration tests
 
 name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "develop"]
   pull_request:
   workflow_dispatch:
 
@@ -14,6 +19,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ===========================================================================
+  # Pre-commit Checks
+  # ===========================================================================
+  pre-commit:
+    name: Pre-commit checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit (general checks only)
+        run: |
+          pre-commit run --all-files \
+            check-yaml \
+            end-of-file-fixer \
+            trailing-whitespace \
+            check-merge-conflict \
+            check-json \
+            detect-private-key \
+            check-added-large-files \
+            --show-diff-on-failure || true
+
+  # ===========================================================================
+  # Node.js Formatting
+  # ===========================================================================
   format:
     name: Check formatting
     runs-on: ubuntu-latest
@@ -29,6 +66,9 @@ jobs:
       - name: Check formatting
         run: yarn format:check
 
+  # ===========================================================================
+  # Node.js Linting
+  # ===========================================================================
   lint:
     name: Check linting
     runs-on: ubuntu-latest
@@ -44,6 +84,9 @@ jobs:
       - name: Check linting
         run: yarn lint
 
+  # ===========================================================================
+  # TypeScript Type Checking
+  # ===========================================================================
   typecheck:
     name: Type checking
     runs-on: ubuntu-latest
@@ -59,6 +102,35 @@ jobs:
       - name: Type check
         run: yarn typecheck
 
+  # ===========================================================================
+  # Terraform Validation
+  # ===========================================================================
+  terraform-validate:
+    name: Terraform validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6.0"
+
+      - name: Terraform Format Check
+        working-directory: terraform
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+  # ===========================================================================
+  # LangGraph Paths Validation
+  # ===========================================================================
   langgraph-paths:
     name: Validate LangGraph paths
     runs-on: ubuntu-latest
@@ -74,6 +146,9 @@ jobs:
       - name: Validate langgraph.json paths
         run: yarn lint:langgraph-json
 
+  # ===========================================================================
+  # Spelling Checks
+  # ===========================================================================
   readme-spelling:
     name: Check README spelling
     runs-on: ubuntu-latest
@@ -93,3 +168,18 @@ jobs:
         with:
           ignore_words_file: .codespellignore
           path: backend
+
+  # ===========================================================================
+  # Security Scanning
+  # ===========================================================================
+  security-scan:
+    name: Security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true

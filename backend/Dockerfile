@@ -1,15 +1,41 @@
-# Backend Dockerfile for LangGraph Server
-# Optimized for Azure Container Apps
+# =============================================================================
+# Backend Dockerfile for LangGraph Server (TypeScript/Node.js)
+# =============================================================================
+# Optimized for Azure Container Apps with PostgreSQL support
+#
+# NOTE: This application uses LangGraph.js (TypeScript implementation).
+# PostgreSQL is used by LangGraph for its internal state management.
+# The PostgreSQL connection is injected via the DATABASE_URI environment variable.
+#
+# LangGraph uses PostgreSQL for:
+# - Storing graph execution state
+# - Managing checkpoints and interrupts
+# - Persisting agent memory across sessions
 
-FROM node:20-bookworm-slim AS base
+# =============================================================================
+# Build Stage
+# =============================================================================
+FROM node:20-slim AS base
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    python3 \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Build arguments for versioning
+ARG VERSION=dev
+ARG COMMIT_SHA=unknown
+
+# Set environment variables for build
+ENV VERSION=${VERSION}
+ENV COMMIT_SHA=${COMMIT_SHA}
 
 WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install yarn globally
+RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 
 # Copy package files from root (monorepo structure)
 COPY package.json yarn.lock ./
@@ -17,7 +43,7 @@ COPY backend/ ./backend/
 COPY langgraph.json ./
 COPY tsconfig.json ./
 
-# Install dependencies
+# Install Node.js dependencies
 RUN yarn install --frozen-lockfile
 
 # Install Playwright with dependencies for screenshot capabilities
@@ -26,12 +52,15 @@ RUN npx -y playwright@1.57.0 install --with-deps chromium
 # Build TypeScript
 RUN yarn build
 
-# Production stage
-FROM node:20-bookworm-slim AS production
+# =============================================================================
+# Production Stage
+# =============================================================================
+FROM node:20-slim AS production
 
-# Install runtime dependencies for Playwright and curl for health checks
-RUN apt-get update && apt-get install -y \
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    # Playwright browser dependencies
     libnss3 \
     libnspr4 \
     libatk1.0-0 \
@@ -48,11 +77,13 @@ RUN apt-get update && apt-get install -y \
     libasound2 \
     libpango-1.0-0 \
     libcairo2 \
+    # PostgreSQL client libraries
+    libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy built application
+# Copy built application from base stage
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/dist ./dist
 COPY --from=base /app/backend ./backend
@@ -70,18 +101,31 @@ COPY --from=base /root/.cache/ms-playwright /root/.cache/ms-playwright
 RUN groupadd -r flowpost && useradd -r -g flowpost flowpost
 RUN chown -R flowpost:flowpost /app
 
-# Health check
+# Health check endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:54367/ok || exit 1
 
 # Expose port
 EXPOSE 54367
 
-# Set environment variables
+# =============================================================================
+# Environment Variables
+# =============================================================================
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=54367
 
+# PostgreSQL connection for LangGraph state management
+# DATABASE_URI is injected at runtime from Azure Key Vault
+# Format: postgresql://user:password@host:5432/database?sslmode=require
+# This enables LangGraph to persist:
+# - Graph execution checkpoints
+# - Agent state and memory
+# - Interrupt handling state
+
+# =============================================================================
+# Run Configuration
+# =============================================================================
 # Run as non-root user (commented out due to Playwright browser requirements)
 # USER flowpost
 

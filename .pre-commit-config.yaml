@@ -1,0 +1,220 @@
+# =============================================================================
+# Pre-commit Configuration
+# =============================================================================
+# Code quality checks executed before each commit
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+default_language_version:
+  python: python3.11
+
+repos:
+  # ==========================================================================
+  # Python Checks
+  # ==========================================================================
+
+  # Black - Code Formatting
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        name: black (code formatting)
+        description: "Format Python code with Black"
+        language_version: python3.11
+        args: ["--line-length=88"]
+        types: [python]
+
+  # Ruff - Fast Python Linter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        name: ruff (fast Python linter)
+        description: "Lint Python code with Ruff (replaces flake8, isort, pyupgrade)"
+        args: ["--fix", "--exit-non-zero-on-fix"]
+        types: [python]
+      - id: ruff-format
+        name: ruff-format (format check)
+        description: "Check Python formatting with Ruff"
+        types: [python]
+
+  # MyPy - Static Type Checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.0
+    hooks:
+      - id: mypy
+        name: mypy (static type checking)
+        description: "Static type checking for Python"
+        additional_dependencies:
+          - types-requests
+          - types-PyYAML
+        args:
+          - "--ignore-missing-imports"
+          - "--no-strict-optional"
+        types: [python]
+
+  # ==========================================================================
+  # General Checks
+  # ==========================================================================
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # YAML validation
+      - id: check-yaml
+        name: check-yaml (validate YAML files)
+        description: "Validate YAML file syntax"
+        args: ["--unsafe"]
+        exclude: ^(\.github/workflows/|charts/)
+
+      # End of file fixer
+      - id: end-of-file-fixer
+        name: end-of-file-fixer (ensure newline at EOF)
+        description: "Ensure files end with a newline"
+        exclude: ^(\.min\.|.*\.lock|.*\.snap)
+
+      # Trailing whitespace
+      - id: trailing-whitespace
+        name: trailing-whitespace (remove trailing spaces)
+        description: "Remove trailing whitespace from lines"
+        args: ["--markdown-linebreak-ext=md"]
+
+      # Check for merge conflicts
+      - id: check-merge-conflict
+        name: check-merge-conflict
+        description: "Check for merge conflict markers"
+
+      # Check JSON syntax
+      - id: check-json
+        name: check-json (validate JSON files)
+        description: "Validate JSON file syntax"
+
+      # Detect private keys
+      - id: detect-private-key
+        name: detect-private-key
+        description: "Detect accidentally committed private keys"
+
+      # Check for large files
+      - id: check-added-large-files
+        name: check-added-large-files
+        description: "Prevent large files from being committed"
+        args: ["--maxkb=1000"]
+
+      # Check case conflicts
+      - id: check-case-conflict
+        name: check-case-conflict
+        description: "Check for files with names that would conflict on case-insensitive filesystems"
+
+      # Check executables have shebangs
+      - id: check-executables-have-shebangs
+        name: check-executables-have-shebangs
+        description: "Ensure executables have proper shebang lines"
+
+      # Mixed line endings
+      - id: mixed-line-ending
+        name: mixed-line-ending
+        description: "Check for mixed line endings"
+        args: ["--fix=lf"]
+
+  # ==========================================================================
+  # Terraform Checks
+  # ==========================================================================
+
+  # Terraform formatting and validation
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.96.2
+    hooks:
+      # Format Terraform code
+      - id: terraform_fmt
+        name: terraform_fmt (format Terraform code)
+        description: "Format Terraform files with terraform fmt"
+        args:
+          - --args=-recursive
+
+      # Lint Terraform code with TFLint
+      - id: terraform_tflint
+        name: terraform_tflint (lint Terraform code)
+        description: "Lint Terraform files with TFLint"
+        args:
+          - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
+        files: \.tf$
+        exclude: \.terraform\/.*$
+
+      # Lock provider versions
+      - id: terraform_providers_lock
+        name: terraform_providers_lock (lock provider versions)
+        description: "Lock Terraform provider versions for reproducibility"
+        args:
+          - --args=-platform=linux_amd64
+          - --args=-platform=darwin_amd64
+          - --args=-platform=darwin_arm64
+        files: \.terraform\.lock\.hcl$
+
+      # Validate Terraform configuration
+      - id: terraform_validate
+        name: terraform_validate (validate Terraform configuration)
+        description: "Validate Terraform configuration syntax and semantics"
+        args:
+          - --init-args=-backend=false
+        files: \.tf$
+        exclude: \.terraform\/.*$
+
+      # Generate documentation
+      - id: terraform_docs
+        name: terraform_docs (generate documentation)
+        description: "Generate documentation for Terraform modules"
+        args:
+          - --args=--output-file=README.md
+          - --args=--output-mode=inject
+        files: (\.tf|\.terraform\.lock\.hcl)$
+
+  # ==========================================================================
+  # Security Checks
+  # ==========================================================================
+
+  # Gitleaks - Detect secrets
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+        name: gitleaks (detect secrets)
+        description: "Scan for hardcoded secrets and sensitive data"
+
+  # ==========================================================================
+  # Shell Script Checks
+  # ==========================================================================
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        name: shellcheck (lint shell scripts)
+        description: "Lint shell scripts with ShellCheck"
+
+  # ==========================================================================
+  # Markdown Checks
+  # ==========================================================================
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.43.0
+    hooks:
+      - id: markdownlint
+        name: markdownlint (lint Markdown files)
+        description: "Lint Markdown files"
+        args: ["--fix", "--ignore", "node_modules", "--ignore", ".github"]
+        exclude: ^(CHANGELOG\.md|node_modules/)
+# =============================================================================
+# CI/CD Integration
+# =============================================================================
+# This configuration is used by:
+# - Local pre-commit hooks (pre-commit install)
+# - GitHub Actions CI pipeline (code quality stage)
+# - IDE integrations for real-time feedback
+#
+# Pipeline stages:
+# 1. Version: Semantic version bumping on release branches
+# 2. Code Quality: Pre-commit checks (this file)
+# 3. Package: Docker image builds and push to ACR
+# 4. Deploy: Azure Developer CLI deployment
+# 5. Integration: Integration tests
+
