@@ -203,7 +203,6 @@ repos:
         description: "Lint Markdown files"
         args: ["--fix", "--ignore", "node_modules", "--ignore", ".github"]
         exclude: ^(CHANGELOG\.md|node_modules/)
-
 # =============================================================================
 # CI/CD Integration
 # =============================================================================

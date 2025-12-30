@@ -562,7 +562,8 @@ jobs:
   # ===========================================================================
   promote-full-traffic:
     name: Promote Green to 100%
-    needs: [determine-environment, deploy-green, traffic-shift, integration-tests]
+    needs:
+      [determine-environment, deploy-green, traffic-shift, integration-tests]
     runs-on: ubuntu-latest
     if: |
       needs.determine-environment.outputs.initial_traffic != '100' &&
