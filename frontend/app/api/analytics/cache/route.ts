@@ -61,12 +61,13 @@ export async function POST(request: NextRequest) {
     const { posts, connections } = body;
 
     // Upsert the cache
+    // Note: Don't use JSON.stringify() - pg library handles JSONB serialization automatically
     await upsert<AnalyticsCache>(
       "user_analytics_cache",
       {
         user_id: userId,
-        posts_data: JSON.stringify(posts || []),
-        connections_data: JSON.stringify(connections || []),
+        posts_data: posts || [],
+        connections_data: connections || [],
         last_updated_at: new Date().toISOString(),
       },
       "user_id",
