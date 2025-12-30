@@ -2,6 +2,29 @@
 # Usage: docker compose up --build
 
 services:
+  # PostgreSQL Database for local development
+  postgres:
+    image: postgres:15-alpine
+    container_name: flowpost-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=flowpost
+      - POSTGRES_PASSWORD=flowpost_dev_password
+      - POSTGRES_DB=flowpost
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowpost -d flowpost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - flowpost-network
+
   # LangGraph Backend Service
   backend:
     build:
@@ -16,6 +39,7 @@ services:
       - NODE_ENV=development
       - HOST=0.0.0.0
       - PORT=54367
+      - DATABASE_URI=postgresql://flowpost:flowpost_dev_password@postgres:5432/flowpost?sslmode=disable
     volumes:
       # Mount source for hot reload in development
       - ./backend:/app/backend:ro
@@ -27,6 +51,9 @@ services:
       retries: 3
       start_period: 60s
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - flowpost-network
 
@@ -41,13 +68,14 @@ services:
     environment:
       - NODE_ENV=production
       - LANGGRAPH_API_URL=http://backend:54367
+      - DATABASE_URI=postgresql://flowpost:flowpost_dev_password@postgres:5432/flowpost?sslmode=disable
       # These should be set in .env or passed at runtime
       - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
     depends_on:
       backend:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     healthcheck:
       test:
@@ -70,6 +98,6 @@ services:
 networks:
   flowpost-network:
     driver: bridge
-# Optional: Add volumes for persistent data
-# volumes:
-#   backend-data:
+
+volumes:
+  postgres-data:
