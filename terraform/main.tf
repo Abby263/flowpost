@@ -1,3 +1,6 @@
+# =============================================================================
+# Locals
+# =============================================================================
 locals {
   resource_prefix = "${var.project_name}-${var.environment}"
   common_tags = merge(var.tags, {
@@ -5,16 +8,142 @@ locals {
     Environment = var.environment
     ManagedBy   = "terraform"
   })
+
+  # PostgreSQL Database Name Configuration
+  # --------------------------------------
+  # Ensure PostgreSQL DB name follows restrictions:
+  # - Must start with a letter or underscore
+  # - Can contain letters, digits, underscores
+  # - Truncate to 63 characters maximum
+  postgres_raw_name = "${var.project_name}_${var.environment}_db"
+
+  # Replace invalid characters with underscores
+  postgres_sanitized_name = replace(
+    lower(local.postgres_raw_name),
+    "/[^a-z0-9_]/",
+    "_"
+  )
+
+  # Ensure it starts with a letter or underscore
+  postgres_valid_start = regex("^[a-z_]", local.postgres_sanitized_name) == "" ? "_${local.postgres_sanitized_name}" : local.postgres_sanitized_name
+
+  # Truncate to 63 characters
+  postgres_db_name = substr(local.postgres_valid_start, 0, min(63, length(local.postgres_valid_start)))
+
+  # Shared PostgreSQL server name
+  postgres_server_name = "${var.project_name}-${var.shared_environment}-postgres"
+
+  # Key Vault name (must be globally unique, 3-24 characters)
+  key_vault_name = replace(substr("${local.resource_prefix}-kv", 0, 24), "-", "")
+
+  # Database configuration
+  database = {
+    name     = local.postgres_db_name
+    host     = var.enable_postgresql ? module.postgresql[0].server_fqdn : null
+    port     = 5432
+    ssl_mode = "require"
+  }
+
+  # Build Database URI for LangGraph API
+  postgres_uri = var.enable_postgresql ? "postgresql://${var.postgres_admin_username}:${var.postgres_admin_password}@${module.postgresql[0].server_fqdn}:5432/${local.postgres_db_name}?sslmode=require" : null
 }
 
+# =============================================================================
 # Resource Group
+# =============================================================================
 resource "azurerm_resource_group" "main" {
   name     = "${local.resource_prefix}-rg"
   location = var.location
   tags     = local.common_tags
 }
 
+# =============================================================================
+# Key Vault - Centralized Secrets Management
+# =============================================================================
+# All secrets are stored in Azure Key Vault for:
+# - Centralized secret management
+# - Audit logging
+# - Secret rotation
+# - Access control via RBAC/policies
+
+module "key_vault" {
+  count  = var.enable_key_vault ? 1 : 0
+  source = "./modules/key-vault"
+
+  name                = local.key_vault_name
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+
+  # PostgreSQL secrets
+  database_uri      = local.postgres_uri
+  postgres_host     = var.enable_postgresql ? module.postgresql[0].server_fqdn : null
+  postgres_admin    = var.enable_postgresql ? var.postgres_admin_username : null
+  postgres_password = var.enable_postgresql ? var.postgres_admin_password : null
+
+  # AI Provider secrets
+  openai_api_key    = var.openai_api_key
+  gemini_api_key    = var.gemini_api_key
+  langchain_api_key = var.langchain_api_key
+
+  # Search & Scraping secrets
+  serper_api_key     = var.serper_api_key
+  perplexity_api_key = var.perplexity_api_key
+  firecrawl_api_key  = var.firecrawl_api_key
+
+  # Authentication secrets (Clerk)
+  clerk_publishable_key = var.clerk_publishable_key
+  clerk_secret_key      = var.clerk_secret_key
+
+  # Payment secrets (Stripe)
+  stripe_secret_key     = var.stripe_secret_key
+  stripe_webhook_secret = var.stripe_webhook_secret
+
+  # Admin secrets
+  admin_user_ids = var.admin_user_ids
+
+  # Container Registry secrets
+  acr_password = module.container_registry.admin_password
+
+  tags = local.common_tags
+
+  depends_on = [module.postgresql, module.container_registry]
+}
+
+# =============================================================================
+# PostgreSQL Flexible Server - Shared resource for LangGraph API state
+# =============================================================================
+module "postgresql" {
+  count  = var.enable_postgresql ? 1 : 0
+  source = "./modules/postgresql"
+
+  server_name         = local.postgres_server_name
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+
+  # Authentication
+  administrator_login    = var.postgres_admin_username
+  administrator_password = var.postgres_admin_password
+
+  # Database configuration
+  database_name = local.postgres_db_name
+
+  # Server configuration (varies by environment)
+  sku_name                     = var.postgres_sku_name
+  storage_mb                   = var.postgres_storage_mb
+  backup_retention_days        = var.postgres_backup_retention_days
+  geo_redundant_backup_enabled = var.postgres_geo_redundant_backup
+  high_availability_enabled    = var.postgres_high_availability
+
+  # Network configuration
+  public_network_access_enabled = true
+  allow_azure_services          = true
+
+  tags = local.common_tags
+}
+
+# =============================================================================
 # Container Registry
+# =============================================================================
 module "container_registry" {
   source = "./modules/container-registry"
 
@@ -25,7 +154,9 @@ module "container_registry" {
   tags                = local.common_tags
 }
 
+# =============================================================================
 # Container Apps Environment
+# =============================================================================
 module "container_environment" {
   source = "./modules/container-environment"
 
@@ -35,7 +166,9 @@ module "container_environment" {
   tags                = local.common_tags
 }
 
+# =============================================================================
 # Backend Container App
+# =============================================================================
 module "backend" {
   source = "./modules/container-app"
 
@@ -56,6 +189,10 @@ module "backend" {
   min_replicas = var.backend_min_replicas
   max_replicas = var.backend_max_replicas
 
+  # Key Vault configuration for secret references
+  key_vault_id  = var.enable_key_vault ? module.key_vault[0].key_vault_id : null
+  key_vault_uri = var.enable_key_vault ? module.key_vault[0].key_vault_uri : null
+
   environment_variables = {
     NODE_ENV    = var.environment == "prod" ? "production" : "development"
     HOST        = "0.0.0.0"
@@ -65,35 +202,55 @@ module "backend" {
     IMAGE_MODEL = var.image_model
   }
 
+  # All secrets stored in Key Vault
   secrets = merge(
-    {
-      supabase-url = var.supabase_url
-      supabase-key = var.supabase_service_role_key
-    },
+    # PostgreSQL (DATABASE_URI for LangGraph)
+    var.enable_postgresql && local.postgres_uri != null ? {
+      database-uri = local.postgres_uri
+    } : {},
+    # AI Provider keys
     var.openai_api_key != "" ? { openai-api-key = var.openai_api_key } : {},
     var.gemini_api_key != "" ? { gemini-api-key = var.gemini_api_key } : {},
-    var.langchain_api_key != "" ? { langchain-key = var.langchain_api_key } : {},
-    var.serper_api_key != "" ? { serper-key = var.serper_api_key } : {},
-    var.firecrawl_api_key != "" ? { firecrawl-key = var.firecrawl_api_key } : {}
+    var.langchain_api_key != "" ? { langchain-api-key = var.langchain_api_key } : {},
+    # Search & Scraping keys
+    var.serper_api_key != "" ? { serper-api-key = var.serper_api_key } : {},
+    var.firecrawl_api_key != "" ? { firecrawl-api-key = var.firecrawl_api_key } : {}
   )
 
   secret_environment_variables = merge(
-    {
-      SUPABASE_URL              = "supabase-url"
-      SUPABASE_SERVICE_ROLE_KEY = "supabase-key"
-    },
+    # PostgreSQL
+    var.enable_postgresql ? { DATABASE_URI = "database-uri" } : {},
+    # AI Provider keys
     var.openai_api_key != "" ? { OPENAI_API_KEY = "openai-api-key" } : {},
     var.gemini_api_key != "" ? { GEMINI_API_KEY = "gemini-api-key" } : {},
-    var.langchain_api_key != "" ? { LANGCHAIN_API_KEY = "langchain-key" } : {},
-    var.serper_api_key != "" ? { SERPER_API_KEY = "serper-key" } : {},
-    var.firecrawl_api_key != "" ? { FIRECRAWL_API_KEY = "firecrawl-key" } : {}
+    var.langchain_api_key != "" ? { LANGCHAIN_API_KEY = "langchain-api-key" } : {},
+    # Search & Scraping keys
+    var.serper_api_key != "" ? { SERPER_API_KEY = "serper-api-key" } : {},
+    var.firecrawl_api_key != "" ? { FIRECRAWL_API_KEY = "firecrawl-api-key" } : {}
   )
 
-  health_check_path = "/ok"
-  tags              = local.common_tags
+  # Health Probes
+  startup_probe_path              = "/health/startup"
+  startup_probe_initial_delay     = 10
+  startup_probe_interval          = 10
+  startup_probe_failure_threshold = 30
+
+  liveness_probe_path              = "/health/live"
+  liveness_probe_interval          = 30
+  liveness_probe_failure_threshold = 3
+
+  readiness_probe_path              = "/health/ready"
+  readiness_probe_interval          = 10
+  readiness_probe_failure_threshold = 3
+
+  tags = local.common_tags
+
+  depends_on = [module.postgresql, module.key_vault]
 }
 
+# =============================================================================
 # Frontend Container App
+# =============================================================================
 module "frontend" {
   source = "./modules/container-app"
 
@@ -114,6 +271,10 @@ module "frontend" {
   min_replicas = var.frontend_min_replicas
   max_replicas = var.frontend_max_replicas
 
+  # Key Vault configuration
+  key_vault_id  = var.enable_key_vault ? module.key_vault[0].key_vault_id : null
+  key_vault_uri = var.enable_key_vault ? module.key_vault[0].key_vault_uri : null
+
   environment_variables = {
     NODE_ENV                            = "production"
     HOSTNAME                            = "0.0.0.0"
@@ -125,36 +286,46 @@ module "frontend" {
     LANGGRAPH_API_URL                   = "https://${module.backend.fqdn}"
   }
 
+  # All secrets stored in Key Vault
   secrets = merge(
     {
-      clerk-pub-key = var.clerk_publishable_key
-      clerk-secret  = var.clerk_secret_key
-      supabase-url  = var.supabase_url
-      supabase-key  = var.supabase_service_role_key
+      clerk-publishable-key = var.clerk_publishable_key
+      clerk-secret-key      = var.clerk_secret_key
     },
-    var.stripe_secret_key != "" ? { stripe-secret = var.stripe_secret_key } : {},
+    var.stripe_secret_key != "" ? { stripe-secret-key = var.stripe_secret_key } : {},
     var.stripe_webhook_secret != "" ? { stripe-webhook-secret = var.stripe_webhook_secret } : {},
     var.admin_user_ids != "" ? { admin-user-ids = var.admin_user_ids } : {},
-    var.serper_api_key != "" ? { serper-key = var.serper_api_key } : {},
-    var.perplexity_api_key != "" ? { perplexity-key = var.perplexity_api_key } : {}
+    var.serper_api_key != "" ? { serper-api-key = var.serper_api_key } : {},
+    var.perplexity_api_key != "" ? { perplexity-api-key = var.perplexity_api_key } : {}
   )
 
   secret_environment_variables = merge(
     {
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "clerk-pub-key"
-      CLERK_SECRET_KEY                  = "clerk-secret"
-      SUPABASE_URL                      = "supabase-url"
-      SUPABASE_SERVICE_ROLE_KEY         = "supabase-key"
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "clerk-publishable-key"
+      CLERK_SECRET_KEY                  = "clerk-secret-key"
     },
-    var.stripe_secret_key != "" ? { STRIPE_SECRET_KEY = "stripe-secret" } : {},
+    var.stripe_secret_key != "" ? { STRIPE_SECRET_KEY = "stripe-secret-key" } : {},
     var.stripe_webhook_secret != "" ? { STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret" } : {},
     var.admin_user_ids != "" ? { ADMIN_USER_IDS = "admin-user-ids" } : {},
-    var.serper_api_key != "" ? { SERPER_API_KEY = "serper-key" } : {},
-    var.perplexity_api_key != "" ? { PERPLEXITY_API_KEY = "perplexity-key" } : {}
+    var.serper_api_key != "" ? { SERPER_API_KEY = "serper-api-key" } : {},
+    var.perplexity_api_key != "" ? { PERPLEXITY_API_KEY = "perplexity-api-key" } : {}
   )
 
-  health_check_path = "/api/health"
-  tags              = local.common_tags
+  # Health Probes
+  startup_probe_path              = "/api/health/startup"
+  startup_probe_initial_delay     = 5
+  startup_probe_interval          = 5
+  startup_probe_failure_threshold = 24
 
-  depends_on = [module.backend]
+  liveness_probe_path              = "/api/health/live"
+  liveness_probe_interval          = 30
+  liveness_probe_failure_threshold = 3
+
+  readiness_probe_path              = "/api/health/ready"
+  readiness_probe_interval          = 10
+  readiness_probe_failure_threshold = 3
+
+  tags = local.common_tags
+
+  depends_on = [module.backend, module.key_vault]
 }

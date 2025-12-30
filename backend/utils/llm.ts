@@ -229,15 +229,24 @@ class GeminiChatModel {
             const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
               jsonStr = jsonMatch[0];
-              parsed = JSON.parse(jsonStr);
+              try {
+                parsed = JSON.parse(jsonStr);
+              } catch {
+                // JSON might have trailing commas or other issues, try to clean it
+                const cleanedJson = jsonStr
+                  .replace(/,\s*}/g, "}")
+                  .replace(/,\s*]/g, "]")
+                  .replace(/'/g, '"');
+                parsed = JSON.parse(cleanedJson);
+              }
             } else {
               // Last resort: try to parse key-value pairs from plain text
               // More flexible patterns to handle various Gemini output formats
               const reasoningMatch = jsonStr.match(
-                /(?:reasoning|Reasoning):\s*["']?([\s\S]+?)(?=\n(?:relevant|is_relevant|Is the content relevant)|$)/i,
+                /(?:reasoning|Reasoning)[:\s]+["']?([\s\S]+?)(?=\n\s*(?:relevant|is_relevant|isRelevant|Is the content relevant)|$)/i,
               );
               const relevantMatch = jsonStr.match(
-                /(?:relevant|is_relevant|Is the content relevant[^:]*?):\s*(true|false)/i,
+                /(?:relevant|is_relevant|isRelevant|Is the content relevant[^:]*?)[:\s]+(true|false|yes|no)/i,
               );
 
               if (reasoningMatch && relevantMatch) {
@@ -247,14 +256,39 @@ class GeminiChatModel {
                   .replace(/\n+$/, "")
                   .trim();
 
+                const relevantValue = relevantMatch[1].toLowerCase();
                 parsed = {
                   reasoning: reasoning,
-                  relevant: relevantMatch[1].toLowerCase() === "true",
+                  relevant: relevantValue === "true" || relevantValue === "yes",
                 };
               } else {
-                throw new Error(
-                  "Could not extract structured data from response",
-                );
+                // Try to infer from content if it mentions relevance
+                const isRelevant =
+                  /\b(is relevant|relevant to|matches|related)\b/i.test(
+                    jsonStr,
+                  );
+                const isNotRelevant =
+                  /\b(not relevant|irrelevant|unrelated|does not match)\b/i.test(
+                    jsonStr,
+                  );
+
+                if (isRelevant || isNotRelevant) {
+                  parsed = {
+                    reasoning: jsonStr.substring(0, 500),
+                    relevant: isRelevant && !isNotRelevant,
+                  };
+                  console.warn(
+                    "⚠️  Inferring structured output from unstructured response",
+                  );
+                } else {
+                  console.error(
+                    "❌ Raw LLM response:",
+                    jsonStr.substring(0, 500),
+                  );
+                  throw new Error(
+                    "Could not extract structured data from response",
+                  );
+                }
               }
             }
           }

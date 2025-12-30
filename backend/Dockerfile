@@ -1,13 +1,30 @@
+# =============================================================================
 # Backend Dockerfile for LangGraph Server
-# Optimized for Azure Container Apps
+# =============================================================================
+# Optimized for Azure Container Apps with PostgreSQL support
+#
+# NOTE: This application does not directly use PostgreSQL in its own code.
+# Instead, PostgreSQL is used by LangGraph Platform API for its internal
+# state management. The PostgreSQL connection is injected to LangGraph
+# via the DATABASE_URI environment variable.
+#
+# LangGraph API uses PostgreSQL for:
+# - Storing graph execution state
+# - Managing checkpoints and interrupts
+# - Persisting agent memory across sessions
 
-FROM node:20-bookworm-slim AS base
+# =============================================================================
+# Build Stage
+# =============================================================================
+FROM langchain/langgraph-api:3.12 AS base
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    python3 \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Build arguments for versioning
+ARG VERSION=dev
+ARG COMMIT_SHA=unknown
+
+# Set environment variables for build
+ENV VERSION=${VERSION}
+ENV COMMIT_SHA=${COMMIT_SHA}
 
 WORKDIR /app
 
@@ -18,6 +35,9 @@ COPY langgraph.json ./
 COPY tsconfig.json ./
 
 # Install dependencies
+RUN pip install --no-cache-dir psycopg2-binary
+
+# Install Node.js dependencies
 RUN yarn install --frozen-lockfile
 
 # Install Playwright with dependencies for screenshot capabilities
@@ -26,11 +46,13 @@ RUN npx -y playwright@1.57.0 install --with-deps chromium
 # Build TypeScript
 RUN yarn build
 
-# Production stage
-FROM node:20-bookworm-slim AS production
+# =============================================================================
+# Production Stage
+# =============================================================================
+FROM langchain/langgraph-api:3.12 AS production
 
-# Install runtime dependencies for Playwright and curl for health checks
-RUN apt-get update && apt-get install -y \
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libnss3 \
     libnspr4 \
@@ -48,7 +70,12 @@ RUN apt-get update && apt-get install -y \
     libasound2 \
     libpango-1.0-0 \
     libcairo2 \
+    # PostgreSQL client libraries for psycopg2
+    libpq5 \
     && rm -rf /var/lib/apt/lists/*
+
+# Install psycopg2-binary for PostgreSQL connectivity
+RUN pip install --no-cache-dir psycopg2-binary
 
 WORKDIR /app
 
@@ -77,13 +104,28 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Expose port
 EXPOSE 54367
 
-# Set environment variables
+# =============================================================================
+# Environment Variables
+# =============================================================================
+# Standard environment variables
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=54367
 
+# PostgreSQL connection for LangGraph state management
+# DATABASE_URI is injected at runtime from Azure Key Vault
+# Format: postgresql://user:password@host:5432/database?sslmode=require
+# This enables LangGraph to persist:
+# - Graph execution checkpoints
+# - Agent state and memory
+# - Interrupt handling state
+
+# =============================================================================
+# Run Configuration
+# =============================================================================
 # Run as non-root user (commented out due to Playwright browser requirements)
 # USER flowpost
 
-# Start LangGraph server
+# Start LangGraph server with PostgreSQL backend
+# The server automatically detects DATABASE_URI and configures PostgreSQL storage
 CMD ["npx", "@langchain/langgraph-cli", "dev", "--host", "0.0.0.0", "--port", "54367"]

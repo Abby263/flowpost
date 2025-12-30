@@ -1,6 +1,12 @@
+# =============================================================================
 # Terraform Infrastructure Management
+# =============================================================================
 # - Plan on PR
 # - Apply on merge to main (prod) or specific branches (dev/uat)
+#
+# Environment Deployment Strategy:
+# - Push to develop/main → Dev environment (automatic)
+# - UAT and Prod → Manual deployment via workflow_dispatch
 
 name: Terraform
 
@@ -48,6 +54,9 @@ env:
   ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
 
 jobs:
+  # ===========================================================================
+  # Check Secrets Availability
+  # ===========================================================================
   check-secrets:
     name: Check Secrets Availability
     runs-on: ubuntu-latest
@@ -63,10 +72,9 @@ jobs:
           ARM_TENANT: ${{ secrets.ARM_TENANT_ID }}
           GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
         run: |
           missing=()
 
@@ -74,12 +82,13 @@ jobs:
           [ -z "$ARM_SECRET" ] && missing+=("ARM_CLIENT_SECRET")
           [ -z "$ARM_SUB" ] && missing+=("ARM_SUBSCRIPTION_ID")
           [ -z "$ARM_TENANT" ] && missing+=("ARM_TENANT_ID")
+          [ -z "$POSTGRES_PASSWORD" ] && missing+=("POSTGRES_ADMIN_PASSWORD")
+
           # Require at least one AI provider key
           if [ -z "$GEMINI_KEY" ] && [ -z "$OPENAI_KEY" ]; then
             missing+=("GEMINI_API_KEY or OPENAI_API_KEY")
           fi
-          [ -z "$SUPABASE_URL" ] && missing+=("SUPABASE_URL")
-          [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing+=("SUPABASE_SERVICE_ROLE_KEY")
+
           [ -z "$CLERK_PUBLISHABLE_KEY" ] && missing+=("CLERK_PUBLISHABLE_KEY")
           [ -z "$CLERK_SECRET_KEY" ] && missing+=("CLERK_SECRET_KEY")
 
@@ -90,6 +99,9 @@ jobs:
             echo "::warning::Missing required secrets: ${missing[*]}. Skipping Terraform operations."
           fi
 
+  # ===========================================================================
+  # Determine Environment
+  # ===========================================================================
   determine-environment:
     name: Determine Environment
     needs: check-secrets
@@ -97,20 +109,34 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
+      requires_approval: ${{ steps.set-env.outputs.requires_approval }}
     steps:
       - name: Set environment from branch or input
         id: set-env
         run: |
+          REQUIRES_APPROVAL="false"
+
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            ENV="${{ github.event.inputs.environment }}"
+            if [ "$ENV" == "uat" ] || [ "$ENV" == "prod" ]; then
+              REQUIRES_APPROVAL="true"
+            fi
           elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "environment=prod" >> $GITHUB_OUTPUT
+            # Main branch deploys to dev (not prod)
+            ENV="dev"
           elif [ "${{ github.ref }}" == "refs/heads/uat" ]; then
-            echo "environment=uat" >> $GITHUB_OUTPUT
+            ENV="uat"
+            REQUIRES_APPROVAL="true"
           else
-            echo "environment=dev" >> $GITHUB_OUTPUT
+            ENV="dev"
           fi
 
+          echo "environment=${ENV}" >> $GITHUB_OUTPUT
+          echo "requires_approval=${REQUIRES_APPROVAL}" >> $GITHUB_OUTPUT
+
+  # ===========================================================================
+  # Terraform Plan
+  # ===========================================================================
   terraform-plan:
     name: Terraform Plan
     needs: determine-environment
@@ -142,7 +168,6 @@ jobs:
       - name: Terraform Plan
         id: plan
         env:
-          # Use empty string defaults for optional API keys
           GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
           LANGCHAIN_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
@@ -152,14 +177,13 @@ jobs:
           STRIPE_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_KEY: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           ADMIN_IDS: ${{ secrets.ADMIN_USER_IDS }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
         run: |
           terraform plan \
             -var-file="environments/${{ needs.determine-environment.outputs.environment }}.tfvars" \
             -var="subscription_id=${{ secrets.ARM_SUBSCRIPTION_ID }}" \
             -var="gemini_api_key=${GEMINI_KEY:-}" \
             -var="openai_api_key=${OPENAI_KEY:-}" \
-            -var="supabase_url=${{ secrets.SUPABASE_URL }}" \
-            -var="supabase_service_role_key=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -var="clerk_publishable_key=${{ secrets.CLERK_PUBLISHABLE_KEY }}" \
             -var="clerk_secret_key=${{ secrets.CLERK_SECRET_KEY }}" \
             -var="langchain_api_key=${LANGCHAIN_KEY:-}" \
@@ -169,6 +193,7 @@ jobs:
             -var="stripe_secret_key=${STRIPE_KEY:-}" \
             -var="stripe_webhook_secret=${STRIPE_WEBHOOK_KEY:-}" \
             -var="admin_user_ids=${ADMIN_IDS:-}" \
+            -var="postgres_admin_password=${POSTGRES_PASSWORD}" \
             -out=tfplan \
             -no-color
         continue-on-error: true
@@ -216,13 +241,16 @@ jobs:
           echo "${{ steps.plan.outputs.stderr }}"
           exit 1
 
+  # ===========================================================================
+  # Terraform Apply
+  # ===========================================================================
   terraform-apply:
     name: Terraform Apply
     needs: [determine-environment, terraform-plan]
     runs-on: ubuntu-latest
     environment: ${{ needs.determine-environment.outputs.environment }}
     if: |
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/develop')) ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
     defaults:
       run:
@@ -255,6 +283,12 @@ jobs:
         run: |
           echo "backend_url=$(terraform output -raw backend_url)" >> $GITHUB_OUTPUT
           echo "frontend_url=$(terraform output -raw frontend_url)" >> $GITHUB_OUTPUT
+          if terraform output -raw postgresql_server_fqdn 2>/dev/null; then
+            echo "postgresql_server=$(terraform output -raw postgresql_server_fqdn)" >> $GITHUB_OUTPUT
+          fi
+          if terraform output -raw key_vault_name 2>/dev/null; then
+            echo "key_vault=$(terraform output -raw key_vault_name)" >> $GITHUB_OUTPUT
+          fi
 
       - name: Deployment Summary
         run: |
@@ -262,7 +296,14 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Environment:** ${{ needs.determine-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Container Apps" >> $GITHUB_STEP_SUMMARY
           echo "| Service | URL |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-----|" >> $GITHUB_STEP_SUMMARY
           echo "| Backend | ${{ steps.outputs.outputs.backend_url }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend | ${{ steps.outputs.outputs.frontend_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Infrastructure" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| PostgreSQL Server | ${{ steps.outputs.outputs.postgresql_server }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Key Vault | ${{ steps.outputs.outputs.key_vault }} |" >> $GITHUB_STEP_SUMMARY

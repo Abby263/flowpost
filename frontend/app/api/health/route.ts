@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 /**
  * Health check endpoint for container orchestration
  * Used by Azure Container Apps, Kubernetes, and load balancers
+ *
+ * This is the main health endpoint that provides detailed status.
+ * For specific probe endpoints, see:
+ * - /api/health/startup - Startup probe
+ * - /api/health/live - Liveness probe
+ * - /api/health/ready - Readiness probe
  */
 export async function GET() {
   const healthCheck = {
@@ -15,7 +21,6 @@ export async function GET() {
 
   // Check critical dependencies
   const checks: Record<string, boolean> = {
-    supabase: !!process.env.SUPABASE_URL,
     clerk: !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     langgraph: !!process.env.LANGGRAPH_API_URL,
   };

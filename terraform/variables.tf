@@ -1,5 +1,20 @@
+# =============================================================================
+# Shared Environment Variables
+# =============================================================================
+
+variable "shared_environment" {
+  description = "Shared environment name for shared resources (dev, qa, etc.). Shared resources like PostgreSQL are provisioned once and shared across deployment environments."
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "qa", "uat", "prod"], var.shared_environment)
+    error_message = "Shared environment must be one of: dev, qa, uat, prod"
+  }
+}
+
 variable "environment" {
-  description = "Environment name (dev, uat, prod)"
+  description = "Deployment environment name (dev, uat, prod). Each deployment creates its own database on the shared PostgreSQL server."
   type        = string
 
   validation {
@@ -7,6 +22,27 @@ variable "environment" {
     error_message = "Environment must be one of: dev, uat, prod"
   }
 }
+
+# =============================================================================
+# Required Tags for Governance
+# =============================================================================
+
+variable "tags" {
+  description = "Tags to apply to all resources for governance, lifecycle management, and CI/CD tracking"
+  type        = map(string)
+  default     = {}
+}
+
+# Tag configuration for supported environments:
+# - Lifecycle: Environment lifecycle stage (development, testing, staging, production)
+# - CostCenter: Cost allocation tracking
+# - Criticality: Resource criticality level
+# - Owner: Team or individual responsible
+# - ManagedBy: Always "terraform" for IaC governance
+
+# =============================================================================
+# Azure Configuration
+# =============================================================================
 
 variable "subscription_id" {
   description = "Azure subscription ID (used for resource imports)"
@@ -26,7 +62,73 @@ variable "project_name" {
   default     = "flowpost"
 }
 
+# =============================================================================
+# Feature Flags
+# =============================================================================
+
+variable "enable_postgresql" {
+  description = "Enable Azure PostgreSQL Flexible Server for LangGraph API state management"
+  type        = bool
+  default     = true
+}
+
+variable "enable_key_vault" {
+  description = "Enable Azure Key Vault for secrets management"
+  type        = bool
+  default     = true
+}
+
+# =============================================================================
+# PostgreSQL Configuration
+# =============================================================================
+
+variable "postgres_admin_username" {
+  description = "PostgreSQL administrator username"
+  type        = string
+  default     = "pgadmin"
+}
+
+variable "postgres_admin_password" {
+  description = "PostgreSQL administrator password"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "postgres_sku_name" {
+  description = "PostgreSQL SKU name (B_Standard_B1ms for dev, GP_Standard_D2s_v3 for prod)"
+  type        = string
+  default     = "B_Standard_B1ms"
+}
+
+variable "postgres_storage_mb" {
+  description = "PostgreSQL storage size in MB"
+  type        = number
+  default     = 32768 # 32GB
+}
+
+variable "postgres_backup_retention_days" {
+  description = "PostgreSQL backup retention days"
+  type        = number
+  default     = 7
+}
+
+variable "postgres_geo_redundant_backup" {
+  description = "Enable geo-redundant backups for PostgreSQL"
+  type        = bool
+  default     = false
+}
+
+variable "postgres_high_availability" {
+  description = "Enable high availability for PostgreSQL (zone redundant)"
+  type        = bool
+  default     = false
+}
+
+# =============================================================================
 # Container App Configuration
+# =============================================================================
+
 variable "backend_cpu" {
   description = "CPU cores for backend container"
   type        = number
@@ -75,20 +177,9 @@ variable "frontend_max_replicas" {
   default     = 10
 }
 
-# Secrets - passed via environment variables or tfvars
-variable "openai_api_key" {
-  description = "OpenAI API key (optional if using Gemini)"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "gemini_api_key" {
-  description = "Gemini API key"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
+# =============================================================================
+# AI Provider Configuration
+# =============================================================================
 
 variable "ai_provider" {
   description = "AI provider to use: openai or gemini"
@@ -113,16 +204,22 @@ variable "image_model" {
   default     = "gemini-2.5-flash-image"
 }
 
-variable "supabase_url" {
-  description = "Supabase project URL"
+# =============================================================================
+# API Keys and Secrets
+# =============================================================================
+
+variable "openai_api_key" {
+  description = "OpenAI API key (optional if using Gemini)"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
-variable "supabase_service_role_key" {
-  description = "Supabase service role key"
+variable "gemini_api_key" {
+  description = "Gemini API key"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "clerk_publishable_key" {
@@ -184,11 +281,4 @@ variable "admin_user_ids" {
   type        = string
   sensitive   = true
   default     = ""
-}
-
-# Tags
-variable "tags" {
-  description = "Tags to apply to all resources"
-  type        = map(string)
-  default     = {}
 }
