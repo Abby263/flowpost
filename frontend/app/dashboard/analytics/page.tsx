@@ -105,21 +105,49 @@ export default function AnalyticsPage() {
   // Account filter
   const [accountFilter, setAccountFilter] = useState<string>("all");
 
-  // Load lastUpdated from localStorage on mount
-  useEffect(() => {
-    const storedLastUpdated = localStorage.getItem("analytics_last_updated");
-    if (storedLastUpdated) {
-      setLastUpdated(storedLastUpdated);
-    }
-  }, []);
-
-  // Fetch connections on mount but DON'T auto-fetch posts
-  // User must select a connection and click Refresh to load data
+  // Load cached data from PostgreSQL on mount
   useEffect(() => {
     if (user) {
-      fetchConnections();
+      loadCachedData();
     }
   }, [user]);
+
+  const loadCachedData = async () => {
+    try {
+      const res = await fetch("/api/analytics/cache");
+      const data = await res.json();
+
+      if (data.cached && data.posts?.length > 0) {
+        setPosts(data.posts);
+        setConnections(data.connections || []);
+        setLastUpdated(data.lastUpdated);
+        setDataLoaded(true);
+      } else if (data.connections?.length > 0) {
+        // If we have cached connections but no posts, at least restore connections
+        setConnections(data.connections);
+      }
+    } catch (error) {
+      console.error("Error loading cached analytics:", error);
+    }
+  };
+
+  const saveCacheToDatabase = async (
+    postsData: Post[],
+    connectionsData: Connection[],
+  ) => {
+    try {
+      await fetch("/api/analytics/cache", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          posts: postsData,
+          connections: connectionsData,
+        }),
+      });
+    } catch (error) {
+      console.error("Error saving analytics cache:", error);
+    }
+  };
 
   useEffect(() => {
     applyFilters();
@@ -135,11 +163,13 @@ export default function AnalyticsPage() {
       if (!res.ok) {
         throw new Error(data.error || "Failed to fetch posts");
       }
-      setPosts(data.posts || []);
+      const fetchedPosts = data.posts || [];
+      setPosts(fetchedPosts);
       const now = new Date().toISOString();
       setLastUpdated(now);
-      localStorage.setItem("analytics_last_updated", now);
       setDataLoaded(true);
+      // Cache data to PostgreSQL (non-blocking)
+      saveCacheToDatabase(fetchedPosts, connections);
     } catch (error) {
       console.error("Error fetching posts:", error);
     } finally {
@@ -156,9 +186,41 @@ export default function AnalyticsPage() {
       if (!res.ok) {
         throw new Error(data.error || "Failed to fetch connections");
       }
-      setConnections(data.connections || []);
+      const fetchedConnections = data.connections || [];
+      setConnections(fetchedConnections);
     } catch (error) {
       console.error("Error fetching connections:", error);
+    }
+  };
+
+  // Refresh all data and update cache
+  const refreshData = async () => {
+    setLoading(true);
+    try {
+      // Fetch both posts and connections in parallel
+      const [postsRes, connectionsRes] = await Promise.all([
+        fetch("/api/posts"),
+        fetch("/api/connections"),
+      ]);
+
+      const postsData = await postsRes.json();
+      const connectionsData = await connectionsRes.json();
+
+      const fetchedPosts = postsData.posts || [];
+      const fetchedConnections = connectionsData.connections || [];
+
+      setPosts(fetchedPosts);
+      setConnections(fetchedConnections);
+      const now = new Date().toISOString();
+      setLastUpdated(now);
+      setDataLoaded(true);
+
+      // Cache to PostgreSQL
+      await saveCacheToDatabase(fetchedPosts, fetchedConnections);
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -483,10 +545,7 @@ export default function AnalyticsPage() {
             </div>
           </div>
           <Button
-            onClick={() => {
-              fetchPosts();
-              fetchConnections();
-            }}
+            onClick={refreshData}
             variant={dataLoaded ? "outline" : "default"}
             disabled={loading}
           >
@@ -509,12 +568,7 @@ export default function AnalyticsPage() {
               Data&quot; to view your analytics. Data is not automatically
               fetched to save resources.
             </p>
-            <Button
-              onClick={() => {
-                fetchPosts();
-                fetchConnections();
-              }}
-            >
+            <Button onClick={refreshData}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Load Analytics Data
             </Button>

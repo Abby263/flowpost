@@ -4,7 +4,7 @@
 
 environment        = "dev"
 shared_environment = "dev"
-location           = "eastus2"
+location           = "centralus"
 project_name       = "flowpost"
 
 # =============================================================================

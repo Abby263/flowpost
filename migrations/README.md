@@ -50,9 +50,10 @@ chmod +x scripts/run-migration.sh
 
 ## Migration Files
 
-| File                     | Description                                |
-| ------------------------ | ------------------------------------------ |
-| `001_initial_schema.sql` | Creates all tables, indexes, and functions |
+| File                      | Description                                |
+| ------------------------- | ------------------------------------------ |
+| `001_initial_schema.sql`  | Creates all tables, indexes, and functions |
+| `002_analytics_cache.sql` | Adds user analytics cache table            |
 
 ## Schema Overview
 
@@ -75,6 +76,10 @@ chmod +x scripts/run-migration.sh
 - **cost_tracking** - Detailed external service costs
 - **monthly_cost_summary** - Aggregated monthly costs
 
+### Cache Tables
+
+- **user_analytics_cache** - Cached analytics data per user
+
 ## Notes
 
 - All tables use UUIDs as primary keys
@@ -88,6 +93,7 @@ chmod +x scripts/run-migration.sh
 To drop all tables (⚠️ **DESTRUCTIVE**):
 
 ```sql
+DROP TABLE IF EXISTS user_analytics_cache CASCADE;
 DROP TABLE IF EXISTS cost_tracking CASCADE;
 DROP TABLE IF EXISTS monthly_cost_summary CASCADE;
 DROP TABLE IF EXISTS credit_transactions CASCADE;
