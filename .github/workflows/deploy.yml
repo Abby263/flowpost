@@ -235,9 +235,24 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Login to ACR
+      - name: Wait for ACR and Login
         run: |
-          az acr login --name ${{ needs.determine-environment.outputs.acr_name }}
+          ACR_NAME="${{ needs.determine-environment.outputs.acr_name }}"
+          echo "Waiting for ACR ${ACR_NAME} to be available..."
+
+          # Retry up to 30 times (5 minutes total)
+          for i in {1..30}; do
+            if az acr show --name ${ACR_NAME} --query "name" -o tsv 2>/dev/null; then
+              echo "ACR is available, logging in..."
+              az acr login --name ${ACR_NAME}
+              exit 0
+            fi
+            echo "Attempt $i/30: ACR not ready, waiting 10 seconds..."
+            sleep 10
+          done
+
+          echo "::error::ACR ${ACR_NAME} not available after 5 minutes"
+          exit 1
 
       - name: Build and push
         id: build
@@ -277,9 +292,24 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Login to ACR
+      - name: Wait for ACR and Login
         run: |
-          az acr login --name ${{ needs.determine-environment.outputs.acr_name }}
+          ACR_NAME="${{ needs.determine-environment.outputs.acr_name }}"
+          echo "Waiting for ACR ${ACR_NAME} to be available..."
+
+          # Retry up to 30 times (5 minutes total)
+          for i in {1..30}; do
+            if az acr show --name ${ACR_NAME} --query "name" -o tsv 2>/dev/null; then
+              echo "ACR is available, logging in..."
+              az acr login --name ${ACR_NAME}
+              exit 0
+            fi
+            echo "Attempt $i/30: ACR not ready, waiting 10 seconds..."
+            sleep 10
+          done
+
+          echo "::error::ACR ${ACR_NAME} not available after 5 minutes"
+          exit 1
 
       - name: Build and push
         id: build
