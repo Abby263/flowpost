@@ -241,10 +241,7 @@ jobs:
         if: steps.plan.outcome == 'failure'
         run: |
           echo "::error::Terraform plan failed. Check the plan step output above for details."
-          echo "Plan stdout:"
-          echo "${{ steps.plan.outputs.stdout }}"
-          echo "Plan stderr:"
-          echo "${{ steps.plan.outputs.stderr }}"
+          echo "See the 'Terraform Plan' step output for details."
           exit 1
 
   # ===========================================================================
