@@ -127,6 +127,63 @@ cp .env.example .env
 # Edit .env with your API keys
 ```
 
+### Development Setup (Pre-commit Hooks)
+
+FlowPost uses two systems for code quality checks:
+
+**1. Husky + lint-staged (Auto-installed)**
+
+Automatically runs on every `git commit` for JavaScript/TypeScript files:
+
+- ESLint for linting
+- Prettier for formatting
+
+This is set up automatically when you run `yarn install`.
+
+**2. Pre-commit (Manual Setup - Recommended)**
+
+For comprehensive checks including Terraform, Python, security scanning:
+
+```bash
+# Install pre-commit (macOS)
+brew install pre-commit
+
+# Or with pip
+pip install pre-commit
+
+# Install the git hooks
+pre-commit install
+
+# (Optional) Run on all files immediately
+pre-commit run --all-files
+```
+
+**Pre-commit checks include:**
+
+- 🐍 Python: Black, Ruff, MyPy
+- 🏗️ Terraform: fmt, tflint, validate, docs
+- 🔒 Security: gitleaks (secret detection)
+- 📝 General: YAML/JSON validation, trailing whitespace, merge conflicts
+- 🐚 Shell: ShellCheck
+- 📖 Markdown: markdownlint
+
+**Quick Commands:**
+
+```bash
+# Format all code before committing
+yarn format                    # Prettier (JS/TS/JSON/MD)
+terraform fmt -recursive       # Terraform files
+
+# Check formatting without fixing
+yarn format:check
+terraform fmt -check -recursive
+
+# Run all pre-commit checks manually
+pre-commit run --all-files
+```
+
+> **Note:** CI/CD will fail if formatting checks don't pass. Run `yarn format` and `terraform fmt -recursive` before pushing if you haven't set up pre-commit hooks.
+
 ### Database Setup
 
 1. Create a Supabase project at [supabase.com](https://supabase.com)
