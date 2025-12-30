@@ -1,10 +1,12 @@
 # FlowPost
 
 [![CI](https://github.com/Abby263/flowpost/actions/workflows/ci.yml/badge.svg)](https://github.com/Abby263/flowpost/actions/workflows/ci.yml)
+[![Terraform](https://github.com/Abby263/flowpost/actions/workflows/terraform.yml/badge.svg)](https://github.com/Abby263/flowpost/actions/workflows/terraform.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-Powered-green.svg)](https://github.com/langchain-ai/langgraph)
+[![Azure](https://img.shields.io/badge/Azure-Deployed-0089D6.svg)](https://azure.microsoft.com/)
 
 **AI-Powered Social Media Automation Platform**
 
@@ -98,6 +100,43 @@ Comprehensive analytics for platform administrators.
 - 💡 **Content Ideas** - AI-powered trending content suggestions
 - 👨‍💼 **Admin Dashboard** - Comprehensive platform analytics for admins
 - 📈 **Cost Tracking** - Monitor AI API costs and profit margins
+- 🚀 **Blue/Green Deployment** - Zero-downtime deployments with instant rollback
+- 🏥 **Health Monitoring** - Startup, liveness, and readiness probes
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              GitHub Actions                                  │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │     CI      │  │  Terraform  │  │Build & Deploy│  │   Blue/Green       │ │
+│  │  (Lint/Test)│  │(Infra as Code│  │   Images    │  │   Traffic Shift    │ │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Azure Infrastructure                               │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                    Azure Container Apps Environment                     │ │
+│  │  ┌──────────────────────┐        ┌──────────────────────┐             │ │
+│  │  │   Backend (LangGraph)│        │   Frontend (Next.js) │             │ │
+│  │  │  ┌────────────────┐  │        │  ┌────────────────┐  │             │ │
+│  │  │  │ Health Probes  │  │        │  │ Health Probes  │  │             │ │
+│  │  │  │ /health/startup│  │        │  │/api/health/live│  │             │ │
+│  │  │  │ /health/live   │  │        │  │/api/health/ready│ │             │ │
+│  │  │  │ /health/ready  │  │        │  └────────────────┘  │             │ │
+│  │  │  └────────────────┘  │        └──────────────────────┘             │ │
+│  │  └──────────────────────┘                                              │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐ │
+│  │ Azure Key Vault │  │ Azure PostgreSQL │  │  Azure Container Registry  │ │
+│  │  (All Secrets)  │  │ (LangGraph State)│  │    (Docker Images)         │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ## Quick Start
 
@@ -105,9 +144,8 @@ Comprehensive analytics for platform administrators.
 
 - **Node.js 20+** - Required for LangGraph
 - **pnpm** - For web UI dependencies (`npm install -g pnpm`)
-- [OpenAI API Key](https://platform.openai.com/) - For AI text generation
+- [OpenAI API Key](https://platform.openai.com/) or [Gemini API Key](https://ai.google.dev/) - For AI generation
 - [Serper API Key](https://serper.dev/) - For content discovery
-- [Supabase Account](https://supabase.com/) - For database (free tier available)
 - [Clerk Account](https://clerk.com/) - For authentication (free tier available)
 
 ### Installation
@@ -184,13 +222,6 @@ pre-commit run --all-files
 
 > **Note:** CI/CD will fail if formatting checks don't pass. Run `yarn format` and `terraform fmt -recursive` before pushing if you haven't set up pre-commit hooks.
 
-### Database Setup
-
-1. Create a Supabase project at [supabase.com](https://supabase.com)
-2. Go to **SQL Editor** in your dashboard
-3. Run the contents of `supabase/schema.sql`
-4. Create a storage bucket named `images` (set to public)
-
 ### Run the Application
 
 **Option 1: Quick Start (Recommended)**
@@ -236,13 +267,20 @@ docker compose up --build
 Create a `.env` file in the project root:
 
 ```bash
-# Required
+# =============================================================================
+# AI Providers (at least one required)
+# =============================================================================
 OPENAI_API_KEY=sk-your_key
-SERPER_API_KEY=your_key
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_key
+GEMINI_API_KEY=your_gemini_key
 
-# Authentication (Clerk)
+# =============================================================================
+# Content Discovery
+# =============================================================================
+SERPER_API_KEY=your_key
+
+# =============================================================================
+# Authentication (Clerk - Required)
+# =============================================================================
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_your_key
 CLERK_SECRET_KEY=sk_your_key
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
@@ -250,27 +288,139 @@ NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
 
+# =============================================================================
+# LangGraph API URL (for frontend to connect to backend)
+# =============================================================================
+LANGGRAPH_API_URL=http://localhost:54367
+
+# =============================================================================
 # Optional - LangChain Monitoring
+# =============================================================================
 LANGCHAIN_API_KEY=your_key
 LANGSMITH_TRACING_V2=true
 
+# =============================================================================
 # Optional - Model Configuration
-AI_PROVIDER=openai  # or 'gemini'
-LLM_MODEL=gpt-4o
+# =============================================================================
+AI_PROVIDER=gemini  # or 'openai'
+LLM_MODEL=gemini-2.0-flash-exp
 IMAGE_MODEL=gemini-2.0-flash-exp
 
+# =============================================================================
 # Optional - Stripe (for payments)
+# =============================================================================
 STRIPE_SECRET_KEY=sk_your_key
 STRIPE_WEBHOOK_SECRET=whsec_your_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
+# =============================================================================
 # Optional - Admin Dashboard Access
+# =============================================================================
 ADMIN_USER_IDS=user_xxx,user_yyy
 NEXT_PUBLIC_ADMIN_USER_IDS=user_xxx,user_yyy
 
+# =============================================================================
 # Optional - Platform Credentials (can add via UI instead)
+# =============================================================================
 INSTAGRAM_USERNAME=your_username
 INSTAGRAM_PASSWORD=your_password
+```
+
+## CI/CD & Deployment
+
+### Environment Strategy
+
+| Trigger           | Environment       | Type               |
+| ----------------- | ----------------- | ------------------ |
+| Push to `main`    | **dev**           | ✅ Automatic       |
+| Push to `develop` | **dev**           | ✅ Automatic       |
+| Pull Request      | **dev** (preview) | ✅ Automatic       |
+| Tag `v*`          | **uat**           | ⚠️ Manual approval |
+| Workflow dispatch | **uat/prod**      | ⚠️ Manual trigger  |
+
+### Blue/Green Deployment
+
+FlowPost uses Blue/Green deployment strategy for zero-downtime releases:
+
+```
+1. Deploy new revision (green) → 0% traffic
+2. Health check passes → 10% traffic (canary)
+3. Monitor metrics → 50% traffic
+4. All checks pass → 100% traffic
+5. Deactivate old revision (blue)
+```
+
+**Instant Rollback:** If issues detected, traffic shifts back to blue immediately.
+
+### Health Probes
+
+Container Apps use health probes to ensure application health:
+
+| Probe         | Backend Path      | Frontend Path         | Purpose           |
+| ------------- | ----------------- | --------------------- | ----------------- |
+| **Startup**   | `/health/startup` | `/api/health/startup` | App has started   |
+| **Liveness**  | `/health/live`    | `/api/health/live`    | App is running    |
+| **Readiness** | `/health/ready`   | `/api/health/ready`   | Ready for traffic |
+
+### GitHub Workflows
+
+| Workflow           | Trigger                | Purpose                   |
+| ------------------ | ---------------------- | ------------------------- |
+| **CI**             | All PRs                | Lint, test, type-check    |
+| **Terraform**      | `terraform/**` changes | Infrastructure management |
+| **Build & Deploy** | Code changes to `main` | Build images & deploy     |
+
+### Manual Deployment
+
+To deploy infrastructure or trigger a deployment manually:
+
+```bash
+# Go to GitHub → Actions → Select Workflow → Run workflow
+# Choose environment and action
+```
+
+### Azure Infrastructure
+
+Terraform manages all Azure resources:
+
+| Resource                       | Purpose                             |
+| ------------------------------ | ----------------------------------- |
+| **Resource Group**             | Logical container for all resources |
+| **Container Registry**         | Docker image storage                |
+| **Container Apps Environment** | Hosting for containers              |
+| **Container Apps**             | Backend & Frontend applications     |
+| **PostgreSQL Flexible Server** | LangGraph state management          |
+| **Key Vault**                  | Centralized secrets storage         |
+
+### Required GitHub Secrets
+
+Add these in **GitHub → Settings → Secrets → Actions**:
+
+```bash
+# Azure Service Principal
+ARM_CLIENT_ID=xxx
+ARM_CLIENT_SECRET=xxx
+ARM_SUBSCRIPTION_ID=xxx
+ARM_TENANT_ID=xxx
+AZURE_CREDENTIALS={"clientId":"...","clientSecret":"...","subscriptionId":"...","tenantId":"..."}
+
+# PostgreSQL
+POSTGRES_ADMIN_PASSWORD=your_secure_password
+
+# AI Providers
+GEMINI_API_KEY=xxx
+OPENAI_API_KEY=xxx  # Optional if using Gemini
+
+# Authentication
+CLERK_PUBLISHABLE_KEY=pk_xxx
+CLERK_SECRET_KEY=sk_xxx
+
+# Optional
+LANGCHAIN_API_KEY=xxx
+SERPER_API_KEY=xxx
+STRIPE_SECRET_KEY=xxx
+STRIPE_WEBHOOK_SECRET=xxx
+ADMIN_USER_IDS=user_xxx
 ```
 
 ## Usage
@@ -381,31 +531,6 @@ Check your credit balance in the sidebar or visit **Dashboard > Billing** for:
 - Plan details
 - Purchase more credits
 
-## Deployment
-
-### Azure Container Apps (One-Command Setup)
-
-Run the setup script to deploy everything:
-
-```bash
-./scripts/azure-setup.sh
-```
-
-This single script will:
-
-- ✅ Create all Azure resources (Container Registry, Container Apps, etc.)
-- ✅ Configure GitHub Actions for CI/CD
-- ✅ Build and deploy Docker images
-- ✅ Set up automatic deployments on push
-
-**After setup, deployments are automatic:**
-
-- Push to `develop` → Deploys to Dev
-- Push to `uat` → Deploys to UAT
-- Push to `main` → Deploys to Production
-
-See [docs/AZURE_DEPLOYMENT.md](./docs/AZURE_DEPLOYMENT.md) for detailed documentation.
-
 ## Project Structure
 
 ```
@@ -416,18 +541,27 @@ flowpost/
 │   └── utils/           # Utility functions
 ├── frontend/            # Next.js web dashboard
 │   ├── app/             # Next.js App Router pages
+│   │   └── api/health/  # Health probe endpoints
 │   ├── components/      # React components
 │   └── lib/             # Utilities
 ├── terraform/           # Infrastructure as Code
 │   ├── modules/         # Reusable Terraform modules
+│   │   ├── container-app/       # Container App module
+│   │   ├── container-environment/  # Environment module
+│   │   ├── container-registry/  # ACR module
+│   │   ├── key-vault/          # Key Vault module
+│   │   └── postgresql/         # PostgreSQL module
 │   └── environments/    # Environment configs (dev/uat/prod)
+├── .github/workflows/   # CI/CD pipelines
+│   ├── ci.yml           # Linting, testing
+│   ├── terraform.yml    # Infrastructure management
+│   └── deploy.yml       # Build & deploy containers
 ├── tests/               # All test files
 │   ├── backend/         # Backend unit tests (Jest)
 │   ├── frontend/        # Frontend unit tests (Jest)
 │   └── e2e/             # E2E tests (Playwright)
 ├── docs/                # Documentation
 ├── scripts/             # Operational scripts (crons, backfill)
-├── supabase/            # Database schema (run manually)
 ├── docker-compose.yml   # Local Docker orchestration
 └── langgraph.json       # LangGraph configuration
 ```
@@ -437,7 +571,8 @@ For detailed documentation:
 - **Backend**: [backend/README.md](./backend/README.md)
 - **Frontend**: [frontend/README.md](./frontend/README.md)
 - **Terraform**: [terraform/README.md](./terraform/README.md)
-- **Deployment**: [docs/AZURE_DEPLOYMENT.md](./docs/AZURE_DEPLOYMENT.md)
+- **Azure Deployment**: [docs/AZURE_DEPLOYMENT.md](./docs/AZURE_DEPLOYMENT.md)
+- **PostgreSQL Integration**: [docs/POSTGRESQL_INTEGRATION.md](./docs/POSTGRESQL_INTEGRATION.md)
 - **Tests**: [tests/README.md](./tests/README.md)
 
 ## Troubleshooting
@@ -446,10 +581,6 @@ For detailed documentation:
 
 - Use the `./run.sh` script which automatically clears ports
 - Or manually clear: `lsof -ti:3000 | xargs kill -9` and `lsof -ti:54367 | xargs kill -9`
-
-**"Supabase not configured"**
-
-- Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set
 
 **"Instagram login failed"**
 
@@ -466,10 +597,28 @@ For detailed documentation:
 - Make sure you're using pnpm: `pnpm install` (not yarn or npm)
 - Clear node_modules and retry: `rm -rf node_modules && pnpm install`
 
+**Terraform workflow fails**
+
+- Check that all required GitHub secrets are set
+- Verify Azure service principal has sufficient permissions
+- Run `terraform fmt -recursive` before pushing
+
+**Build workflow fails with ACR not found**
+
+- Ensure Terraform Apply has completed successfully
+- Manually trigger the Terraform workflow if needed
+- Check Azure Portal to verify resources exist
+
+**Health probes failing**
+
+- Check application logs in Azure Portal
+- Verify environment variables are set correctly
+- Ensure DATABASE_URI is configured (if using PostgreSQL)
+
 ## License
 
 MIT
 
 ---
 
-Built with [LangGraph](https://github.com/langchain-ai/langgraph), [Next.js](https://nextjs.org/), [Supabase](https://supabase.com/), and [Clerk](https://clerk.com/)
+Built with [LangGraph](https://github.com/langchain-ai/langgraph), [Next.js](https://nextjs.org/), [Azure](https://azure.microsoft.com/), and [Clerk](https://clerk.com/)
