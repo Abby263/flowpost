@@ -243,12 +243,24 @@ jobs:
 
           # Retry up to 30 times (5 minutes total)
           for i in {1..30}; do
-            # Check if ACR exists in the specific resource group
-            if az acr show --name ${ACR_NAME} --resource-group ${RG_NAME} --query "name" -o tsv 2>/dev/null; then
-              echo "ACR is available, logging in..."
-              az acr login --name ${ACR_NAME}
-              exit 0
+            # First check if resource group exists
+            if ! az group show --name ${RG_NAME} --query "name" -o tsv 2>/dev/null; then
+              echo "Attempt $i/30: Resource group ${RG_NAME} not ready, waiting 10 seconds..."
+              sleep 10
+              continue
             fi
+
+            # Then check if ACR exists and try to login
+            if az acr show --name ${ACR_NAME} --resource-group ${RG_NAME} --query "loginServer" -o tsv 2>/dev/null; then
+              echo "ACR is available, attempting login..."
+              if az acr login --name ${ACR_NAME} 2>/dev/null; then
+                echo "Successfully logged in to ACR"
+                exit 0
+              else
+                echo "ACR exists but login failed, retrying..."
+              fi
+            fi
+
             echo "Attempt $i/30: ACR not ready, waiting 10 seconds..."
             sleep 10
           done
@@ -302,12 +314,24 @@ jobs:
 
           # Retry up to 30 times (5 minutes total)
           for i in {1..30}; do
-            # Check if ACR exists in the specific resource group
-            if az acr show --name ${ACR_NAME} --resource-group ${RG_NAME} --query "name" -o tsv 2>/dev/null; then
-              echo "ACR is available, logging in..."
-              az acr login --name ${ACR_NAME}
-              exit 0
+            # First check if resource group exists
+            if ! az group show --name ${RG_NAME} --query "name" -o tsv 2>/dev/null; then
+              echo "Attempt $i/30: Resource group ${RG_NAME} not ready, waiting 10 seconds..."
+              sleep 10
+              continue
             fi
+
+            # Then check if ACR exists and try to login
+            if az acr show --name ${ACR_NAME} --resource-group ${RG_NAME} --query "loginServer" -o tsv 2>/dev/null; then
+              echo "ACR is available, attempting login..."
+              if az acr login --name ${ACR_NAME} 2>/dev/null; then
+                echo "Successfully logged in to ACR"
+                exit 0
+              else
+                echo "ACR exists but login failed, retrying..."
+              fi
+            fi
+
             echo "Attempt $i/30: ACR not ready, waiting 10 seconds..."
             sleep 10
           done
