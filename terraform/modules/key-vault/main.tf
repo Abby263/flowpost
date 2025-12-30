@@ -14,11 +14,9 @@ data "azurerm_client_config" "current" {}
 # Local Variables
 # =============================================================================
 locals {
-  # Construct database URI from components
-  # Only construct if all required components are provided
-  has_postgres_config = var.postgres_host != "" && var.postgres_admin != null && var.postgres_password != null && var.postgres_database != ""
-
-  database_uri = local.has_postgres_config ? "postgresql://${var.postgres_admin}:${var.postgres_password}@${var.postgres_host}:${var.postgres_port}/${var.postgres_database}?sslmode=require" : ""
+  # Check if postgres configuration is provided (only check non-sensitive values)
+  # Sensitive values should always be passed when postgres is enabled
+  has_postgres_config = var.postgres_host != "" && var.postgres_database != ""
 }
 
 resource "azurerm_key_vault" "this" {
@@ -84,7 +82,7 @@ resource "azurerm_key_vault_access_policy" "terraform" {
 resource "azurerm_key_vault_secret" "database_uri" {
   count        = local.has_postgres_config ? 1 : 0
   name         = "database-uri"
-  value        = local.database_uri
+  value        = "postgresql://${var.postgres_admin}:${var.postgres_password}@${var.postgres_host}:${var.postgres_port}/${var.postgres_database}?sslmode=require"
   key_vault_id = azurerm_key_vault.this.id
   content_type = "PostgreSQL Connection URI"
 
@@ -102,7 +100,7 @@ resource "azurerm_key_vault_secret" "postgres_host" {
 }
 
 resource "azurerm_key_vault_secret" "postgres_admin" {
-  count        = var.postgres_admin != null && var.postgres_admin != "" ? 1 : 0
+  count        = local.has_postgres_config ? 1 : 0
   name         = "postgres-admin"
   value        = var.postgres_admin
   key_vault_id = azurerm_key_vault.this.id
@@ -112,7 +110,7 @@ resource "azurerm_key_vault_secret" "postgres_admin" {
 }
 
 resource "azurerm_key_vault_secret" "postgres_password" {
-  count        = var.postgres_password != null && var.postgres_password != "" ? 1 : 0
+  count        = local.has_postgres_config ? 1 : 0
   name         = "postgres-password"
   value        = var.postgres_password
   key_vault_id = azurerm_key_vault.this.id
@@ -126,7 +124,7 @@ resource "azurerm_key_vault_secret" "postgres_password" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "openai_api_key" {
-  count        = var.openai_api_key != null && var.openai_api_key != "" ? 1 : 0
+  count        = var.openai_api_key != "" ? 1 : 0
   name         = "openai-api-key"
   value        = var.openai_api_key
   key_vault_id = azurerm_key_vault.this.id
@@ -136,7 +134,7 @@ resource "azurerm_key_vault_secret" "openai_api_key" {
 }
 
 resource "azurerm_key_vault_secret" "gemini_api_key" {
-  count        = var.gemini_api_key != null && var.gemini_api_key != "" ? 1 : 0
+  count        = var.gemini_api_key != "" ? 1 : 0
   name         = "gemini-api-key"
   value        = var.gemini_api_key
   key_vault_id = azurerm_key_vault.this.id
@@ -146,7 +144,7 @@ resource "azurerm_key_vault_secret" "gemini_api_key" {
 }
 
 resource "azurerm_key_vault_secret" "langchain_api_key" {
-  count        = var.langchain_api_key != null && var.langchain_api_key != "" ? 1 : 0
+  count        = var.langchain_api_key != "" ? 1 : 0
   name         = "langchain-api-key"
   value        = var.langchain_api_key
   key_vault_id = azurerm_key_vault.this.id
@@ -160,7 +158,7 @@ resource "azurerm_key_vault_secret" "langchain_api_key" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "serper_api_key" {
-  count        = var.serper_api_key != null && var.serper_api_key != "" ? 1 : 0
+  count        = var.serper_api_key != "" ? 1 : 0
   name         = "serper-api-key"
   value        = var.serper_api_key
   key_vault_id = azurerm_key_vault.this.id
@@ -170,7 +168,7 @@ resource "azurerm_key_vault_secret" "serper_api_key" {
 }
 
 resource "azurerm_key_vault_secret" "perplexity_api_key" {
-  count        = var.perplexity_api_key != null && var.perplexity_api_key != "" ? 1 : 0
+  count        = var.perplexity_api_key != "" ? 1 : 0
   name         = "perplexity-api-key"
   value        = var.perplexity_api_key
   key_vault_id = azurerm_key_vault.this.id
@@ -180,7 +178,7 @@ resource "azurerm_key_vault_secret" "perplexity_api_key" {
 }
 
 resource "azurerm_key_vault_secret" "firecrawl_api_key" {
-  count        = var.firecrawl_api_key != null && var.firecrawl_api_key != "" ? 1 : 0
+  count        = var.firecrawl_api_key != "" ? 1 : 0
   name         = "firecrawl-api-key"
   value        = var.firecrawl_api_key
   key_vault_id = azurerm_key_vault.this.id
@@ -194,7 +192,7 @@ resource "azurerm_key_vault_secret" "firecrawl_api_key" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "clerk_publishable_key" {
-  count        = var.clerk_publishable_key != null && var.clerk_publishable_key != "" ? 1 : 0
+  count        = var.clerk_publishable_key != "" ? 1 : 0
   name         = "clerk-publishable-key"
   value        = var.clerk_publishable_key
   key_vault_id = azurerm_key_vault.this.id
@@ -204,7 +202,7 @@ resource "azurerm_key_vault_secret" "clerk_publishable_key" {
 }
 
 resource "azurerm_key_vault_secret" "clerk_secret_key" {
-  count        = var.clerk_secret_key != null && var.clerk_secret_key != "" ? 1 : 0
+  count        = var.clerk_secret_key != "" ? 1 : 0
   name         = "clerk-secret-key"
   value        = var.clerk_secret_key
   key_vault_id = azurerm_key_vault.this.id
@@ -218,7 +216,7 @@ resource "azurerm_key_vault_secret" "clerk_secret_key" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "stripe_secret_key" {
-  count        = var.stripe_secret_key != null && var.stripe_secret_key != "" ? 1 : 0
+  count        = var.stripe_secret_key != "" ? 1 : 0
   name         = "stripe-secret-key"
   value        = var.stripe_secret_key
   key_vault_id = azurerm_key_vault.this.id
@@ -228,7 +226,7 @@ resource "azurerm_key_vault_secret" "stripe_secret_key" {
 }
 
 resource "azurerm_key_vault_secret" "stripe_webhook_secret" {
-  count        = var.stripe_webhook_secret != null && var.stripe_webhook_secret != "" ? 1 : 0
+  count        = var.stripe_webhook_secret != "" ? 1 : 0
   name         = "stripe-webhook-secret"
   value        = var.stripe_webhook_secret
   key_vault_id = azurerm_key_vault.this.id
@@ -242,7 +240,7 @@ resource "azurerm_key_vault_secret" "stripe_webhook_secret" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "admin_user_ids" {
-  count        = var.admin_user_ids != null && var.admin_user_ids != "" ? 1 : 0
+  count        = var.admin_user_ids != "" ? 1 : 0
   name         = "admin-user-ids"
   value        = var.admin_user_ids
   key_vault_id = azurerm_key_vault.this.id
@@ -256,7 +254,7 @@ resource "azurerm_key_vault_secret" "admin_user_ids" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "acr_password" {
-  count        = var.acr_password != null && var.acr_password != "" ? 1 : 0
+  count        = var.acr_password != "" ? 1 : 0
   name         = "acr-password"
   value        = var.acr_password
   key_vault_id = azurerm_key_vault.this.id

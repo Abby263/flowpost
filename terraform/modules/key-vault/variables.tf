@@ -85,13 +85,6 @@ variable "network_acls_subnet_ids" {
 # PostgreSQL Secrets
 # =============================================================================
 
-variable "database_uri" {
-  description = "Full PostgreSQL connection URI for LangGraph API"
-  type        = string
-  default     = null
-  sensitive   = true
-}
-
 variable "postgres_host" {
   description = "PostgreSQL host"
   type        = string
@@ -101,14 +94,13 @@ variable "postgres_host" {
 variable "postgres_admin" {
   description = "PostgreSQL admin username"
   type        = string
-  default     = null
-  sensitive   = true
+  default     = ""
 }
 
 variable "postgres_password" {
   description = "PostgreSQL admin password"
   type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
@@ -156,21 +148,21 @@ variable "postgres_uri_secret_name" {
 variable "openai_api_key" {
   description = "OpenAI API key"
   type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
 variable "gemini_api_key" {
   description = "Google Gemini API key"
   type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
 variable "langchain_api_key" {
   description = "LangChain API key"
   type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
@@ -181,21 +173,21 @@ variable "langchain_api_key" {
 variable "serper_api_key" {
   description = "Serper API key"
   type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
 variable "perplexity_api_key" {
   description = "Perplexity API key"
   type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
 variable "firecrawl_api_key" {
   description = "FireCrawl API key"
   type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
@@ -206,14 +198,14 @@ variable "firecrawl_api_key" {
 variable "clerk_publishable_key" {
   description = "Clerk publishable key"
   type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
 variable "clerk_secret_key" {
   description = "Clerk secret key"
   type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
@@ -224,14 +216,14 @@ variable "clerk_secret_key" {
 variable "stripe_secret_key" {
   description = "Stripe secret key"
   type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
 variable "stripe_webhook_secret" {
   description = "Stripe webhook secret"
   type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
@@ -242,7 +234,7 @@ variable "stripe_webhook_secret" {
 variable "admin_user_ids" {
   description = "Comma-separated list of admin user IDs"
   type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
@@ -253,25 +245,7 @@ variable "admin_user_ids" {
 variable "acr_password" {
   description = "Azure Container Registry password"
   type        = string
-  default     = null
-  sensitive   = true
-}
-
-# =============================================================================
-# Legacy Variables (deprecated)
-# =============================================================================
-
-variable "additional_secrets" {
-  description = "DEPRECATED: Use specific secret variables instead"
-  type        = map(string)
-  default     = {}
-  sensitive   = true
-}
-
-variable "postgres_uri" {
-  description = "DEPRECATED: Use database_uri instead"
-  type        = string
-  default     = null
+  default     = ""
   sensitive   = true
 }
 
