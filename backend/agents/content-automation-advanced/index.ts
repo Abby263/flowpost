@@ -587,32 +587,21 @@ async function savePostToDb(
 ) {
   console.log("--- SAVING POST TO DB ---");
 
-  // Check if Supabase is configured (support both NEXT_PUBLIC and regular env vars)
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    console.warn("⚠️  Supabase not configured. Skipping DB save.");
-    console.warn(
-      "   Set either NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    );
-    console.warn("   OR SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY");
+  // Check if PostgreSQL is configured
+  if (!process.env.DATABASE_URI) {
+    console.warn("⚠️  DATABASE_URI not configured. Skipping DB save.");
     return {};
   }
 
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const { queryOne, insert, query } = await import("../../utils/postgres.js");
 
   // Save post to DB if we have content
   if (state.post) {
     try {
-      console.log(`   📊 Connecting to Supabase...`);
+      console.log(`   📊 Connecting to PostgreSQL...`);
 
       // Prepare post data - only include fields if they have values
-      const postData: any = {
+      const postData: Record<string, unknown> = {
         workflow_id: state.workflowId,
         user_id: state.userId,
         content: state.post,
@@ -623,18 +612,12 @@ async function savePostToDb(
 
       let connectionId: string | null = null;
       if (state.workflowId) {
-        const { data: workflow, error: workflowError } = await supabase
-          .from("workflows")
-          .select("connection_id")
-          .eq("id", state.workflowId)
-          .single();
+        const workflow = await queryOne<{ connection_id: string }>(
+          `SELECT connection_id FROM workflows WHERE id = $1`,
+          [state.workflowId],
+        );
 
-        if (workflowError) {
-          console.warn(
-            "WARN: Failed to load workflow connection:",
-            workflowError.message,
-          );
-        } else if (workflow?.connection_id) {
+        if (workflow?.connection_id) {
           connectionId = workflow.connection_id;
         }
       }
@@ -657,13 +640,8 @@ async function savePostToDb(
         has_url: !!postData.published_url,
       });
 
-      const { error } = await supabase.from("posts").insert(postData);
-
-      if (error) {
-        console.error("❌ Supabase insert error:", error);
-      } else {
-        console.log("✅ Post saved to DB successfully.");
-      }
+      await insert("posts", postData);
+      console.log("✅ Post saved to DB successfully.");
     } catch (e) {
       console.error("❌ Failed to save post:", e);
     }
@@ -684,48 +662,63 @@ async function savePostToDb(
       );
 
       // First, get the workflow to retrieve user_id for credit deduction
-      const { data: workflow, error: fetchError } = await supabase
-        .from("workflows")
-        .select("user_id, name")
-        .eq("id", state.workflowId)
-        .single();
-
-      if (fetchError) {
-        console.error(
-          "❌ Failed to fetch workflow for credit deduction:",
-          fetchError,
-        );
-      }
+      const workflow = await queryOne<{ user_id: string; name: string }>(
+        `SELECT user_id, name FROM workflows WHERE id = $1`,
+        [state.workflowId],
+      );
 
       // Update workflow status
-      const { error: updateError } = await supabase
-        .from("workflows")
-        .update({
-          run_status: finalStatus,
-          run_completed_at: new Date().toISOString(),
-          last_error: errorMessage,
-        })
-        .eq("id", state.workflowId);
-
-      if (updateError) {
-        console.error("❌ Failed to update workflow status:", updateError);
-      } else {
-        console.log(`✅ Workflow status updated to: ${finalStatus}`);
-      }
+      await query(
+        `UPDATE workflows SET run_status = $1, run_completed_at = $2, last_error = $3 WHERE id = $4`,
+        [finalStatus, new Date().toISOString(), errorMessage, state.workflowId],
+      );
+      console.log(`✅ Workflow status updated to: ${finalStatus}`);
 
       // Deduct credits ONLY on successful completion
       if (finalStatus === "completed" && workflow?.user_id) {
         try {
           const CREDITS_PER_WORKFLOW = 1;
-          const { error: creditError } = await supabase.rpc("deduct_credits", {
-            p_user_id: workflow.user_id,
-            p_amount: CREDITS_PER_WORKFLOW,
-            p_description: `Workflow completed: ${workflow.name || state.workflowId}`,
-          });
 
-          if (creditError) {
-            console.error("❌ Failed to deduct credits:", creditError);
-          } else {
+          // Get current credits
+          const currentCredits = await queryOne<{
+            credits_balance: number;
+            bonus_credits: number;
+          }>(
+            `SELECT credits_balance, bonus_credits FROM user_credits WHERE user_id = $1 FOR UPDATE`,
+            [workflow.user_id],
+          );
+
+          if (currentCredits) {
+            let newCreditsBalance = currentCredits.credits_balance;
+            let newBonusCredits = currentCredits.bonus_credits;
+
+            if (newBonusCredits >= CREDITS_PER_WORKFLOW) {
+              newBonusCredits -= CREDITS_PER_WORKFLOW;
+            } else {
+              const remainingAmount = CREDITS_PER_WORKFLOW - newBonusCredits;
+              newBonusCredits = 0;
+              newCreditsBalance -= remainingAmount;
+            }
+
+            await query(
+              `UPDATE user_credits SET credits_balance = $1, bonus_credits = $2, credits_used_this_month = credits_used_this_month + $3 WHERE user_id = $4`,
+              [
+                newCreditsBalance,
+                newBonusCredits,
+                CREDITS_PER_WORKFLOW,
+                workflow.user_id,
+              ],
+            );
+
+            // Log transaction
+            await insert("credit_transactions", {
+              user_id: workflow.user_id,
+              amount: -CREDITS_PER_WORKFLOW,
+              balance_after: newCreditsBalance + newBonusCredits,
+              transaction_type: "deduction",
+              description: `Workflow completed: ${workflow.name || state.workflowId}`,
+            });
+
             console.log(
               `💰 Deducted ${CREDITS_PER_WORKFLOW} credit(s) from user ${workflow.user_id}`,
             );

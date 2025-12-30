@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Client } from "@langchain/langgraph-sdk";
 import { auth } from "@clerk/nextjs/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { queryOne, query, insert } from "@/lib/postgres";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -9,6 +9,29 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const langGraphClient = new Client({
   apiUrl: process.env.LANGGRAPH_API_URL || "http://localhost:54367",
 });
+
+interface Connection {
+  id: string;
+  user_id: string;
+  platform: string;
+  credentials: Record<string, unknown>;
+}
+
+interface Post {
+  id: string;
+  workflow_id: string | null;
+  connection_id: string | null;
+  user_id: string;
+  content: string | null;
+  platform: string | null;
+  status: string;
+  source: string;
+  image_url: string | null;
+  published_url: string | null;
+  posted_at: string | null;
+  scheduled_at: string | null;
+  created_at: string;
+}
 
 async function generateImage(prompt: string): Promise<string> {
   if (!OPENAI_API_KEY) {
@@ -60,37 +83,30 @@ async function schedulePost(
   source?: string,
 ) {
   // Get connection details to find the workflow or create a new scheduled entry
-  const { data: connection, error: connError } = await supabaseAdmin
-    .from("connections")
-    .select("*")
-    .eq("id", connectionId)
-    .eq("user_id", userId)
-    .single();
+  const connection = await queryOne<Connection>(
+    `SELECT * FROM connections WHERE id = $1 AND user_id = $2`,
+    [connectionId, userId],
+  );
 
-  if (connError || !connection) {
+  if (!connection) {
     throw new Error("Connection not found");
   }
 
   // Insert scheduled post into posts table
-  const { data: post, error: postError } = await supabaseAdmin
-    .from("posts")
-    .insert({
-      user_id: userId,
-      content: content,
-      platform: platform,
-      status: "scheduled",
-      scheduled_at: scheduledAt,
-      image_url: imageUrl || null,
-      connection_id: connectionId,
-      posted_at: null, // Will be set when actually posted
-      source: source || "manual",
-    })
-    .select()
-    .single();
+  const post = await insert<Post>("posts", {
+    user_id: userId,
+    content: content,
+    platform: platform,
+    status: "scheduled",
+    scheduled_at: scheduledAt,
+    image_url: imageUrl || null,
+    connection_id: connectionId,
+    posted_at: null, // Will be set when actually posted
+    source: source || "manual",
+  });
 
-  if (postError) {
-    console.error("Error inserting scheduled post:", postError);
-    throw new Error(`Failed to schedule post: ${postError.message}`);
+  if (!post) {
+    throw new Error("Failed to schedule post");
   }
 
   return post;
@@ -119,12 +135,14 @@ export async function POST(request: Request) {
       try {
         const imageUrl = await generateImage(prompt);
         return NextResponse.json({ success: true, imageUrl });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Image generation error:", error);
+        const message =
+          error instanceof Error ? error.message : "Failed to generate image";
         return NextResponse.json(
           {
             success: false,
-            error: error.message || "Failed to generate image",
+            error: message,
           },
           { status: 500 },
         );
@@ -156,12 +174,14 @@ export async function POST(request: Request) {
           source,
         );
         return NextResponse.json({ success: true, post });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Schedule post error:", error);
+        const message =
+          error instanceof Error ? error.message : "Failed to schedule post";
         return NextResponse.json(
           {
             success: false,
-            error: error.message || "Failed to schedule post",
+            error: message,
           },
           { status: 500 },
         );
@@ -182,14 +202,12 @@ export async function POST(request: Request) {
 
       try {
         // Get connection details with credentials
-        const { data: connection, error: connError } = await supabaseAdmin
-          .from("connections")
-          .select("*")
-          .eq("id", connectionId)
-          .eq("user_id", userId)
-          .single();
+        const connection = await queryOne<Connection>(
+          `SELECT * FROM connections WHERE id = $1 AND user_id = $2`,
+          [connectionId, userId],
+        );
 
-        if (connError || !connection) {
+        if (!connection) {
           throw new Error("Connection not found");
         }
 
@@ -205,23 +223,19 @@ export async function POST(request: Request) {
         }
 
         // Create a record in posts table with "posting" status
-        const { data: post, error: postError } = await supabaseAdmin
-          .from("posts")
-          .insert({
-            user_id: userId,
-            content: content,
-            platform: platform,
-            status: "posting", // In progress
-            image_url: imageUrl || null,
-            connection_id: connectionId,
-            posted_at: new Date().toISOString(),
-            source: source || "manual",
-          })
-          .select()
-          .single();
+        const post = await insert<Post>("posts", {
+          user_id: userId,
+          content: content,
+          platform: platform,
+          status: "posting", // In progress
+          image_url: imageUrl || null,
+          connection_id: connectionId,
+          posted_at: new Date().toISOString(),
+          source: source || "manual",
+        });
 
-        if (postError) {
-          throw new Error(`Failed to create post record: ${postError.message}`);
+        if (!post) {
+          throw new Error("Failed to create post record");
         }
 
         // Call the upload_post graph via LangGraph SDK to directly publish
@@ -251,7 +265,6 @@ export async function POST(request: Request) {
           });
 
           // Run the upload_post graph and wait for completion using runs.wait()
-          // This handles all the polling internally and is more reliable
           const finalState = await langGraphClient.runs.wait(
             thread.thread_id,
             "upload_post",
@@ -261,15 +274,14 @@ export async function POST(request: Request) {
             },
           );
 
-          // Check the final state - runs.wait() returns the final run state
+          // Check the final state
           const runStatus = (finalState as any)?.status || "success";
 
           if (runStatus === "error") {
             // Update post status to failed
-            await supabaseAdmin
-              .from("posts")
-              .update({ status: "failed" })
-              .eq("id", post.id);
+            await query(`UPDATE posts SET status = 'failed' WHERE id = $1`, [
+              post.id,
+            ]);
 
             // Try to extract a meaningful error message
             let errorMsg = "Failed to publish post.";
@@ -300,51 +312,46 @@ export async function POST(request: Request) {
           console.log(
             `[Schedule Post API] Updating post ${post.id} status to published`,
           );
-          const { error: updateError } = await supabaseAdmin
-            .from("posts")
-            .update({
-              status: "published",
-              posted_at: new Date().toISOString(),
-            })
-            .eq("id", post.id);
+          await query(
+            `UPDATE posts SET status = 'published', posted_at = NOW() WHERE id = $1`,
+            [post.id],
+          );
 
-          if (updateError) {
-            console.error(
-              `[Schedule Post API] Failed to update post status:`,
-              updateError,
-            );
-          } else {
-            console.log(
-              `[Schedule Post API] Successfully updated post ${post.id} to published`,
-            );
-          }
+          console.log(
+            `[Schedule Post API] Successfully updated post ${post.id} to published`,
+          );
 
           return NextResponse.json({
             success: true,
             post: { ...post, status: "published" },
             message: "Post published successfully!",
           });
-        } catch (uploadError: any) {
+        } catch (uploadError: unknown) {
           console.error("Upload error:", uploadError);
 
           // Update post status to failed
-          await supabaseAdmin
-            .from("posts")
-            .update({ status: "failed" })
-            .eq("id", post.id);
+          await query(`UPDATE posts SET status = 'failed' WHERE id = $1`, [
+            post.id,
+          ]);
 
+          const errorMessage =
+            uploadError instanceof Error
+              ? uploadError.message
+              : "Unknown error";
           // Avoid duplicating "Failed to publish:" in error message
-          const errorMsg = uploadError.message?.startsWith("Failed to publish")
-            ? uploadError.message
-            : `Failed to publish: ${uploadError.message}`;
+          const errorMsg = errorMessage.startsWith("Failed to publish")
+            ? errorMessage
+            : `Failed to publish: ${errorMessage}`;
           throw new Error(errorMsg);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Post now error:", error);
+        const message =
+          error instanceof Error ? error.message : "Failed to publish post";
         return NextResponse.json(
           {
             success: false,
-            error: error.message || "Failed to publish post",
+            error: message,
           },
           { status: 500 },
         );
@@ -352,14 +359,15 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Schedule Post API Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 // GET endpoint to fetch scheduled posts
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const { userId } = auth();
 
@@ -367,20 +375,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: posts, error } = await supabaseAdmin
-      .from("posts")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("status", "scheduled")
-      .order("scheduled_at", { ascending: true });
+    const result = await query<Post>(
+      `SELECT * FROM posts
+       WHERE user_id = $1 AND status = 'scheduled'
+       ORDER BY scheduled_at ASC`,
+      [userId],
+    );
 
-    if (error) {
-      throw error;
-    }
-
-    return NextResponse.json({ success: true, posts });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, posts: result.rows });
+  } catch (error: unknown) {
     console.error("Get scheduled posts error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

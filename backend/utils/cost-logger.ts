@@ -1,24 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { query, insert } from "./postgres.js";
 
 // Cost logging utility for tracking external service costs
 // This helps track AI API costs, infrastructure costs, etc.
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase: ReturnType<typeof createClient> | null = null;
-
-function getSupabaseClient() {
-  if (!supabase && supabaseUrl && supabaseServiceRoleKey) {
-    supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-  }
-  return supabase;
-}
 
 export type ServiceType =
   | "ai_model"
@@ -37,7 +20,7 @@ export interface CostLogEntry {
   tokensInput?: number;
   tokensOutput?: number;
   description?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Cost rates for common services (per 1M tokens or per request)
@@ -115,14 +98,13 @@ export function calculateLLMCost(
  * Log a cost entry to the database
  */
 export async function logCost(entry: CostLogEntry): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) {
-    console.warn("Supabase client not available, skipping cost logging");
+  if (!process.env.DATABASE_URI) {
+    console.warn("DATABASE_URI not available, skipping cost logging");
     return;
   }
 
   try {
-    const { error } = await client.from("cost_tracking").insert({
+    await insert("cost_tracking", {
       service: entry.service,
       service_type: entry.serviceType,
       amount: entry.amount,
@@ -133,10 +115,6 @@ export async function logCost(entry: CostLogEntry): Promise<void> {
       description: entry.description,
       metadata: entry.metadata || {},
     });
-
-    if (error) {
-      console.error("Failed to log cost:", error);
-    }
   } catch (err) {
     console.error("Error logging cost:", err);
   }
@@ -238,9 +216,8 @@ export async function logScrapingCost(params: {
  * Batch log multiple costs at once
  */
 export async function logCostsBatch(entries: CostLogEntry[]): Promise<void> {
-  const client = getSupabaseClient();
-  if (!client) {
-    console.warn("Supabase client not available, skipping cost logging");
+  if (!process.env.DATABASE_URI) {
+    console.warn("DATABASE_URI not available, skipping cost logging");
     return;
   }
 
@@ -257,11 +234,21 @@ export async function logCostsBatch(entries: CostLogEntry[]): Promise<void> {
       metadata: entry.metadata || {},
     }));
 
-    const { error } = await client.from("cost_tracking").insert(records);
+    const columns = Object.keys(records[0]);
+    const valuesPerRow = columns.length;
+    const placeholders = records.map(
+      (_, rowIndex) =>
+        `(${columns.map((_, colIndex) => `$${rowIndex * valuesPerRow + colIndex + 1}`).join(", ")})`,
+    );
 
-    if (error) {
-      console.error("Failed to batch log costs:", error);
-    }
+    const flatValues = records.flatMap((record) =>
+      columns.map((col) => record[col as keyof typeof record]),
+    );
+
+    await query(
+      `INSERT INTO cost_tracking (${columns.join(", ")}) VALUES ${placeholders.join(", ")}`,
+      flatValues,
+    );
   } catch (err) {
     console.error("Error batch logging costs:", err);
   }

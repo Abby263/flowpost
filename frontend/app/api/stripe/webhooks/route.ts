@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { queryOne, query, insert, upsert } from "@/lib/postgres";
 import Stripe from "stripe";
 
 const stripe = process.env.STRIPE_SECRET_KEY
@@ -9,6 +9,13 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 // Trim webhook secret to remove any accidental whitespace/newlines from env vars
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+
+interface Plan {
+  id: string;
+  name: string;
+  slug: string;
+  credits_per_month: number;
+}
 
 export async function POST(request: Request) {
   if (!stripe || !webhookSecret) {
@@ -57,13 +64,37 @@ export async function POST(request: Request) {
           const bonusCredits = parseInt(session.metadata?.bonus_credits || "0");
           const totalCredits = credits + bonusCredits;
 
-          // Add credits to user
-          await supabaseAdmin.rpc("add_credits", {
-            p_user_id: userId,
-            p_amount: totalCredits,
-            p_transaction_type: "purchase",
-            p_description: `Purchased ${credits} credits${bonusCredits > 0 ? ` + ${bonusCredits} bonus` : ""}`,
-            p_is_bonus: true,
+          // Get current credits
+          const currentCredits = await queryOne<{
+            bonus_credits: number;
+            credits_balance: number;
+          }>(
+            `SELECT bonus_credits, credits_balance FROM user_credits WHERE user_id = $1`,
+            [userId],
+          );
+
+          const newBonusCredits =
+            (currentCredits?.bonus_credits || 0) + totalCredits;
+          const newBalance = currentCredits?.credits_balance || 0;
+
+          // Add credits to user (purchased credits go to bonus_credits)
+          await upsert(
+            "user_credits",
+            {
+              user_id: userId,
+              bonus_credits: newBonusCredits,
+              credits_balance: newBalance,
+            },
+            "user_id",
+          );
+
+          // Log transaction
+          await insert("credit_transactions", {
+            user_id: userId,
+            amount: totalCredits,
+            balance_after: newBalance + newBonusCredits,
+            transaction_type: "purchase",
+            description: `Purchased ${credits} credits${bonusCredits > 0 ? ` + ${bonusCredits} bonus` : ""}`,
           });
 
           console.log(`Added ${totalCredits} credits to user ${userId}`);
@@ -74,40 +105,51 @@ export async function POST(request: Request) {
           const billingCycle = session.metadata?.billing_cycle || "monthly";
 
           // Get plan details
-          const { data: plan } = await supabaseAdmin
-            .from("plans")
-            .select("*")
-            .eq("id", planId)
-            .single();
+          const plan = await queryOne<Plan>(
+            `SELECT * FROM plans WHERE id = $1`,
+            [planId],
+          );
 
           if (plan) {
             // Update subscription
-            await supabaseAdmin.from("user_subscriptions").upsert({
-              user_id: userId,
-              plan_id: planId,
-              stripe_customer_id: session.customer as string,
-              stripe_subscription_id: session.subscription as string,
-              status: "active",
-              billing_cycle: billingCycle,
-              current_period_start: new Date().toISOString(),
-              current_period_end: new Date(
-                Date.now() +
-                  (billingCycle === "yearly" ? 365 : 30) * 24 * 60 * 60 * 1000,
-              ).toISOString(),
-            });
+            await upsert(
+              "user_subscriptions",
+              {
+                user_id: userId,
+                plan_id: planId,
+                stripe_customer_id: session.customer as string,
+                stripe_subscription_id: session.subscription as string,
+                status: "active",
+                billing_cycle: billingCycle,
+                current_period_start: new Date().toISOString(),
+                current_period_end: new Date(
+                  Date.now() +
+                    (billingCycle === "yearly" ? 365 : 30) *
+                      24 *
+                      60 *
+                      60 *
+                      1000,
+                ).toISOString(),
+              },
+              "user_id",
+            );
 
             // Set credits for the new plan
-            await supabaseAdmin.from("user_credits").upsert({
-              user_id: userId,
-              credits_balance: plan.credits_per_month,
-              credits_used_this_month: 0,
-              next_reset_at: new Date(
-                Date.now() + 30 * 24 * 60 * 60 * 1000,
-              ).toISOString(),
-            });
+            await upsert(
+              "user_credits",
+              {
+                user_id: userId,
+                credits_balance: plan.credits_per_month,
+                credits_used_this_month: 0,
+                next_reset_at: new Date(
+                  Date.now() + 30 * 24 * 60 * 60 * 1000,
+                ).toISOString(),
+              },
+              "user_id",
+            );
 
             // Log transaction
-            await supabaseAdmin.from("credit_transactions").insert({
+            await insert("credit_transactions", {
               user_id: userId,
               amount: plan.credits_per_month,
               balance_after: plan.credits_per_month,
@@ -130,22 +172,21 @@ export async function POST(request: Request) {
           const periodStart = (subscription as any).current_period_start;
           const periodEnd = (subscription as any).current_period_end;
 
-          await supabaseAdmin
-            .from("user_subscriptions")
-            .update({
-              status:
-                subscription.status === "active"
-                  ? "active"
-                  : subscription.status,
-              current_period_start: periodStart
+          await query(
+            `UPDATE user_subscriptions
+             SET status = $1, current_period_start = $2, current_period_end = $3, updated_at = NOW()
+             WHERE user_id = $4`,
+            [
+              subscription.status === "active" ? "active" : subscription.status,
+              periodStart
                 ? new Date(periodStart * 1000).toISOString()
                 : new Date().toISOString(),
-              current_period_end: periodEnd
+              periodEnd
                 ? new Date(periodEnd * 1000).toISOString()
                 : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("user_id", userId);
+              userId,
+            ],
+          );
         }
         break;
       }
@@ -156,33 +197,26 @@ export async function POST(request: Request) {
 
         if (userId) {
           // Get free plan
-          const { data: freePlan } = await supabaseAdmin
-            .from("plans")
-            .select("id, credits_per_month")
-            .eq("slug", "free")
-            .single();
+          const freePlan = await queryOne<Plan>(
+            `SELECT id, credits_per_month FROM plans WHERE slug = $1`,
+            ["free"],
+          );
 
           // Downgrade to free plan
-          await supabaseAdmin
-            .from("user_subscriptions")
-            .update({
-              plan_id: freePlan?.id,
-              status: "canceled",
-              stripe_subscription_id: null,
-              canceled_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("user_id", userId);
+          await query(
+            `UPDATE user_subscriptions
+             SET plan_id = $1, status = 'canceled', stripe_subscription_id = NULL, canceled_at = NOW(), updated_at = NOW()
+             WHERE user_id = $2`,
+            [freePlan?.id, userId],
+          );
 
           // Reset credits to free plan
-          await supabaseAdmin
-            .from("user_credits")
-            .update({
-              credits_balance: freePlan?.credits_per_month || 10,
-              credits_used_this_month: 0,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("user_id", userId);
+          await query(
+            `UPDATE user_credits
+             SET credits_balance = $1, credits_used_this_month = 0, updated_at = NOW()
+             WHERE user_id = $2`,
+            [freePlan?.credits_per_month || 10, userId],
+          );
 
           console.log(
             `User ${userId} subscription canceled, downgraded to free`,
@@ -199,36 +233,33 @@ export async function POST(request: Request) {
 
         if (subscriptionId && billingReason === "subscription_cycle") {
           // Get subscription from Stripe
-          const subscription =
+          const stripeSubscription =
             await stripe.subscriptions.retrieve(subscriptionId);
-          const userId = subscription.metadata?.user_id;
-          const planId = subscription.metadata?.plan_id;
+          const userId = stripeSubscription.metadata?.user_id;
+          const planId = stripeSubscription.metadata?.plan_id;
 
           if (userId && planId) {
             // Get plan details
-            const { data: plan } = await supabaseAdmin
-              .from("plans")
-              .select("credits_per_month, name")
-              .eq("id", planId)
-              .single();
+            const plan = await queryOne<Plan>(
+              `SELECT credits_per_month, name FROM plans WHERE id = $1`,
+              [planId],
+            );
 
             if (plan) {
               // Reset monthly credits
-              await supabaseAdmin
-                .from("user_credits")
-                .update({
-                  credits_balance: plan.credits_per_month,
-                  credits_used_this_month: 0,
-                  last_reset_at: new Date().toISOString(),
-                  next_reset_at: new Date(
-                    Date.now() + 30 * 24 * 60 * 60 * 1000,
-                  ).toISOString(),
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("user_id", userId);
+              await query(
+                `UPDATE user_credits
+                 SET credits_balance = $1, credits_used_this_month = 0, last_reset_at = NOW(), next_reset_at = $2, updated_at = NOW()
+                 WHERE user_id = $3`,
+                [
+                  plan.credits_per_month,
+                  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                  userId,
+                ],
+              );
 
               // Log transaction
-              await supabaseAdmin.from("credit_transactions").insert({
+              await insert("credit_transactions", {
                 user_id: userId,
                 amount: plan.credits_per_month,
                 balance_after: plan.credits_per_month,
@@ -249,18 +280,17 @@ export async function POST(request: Request) {
         const subscriptionId = (invoice as any).subscription as string | null;
 
         if (subscriptionId) {
-          const subscription =
+          const stripeSubscription =
             await stripe.subscriptions.retrieve(subscriptionId);
-          const userId = subscription.metadata?.user_id;
+          const userId = stripeSubscription.metadata?.user_id;
 
           if (userId) {
-            await supabaseAdmin
-              .from("user_subscriptions")
-              .update({
-                status: "past_due",
-                updated_at: new Date().toISOString(),
-              })
-              .eq("user_id", userId);
+            await query(
+              `UPDATE user_subscriptions
+               SET status = 'past_due', updated_at = NOW()
+               WHERE user_id = $1`,
+              [userId],
+            );
 
             console.log(`Payment failed for user ${userId}`);
           }

@@ -1,6 +1,35 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { queryMany, queryOne, insert, update, remove } from "@/lib/postgres";
+
+interface Workflow {
+  id: string;
+  user_id: string;
+  connection_id: string | null;
+  name: string;
+  type: string | null;
+  platform: string | null;
+  config: Record<string, unknown> | null;
+  search_query: string | null;
+  location: string | null;
+  style_prompt: string | null;
+  schedule: string | null;
+  frequency: string | null;
+  is_active: boolean;
+  requires_approval: boolean;
+  created_at: string;
+  current_run_id: string | null;
+  run_status: string;
+  run_started_at: string | null;
+  run_completed_at: string | null;
+  last_error: string | null;
+  posts?: { id: string; posted_at: string }[];
+}
+
+interface Post {
+  id: string;
+  posted_at: string;
+}
 
 const ALLOWED_UPDATE_FIELDS = new Set([
   "name",
@@ -31,20 +60,46 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const includePosts = searchParams.get("includePosts") !== "false";
 
-  // Always include run tracking fields
-  const selectFields = includePosts ? "*, posts (id, posted_at)" : "*";
+  try {
+    const workflows = await queryMany<Workflow>(
+      `SELECT * FROM workflows WHERE user_id = $1 ORDER BY created_at DESC`,
+      [userId],
+    );
 
-  const { data, error } = await supabaseAdmin
-    .from("workflows")
-    .select(selectFields)
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+    if (includePosts && workflows.length > 0) {
+      // Fetch posts for all workflows
+      const workflowIds = workflows.map((w) => w.id);
+      const posts = await queryMany<Post & { workflow_id: string }>(
+        `SELECT id, posted_at, workflow_id FROM posts WHERE workflow_id = ANY($1)`,
+        [workflowIds],
+      );
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+      // Group posts by workflow_id
+      const postsByWorkflow = posts.reduce(
+        (acc, post) => {
+          if (!acc[post.workflow_id]) {
+            acc[post.workflow_id] = [];
+          }
+          acc[post.workflow_id].push({
+            id: post.id,
+            posted_at: post.posted_at,
+          });
+          return acc;
+        },
+        {} as Record<string, { id: string; posted_at: string }[]>,
+      );
+
+      // Attach posts to workflows
+      workflows.forEach((workflow) => {
+        workflow.posts = postsByWorkflow[workflow.id] || [];
+      });
+    }
+
+    return NextResponse.json({ workflows });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Database error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json({ workflows: data || [] });
 }
 
 export async function POST(request: Request) {
@@ -74,20 +129,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: connection, error: connectionError } = await supabaseAdmin
-    .from("connections")
-    .select("id")
-    .eq("id", connection_id)
-    .eq("user_id", userId)
-    .single();
+  try {
+    // Verify connection belongs to user
+    const connection = await queryOne(
+      `SELECT id FROM connections WHERE id = $1 AND user_id = $2`,
+      [connection_id, userId],
+    );
 
-  if (connectionError || !connection) {
-    return NextResponse.json({ error: "Invalid connection" }, { status: 400 });
-  }
+    if (!connection) {
+      return NextResponse.json(
+        { error: "Invalid connection" },
+        { status: 400 },
+      );
+    }
 
-  const { data, error } = await supabaseAdmin
-    .from("workflows")
-    .insert({
+    const workflow = await insert<Workflow>("workflows", {
       user_id: userId,
       name,
       platform,
@@ -99,17 +155,22 @@ export async function POST(request: Request) {
       frequency: frequency || "daily",
       requires_approval: !!requires_approval,
       type: "content_automation_advanced",
-      config: {},
+      config: JSON.stringify({}),
       is_active: true,
-    })
-    .select("*")
-    .single();
+    });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!workflow) {
+      return NextResponse.json(
+        { error: "Failed to create workflow" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ workflow }, { status: 201 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Database error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json({ workflow: data }, { status: 201 });
 }
 
 export async function PATCH(request: Request) {
@@ -139,39 +200,38 @@ export async function PATCH(request: Request) {
     );
   }
 
-  if (filteredUpdates.connection_id) {
-    const { data: connection, error: connectionError } = await supabaseAdmin
-      .from("connections")
-      .select("id")
-      .eq("id", filteredUpdates.connection_id)
-      .eq("user_id", userId)
-      .single();
-
-    if (connectionError || !connection) {
-      return NextResponse.json(
-        { error: "Invalid connection" },
-        { status: 400 },
+  try {
+    // Verify connection if being updated
+    if (filteredUpdates.connection_id) {
+      const connection = await queryOne(
+        `SELECT id FROM connections WHERE id = $1 AND user_id = $2`,
+        [filteredUpdates.connection_id, userId],
       );
+
+      if (!connection) {
+        return NextResponse.json(
+          { error: "Invalid connection" },
+          { status: 400 },
+        );
+      }
     }
+
+    const workflow = await update<Workflow>(
+      "workflows",
+      filteredUpdates,
+      "id = $1 AND user_id = $2",
+      [id, userId],
+    );
+
+    if (!workflow) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ workflow });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Database error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const { data, error } = await supabaseAdmin
-    .from("workflows")
-    .update(filteredUpdates)
-    .eq("id", id)
-    .eq("user_id", userId)
-    .select("*")
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  if (!data) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({ workflow: data });
 }
 
 export async function DELETE(request: Request) {
@@ -188,21 +248,21 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("workflows")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", userId)
-    .select("id")
-    .single();
+  try {
+    const deleted = await remove<Workflow>(
+      "workflows",
+      "id = $1 AND user_id = $2",
+      [id, userId],
+      "id",
+    );
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!deleted) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Database error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  if (!data) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({ success: true });
 }

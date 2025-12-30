@@ -1,12 +1,42 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { queryOne, query, insert, upsert } from "@/lib/postgres";
 
 // Timeout for workflow runs (10 minutes)
 const WORKFLOW_TIMEOUT_MS = 10 * 60 * 1000;
 
 // Credits required per workflow run
 const CREDITS_PER_RUN = 1;
+
+interface UserCredits {
+  credits_balance: number;
+  bonus_credits: number;
+}
+
+interface Workflow {
+  id: string;
+  user_id: string;
+  connection_id: string | null;
+  name: string;
+  search_query: string | null;
+  location: string | null;
+  style_prompt: string | null;
+  requires_approval: boolean;
+  run_status: string;
+  run_started_at: string | null;
+  current_run_id: string | null;
+}
+
+interface Connection {
+  id: string;
+  platform: string;
+  credentials: Record<string, unknown>;
+}
+
+interface Plan {
+  id: string;
+  credits_per_month: number;
+}
 
 export async function POST(request: Request) {
   try {
@@ -27,67 +57,67 @@ export async function POST(request: Request) {
     }
 
     // 0. Check user credits before proceeding
-    const { data: credits, error: creditsError } = await supabaseAdmin
-      .from("user_credits")
-      .select("credits_balance, bonus_credits")
-      .eq("user_id", userId)
-      .single();
+    let credits = await queryOne<UserCredits>(
+      `SELECT credits_balance, bonus_credits FROM user_credits WHERE user_id = $1`,
+      [userId],
+    );
 
     // If no credits record, initialize user with free plan
-    if (!credits || creditsError) {
-      // Try to initialize credits
-      try {
-        await supabaseAdmin.rpc("initialize_user_credits", {
-          p_user_id: userId,
-          p_plan_slug: "free",
-        });
-      } catch {
-        // Manual fallback
-        const { data: plan } = await supabaseAdmin
-          .from("plans")
-          .select("id, credits_per_month")
-          .eq("slug", "free")
-          .single();
+    if (!credits) {
+      const plan = await queryOne<Plan>(
+        `SELECT id, credits_per_month FROM plans WHERE slug = $1`,
+        ["free"],
+      );
 
-        await supabaseAdmin.from("user_credits").upsert({
+      await upsert(
+        "user_credits",
+        {
           user_id: userId,
           credits_balance: plan?.credits_per_month || 10,
           credits_used_this_month: 0,
           bonus_credits: 0,
-        });
+        },
+        "user_id",
+      );
 
-        await supabaseAdmin.from("user_subscriptions").upsert({
+      await upsert(
+        "user_subscriptions",
+        {
           user_id: userId,
           plan_id: plan?.id,
           status: "active",
-        });
-      }
-    } else {
-      const totalCredits =
-        (credits.credits_balance || 0) + (credits.bonus_credits || 0);
+        },
+        "user_id",
+      );
 
-      if (totalCredits < CREDITS_PER_RUN) {
-        return NextResponse.json(
-          {
-            error: "Insufficient credits",
-            message: `You need at least ${CREDITS_PER_RUN} credit to run a workflow. You have ${totalCredits} credits remaining.`,
-            credits_remaining: totalCredits,
-            credits_required: CREDITS_PER_RUN,
-          },
-          { status: 402 }, // Payment Required
-        );
-      }
+      credits = {
+        credits_balance: plan?.credits_per_month || 10,
+        bonus_credits: 0,
+      };
+    }
+
+    const totalCredits =
+      (credits.credits_balance || 0) + (credits.bonus_credits || 0);
+
+    if (totalCredits < CREDITS_PER_RUN) {
+      return NextResponse.json(
+        {
+          error: "Insufficient credits",
+          message: `You need at least ${CREDITS_PER_RUN} credit to run a workflow. You have ${totalCredits} credits remaining.`,
+          credits_remaining: totalCredits,
+          credits_required: CREDITS_PER_RUN,
+        },
+        { status: 402 }, // Payment Required
+      );
     }
 
     // 1. Fetch workflow and check ownership
-    const { data: workflow, error: workflowError } = await supabaseAdmin
-      .from("workflows")
-      .select("*")
-      .eq("id", workflowId)
-      .eq("user_id", userId)
-      .single();
+    const workflow = await queryOne<Workflow>(
+      `SELECT * FROM workflows WHERE id = $1 AND user_id = $2`,
+      [workflowId, userId],
+    );
 
-    if (workflowError || !workflow) {
+    if (!workflow) {
       return NextResponse.json(
         { error: "Workflow not found" },
         { status: 404 },
@@ -131,28 +161,25 @@ export async function POST(request: Request) {
     }
 
     // 3. Acquire lock with atomic update (optimistic locking)
-    const { data: lockedWorkflow, error: lockError } = await supabaseAdmin
-      .from("workflows")
-      .update({
-        run_status: "running",
-        run_started_at: new Date().toISOString(),
-        current_run_id: null, // Will be set after we get the run ID
-        last_error: null,
-      })
-      .eq("id", workflowId)
-      .eq("user_id", userId)
-      .not("run_status", "eq", "running") // Only update if not already running (race condition protection)
-      .select()
-      .single();
+    const lockResult = await query<Workflow>(
+      `UPDATE workflows
+       SET run_status = 'running', run_started_at = NOW(), current_run_id = NULL, last_error = NULL
+       WHERE id = $1 AND user_id = $2 AND run_status != 'running'
+       RETURNING *`,
+      [workflowId, userId],
+    );
+
+    const lockedWorkflow = lockResult.rows[0];
 
     // If we couldn't acquire the lock, another request got there first
-    if (lockError || !lockedWorkflow) {
+    if (!lockedWorkflow) {
       // Check if it's because workflow is now running
-      const { data: checkWorkflow } = await supabaseAdmin
-        .from("workflows")
-        .select("run_status, run_started_at")
-        .eq("id", workflowId)
-        .single();
+      const checkWorkflow = await queryOne<{
+        run_status: string;
+        run_started_at: string;
+      }>(`SELECT run_status, run_started_at FROM workflows WHERE id = $1`, [
+        workflowId,
+      ]);
 
       if (checkWorkflow?.run_status === "running") {
         return NextResponse.json(
@@ -172,23 +199,19 @@ export async function POST(request: Request) {
     }
 
     // 4. Fetch connection credentials
-    const { data: connection, error: connectionError } = await supabaseAdmin
-      .from("connections")
-      .select("*")
-      .eq("id", workflow.connection_id)
-      .eq("user_id", userId)
-      .single();
+    const connection = await queryOne<Connection>(
+      `SELECT * FROM connections WHERE id = $1 AND user_id = $2`,
+      [workflow.connection_id, userId],
+    );
 
-    if (connectionError || !connection) {
+    if (!connection) {
       // Release the lock since we can't proceed
-      await supabaseAdmin
-        .from("workflows")
-        .update({
-          run_status: "failed",
-          run_completed_at: new Date().toISOString(),
-          last_error: "Connection not found",
-        })
-        .eq("id", workflowId);
+      await query(
+        `UPDATE workflows
+         SET run_status = 'failed', run_completed_at = NOW(), last_error = $1
+         WHERE id = $2`,
+        ["Connection not found", workflowId],
+      );
 
       return NextResponse.json(
         { error: "Connection not found" },
@@ -224,32 +247,30 @@ export async function POST(request: Request) {
           stream_mode: "updates",
         }),
       });
-    } catch (fetchError: any) {
+    } catch (fetchError: unknown) {
+      const errorMsg =
+        fetchError instanceof Error ? fetchError.message : "Unknown error";
       // Release the lock on network error
-      await supabaseAdmin
-        .from("workflows")
-        .update({
-          run_status: "failed",
-          run_completed_at: new Date().toISOString(),
-          last_error: `Failed to connect to LangGraph: ${fetchError.message}`,
-        })
-        .eq("id", workflowId);
+      await query(
+        `UPDATE workflows
+         SET run_status = 'failed', run_completed_at = NOW(), last_error = $1
+         WHERE id = $2`,
+        [`Failed to connect to LangGraph: ${errorMsg}`, workflowId],
+      );
 
-      throw new Error(`Failed to connect to LangGraph: ${fetchError.message}`);
+      throw new Error(`Failed to connect to LangGraph: ${errorMsg}`);
     }
 
     if (!runResponse.ok) {
       const errorText = await runResponse.text();
 
       // Release the lock on API error
-      await supabaseAdmin
-        .from("workflows")
-        .update({
-          run_status: "failed",
-          run_completed_at: new Date().toISOString(),
-          last_error: `LangGraph API error: ${errorText}`,
-        })
-        .eq("id", workflowId);
+      await query(
+        `UPDATE workflows
+         SET run_status = 'failed', run_completed_at = NOW(), last_error = $1
+         WHERE id = $2`,
+        [`LangGraph API error: ${errorText}`, workflowId],
+      );
 
       throw new Error(`Failed to start run: ${errorText}`);
     }
@@ -281,22 +302,17 @@ export async function POST(request: Request) {
       reader.cancel();
     }
 
-    // 8. Update workflow with the run ID and pending credit info
-    // NOTE: Credits are deducted ONLY on successful completion, not at trigger time
-    // This ensures users aren't charged for failed workflows
-    await supabaseAdmin
-      .from("workflows")
-      .update({
-        current_run_id: runId || "unknown",
-      })
-      .eq("id", workflowId);
+    // 8. Update workflow with the run ID
+    await query(`UPDATE workflows SET current_run_id = $1 WHERE id = $2`, [
+      runId || "unknown",
+      workflowId,
+    ]);
 
     // Get current credits balance for response
-    const { data: currentCredits } = await supabaseAdmin
-      .from("user_credits")
-      .select("credits_balance, bonus_credits")
-      .eq("user_id", userId)
-      .single();
+    const currentCredits = await queryOne<UserCredits>(
+      `SELECT credits_balance, bonus_credits FROM user_credits WHERE user_id = $1`,
+      [userId],
+    );
 
     const currentBalance =
       (currentCredits?.credits_balance || 0) +
@@ -315,8 +331,9 @@ export async function POST(request: Request) {
       credits_to_deduct: CREDITS_PER_RUN,
       credits_balance: currentBalance,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Trigger Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

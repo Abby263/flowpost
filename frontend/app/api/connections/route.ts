@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { queryMany, queryOne, insert, remove } from "@/lib/postgres";
+
+interface Connection {
+  id: string;
+  user_id: string;
+  platform: string;
+  profile_name: string;
+  credentials: Record<string, unknown>;
+  created_at: string;
+}
 
 export async function GET() {
   const { userId } = auth();
@@ -9,17 +18,20 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("connections")
-    .select("id, platform, profile_name, created_at")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+  try {
+    const connections = await queryMany<Connection>(
+      `SELECT id, platform, profile_name, created_at
+       FROM connections
+       WHERE user_id = $1
+       ORDER BY created_at DESC`,
+      [userId],
+    );
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ connections });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Database error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json({ connections: data || [] });
 }
 
 export async function POST(request: Request) {
@@ -39,22 +51,36 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("connections")
-    .insert({
+  try {
+    const connection = await insert<Connection>("connections", {
       user_id: userId,
       platform,
       profile_name,
-      credentials,
-    })
-    .select("id, platform, profile_name, created_at")
-    .single();
+      credentials: JSON.stringify(credentials),
+    });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!connection) {
+      return NextResponse.json(
+        { error: "Failed to create connection" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        connection: {
+          id: connection.id,
+          platform: connection.platform,
+          profile_name: connection.profile_name,
+          created_at: connection.created_at,
+        },
+      },
+      { status: 201 },
+    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Database error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json({ connection: data }, { status: 201 });
 }
 
 export async function DELETE(request: Request) {
@@ -71,21 +97,21 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("connections")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", userId)
-    .select("id")
-    .single();
+  try {
+    const deleted = await remove<Connection>(
+      "connections",
+      "id = $1 AND user_id = $2",
+      [id, userId],
+      "id",
+    );
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!deleted) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Database error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  if (!data) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({ success: true });
 }
