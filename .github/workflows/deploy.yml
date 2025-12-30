@@ -238,11 +238,13 @@ jobs:
       - name: Wait for ACR and Login
         run: |
           ACR_NAME="${{ needs.determine-environment.outputs.acr_name }}"
-          echo "Waiting for ACR ${ACR_NAME} to be available..."
+          RG_NAME="${{ needs.determine-environment.outputs.resource_group }}"
+          echo "Waiting for ACR ${ACR_NAME} in resource group ${RG_NAME}..."
 
           # Retry up to 30 times (5 minutes total)
           for i in {1..30}; do
-            if az acr show --name ${ACR_NAME} --query "name" -o tsv 2>/dev/null; then
+            # Check if ACR exists in the specific resource group
+            if az acr show --name ${ACR_NAME} --resource-group ${RG_NAME} --query "name" -o tsv 2>/dev/null; then
               echo "ACR is available, logging in..."
               az acr login --name ${ACR_NAME}
               exit 0
@@ -251,7 +253,7 @@ jobs:
             sleep 10
           done
 
-          echo "::error::ACR ${ACR_NAME} not available after 5 minutes"
+          echo "::error::ACR ${ACR_NAME} not available in ${RG_NAME} after 5 minutes"
           exit 1
 
       - name: Build and push
@@ -295,11 +297,13 @@ jobs:
       - name: Wait for ACR and Login
         run: |
           ACR_NAME="${{ needs.determine-environment.outputs.acr_name }}"
-          echo "Waiting for ACR ${ACR_NAME} to be available..."
+          RG_NAME="${{ needs.determine-environment.outputs.resource_group }}"
+          echo "Waiting for ACR ${ACR_NAME} in resource group ${RG_NAME}..."
 
           # Retry up to 30 times (5 minutes total)
           for i in {1..30}; do
-            if az acr show --name ${ACR_NAME} --query "name" -o tsv 2>/dev/null; then
+            # Check if ACR exists in the specific resource group
+            if az acr show --name ${ACR_NAME} --resource-group ${RG_NAME} --query "name" -o tsv 2>/dev/null; then
               echo "ACR is available, logging in..."
               az acr login --name ${ACR_NAME}
               exit 0
@@ -308,7 +312,7 @@ jobs:
             sleep 10
           done
 
-          echo "::error::ACR ${ACR_NAME} not available after 5 minutes"
+          echo "::error::ACR ${ACR_NAME} not available in ${RG_NAME} after 5 minutes"
           exit 1
 
       - name: Build and push
