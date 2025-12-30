@@ -8,15 +8,15 @@
 --   psql $DATABASE_URI -f migrations/001_initial_schema.sql
 -- ============================================================================
 
--- Enable UUID extension (built-in on Azure PostgreSQL)
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Note: Using gen_random_uuid() which is built-in to PostgreSQL 13+
+-- No extension required
 
 -- ============================================================================
 -- CONNECTIONS TABLE
 -- Stores social media platform credentials
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS connections (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL,
   platform TEXT NOT NULL CHECK (platform IN ('instagram', 'twitter', 'linkedin', 'slack')),
   profile_name TEXT,
@@ -31,7 +31,7 @@ COMMENT ON TABLE connections IS 'Social media platform credentials for each user
 -- Stores automated workflow configurations
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS workflows (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL,
   connection_id UUID REFERENCES connections(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
@@ -90,7 +90,7 @@ COMMENT ON COLUMN posts.source IS 'Values: workflow, manual, trending, ai-genera
 -- Define subscription tiers and their limits
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS plans (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   slug TEXT NOT NULL UNIQUE,
   description TEXT,
@@ -131,7 +131,7 @@ ON CONFLICT (slug) DO NOTHING;
 -- Track user subscription status
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS user_subscriptions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL UNIQUE,
   plan_id UUID REFERENCES plans(id) ON DELETE SET NULL,
   -- Stripe
@@ -157,7 +157,7 @@ COMMENT ON TABLE user_subscriptions IS 'User subscription status and Stripe inte
 -- Track user credit balance and usage
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS user_credits (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL UNIQUE,
   -- Balance
   credits_balance INTEGER NOT NULL DEFAULT 0,
@@ -179,7 +179,7 @@ COMMENT ON TABLE user_credits IS 'User credit balance and usage tracking';
 -- Audit trail for all credit changes
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS credit_transactions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL,
   -- Transaction details
   amount INTEGER NOT NULL, -- positive for additions, negative for deductions
@@ -209,7 +209,7 @@ COMMENT ON TABLE credit_transactions IS 'Audit trail for all credit changes';
 -- One-time credit purchase options
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS credit_packages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   credits INTEGER NOT NULL,
   price DECIMAL(10, 2) NOT NULL,
@@ -235,7 +235,7 @@ ON CONFLICT DO NOTHING;
 -- Track all external service costs (AI APIs, infrastructure, etc.)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS cost_tracking (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   -- Service identification
   service TEXT NOT NULL, -- 'openai', 'anthropic', 'gemini', 'firecrawl', etc.
   service_type TEXT NOT NULL CHECK (service_type IN (
@@ -271,7 +271,7 @@ COMMENT ON TABLE cost_tracking IS 'Detailed log of all external service costs';
 -- Aggregated monthly costs for quick reporting
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS monthly_cost_summary (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   year_month TEXT NOT NULL, -- Format: 'YYYY-MM'
   service TEXT NOT NULL,
   service_type TEXT NOT NULL,
