@@ -1,14 +1,13 @@
 # =============================================================================
-# Backend Dockerfile for LangGraph Server
+# Backend Dockerfile for LangGraph Server (TypeScript/Node.js)
 # =============================================================================
 # Optimized for Azure Container Apps with PostgreSQL support
 #
-# NOTE: This application does not directly use PostgreSQL in its own code.
-# Instead, PostgreSQL is used by LangGraph Platform API for its internal
-# state management. The PostgreSQL connection is injected to LangGraph
-# via the DATABASE_URI environment variable.
+# NOTE: This application uses LangGraph.js (TypeScript implementation).
+# PostgreSQL is used by LangGraph for its internal state management.
+# The PostgreSQL connection is injected via the DATABASE_URI environment variable.
 #
-# LangGraph API uses PostgreSQL for:
+# LangGraph uses PostgreSQL for:
 # - Storing graph execution state
 # - Managing checkpoints and interrupts
 # - Persisting agent memory across sessions
@@ -16,7 +15,7 @@
 # =============================================================================
 # Build Stage
 # =============================================================================
-FROM langchain/langgraph-api:3.12 AS base
+FROM node:20-slim AS base
 
 # Build arguments for versioning
 ARG VERSION=dev
@@ -28,14 +27,21 @@ ENV COMMIT_SHA=${COMMIT_SHA}
 
 WORKDIR /app
 
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install yarn globally
+RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+
 # Copy package files from root (monorepo structure)
 COPY package.json yarn.lock ./
 COPY backend/ ./backend/
 COPY langgraph.json ./
 COPY tsconfig.json ./
-
-# Install dependencies
-RUN pip install --no-cache-dir psycopg2-binary
 
 # Install Node.js dependencies
 RUN yarn install --frozen-lockfile
@@ -49,11 +55,12 @@ RUN yarn build
 # =============================================================================
 # Production Stage
 # =============================================================================
-FROM langchain/langgraph-api:3.12 AS production
+FROM node:20-slim AS production
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    # Playwright browser dependencies
     libnss3 \
     libnspr4 \
     libatk1.0-0 \
@@ -70,16 +77,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
     libpango-1.0-0 \
     libcairo2 \
-    # PostgreSQL client libraries for psycopg2
+    # PostgreSQL client libraries
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install psycopg2-binary for PostgreSQL connectivity
-RUN pip install --no-cache-dir psycopg2-binary
-
 WORKDIR /app
 
-# Copy built application
+# Copy built application from base stage
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/dist ./dist
 COPY --from=base /app/backend ./backend
@@ -97,7 +101,7 @@ COPY --from=base /root/.cache/ms-playwright /root/.cache/ms-playwright
 RUN groupadd -r flowpost && useradd -r -g flowpost flowpost
 RUN chown -R flowpost:flowpost /app
 
-# Health check
+# Health check endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:54367/ok || exit 1
 
@@ -107,7 +111,6 @@ EXPOSE 54367
 # =============================================================================
 # Environment Variables
 # =============================================================================
-# Standard environment variables
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=54367
@@ -126,6 +129,5 @@ ENV PORT=54367
 # Run as non-root user (commented out due to Playwright browser requirements)
 # USER flowpost
 
-# Start LangGraph server with PostgreSQL backend
-# The server automatically detects DATABASE_URI and configures PostgreSQL storage
+# Start LangGraph server
 CMD ["npx", "@langchain/langgraph-cli", "dev", "--host", "0.0.0.0", "--port", "54367"]
