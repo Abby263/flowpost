@@ -74,6 +74,10 @@ module "key_vault" {
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
 
+  # Feature flags (known at plan time - avoid count dependency issues)
+  enable_postgresql_secrets = var.enable_postgresql
+  enable_acr_secrets        = true # ACR is always created
+
   # PostgreSQL secrets - pass components for URI construction in module
   postgres_host     = var.enable_postgresql ? module.postgresql[0].server_fqdn : ""
   postgres_admin    = var.postgres_admin_username

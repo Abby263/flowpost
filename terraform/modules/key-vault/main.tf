@@ -14,9 +14,8 @@ data "azurerm_client_config" "current" {}
 # Local Variables
 # =============================================================================
 locals {
-  # Check if postgres configuration is provided (only check non-sensitive values)
-  # Sensitive values should always be passed when postgres is enabled
-  has_postgres_config = var.postgres_host != "" && var.postgres_database != ""
+  # Use feature flags for count conditions (known at plan time)
+  # These avoid the "count depends on resource attributes" error
 }
 
 resource "azurerm_key_vault" "this" {
@@ -80,7 +79,7 @@ resource "azurerm_key_vault_access_policy" "terraform" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "database_uri" {
-  count        = local.has_postgres_config ? 1 : 0
+  count        = var.enable_postgresql_secrets ? 1 : 0
   name         = "database-uri"
   value        = "postgresql://${var.postgres_admin}:${var.postgres_password}@${var.postgres_host}:${var.postgres_port}/${var.postgres_database}?sslmode=require"
   key_vault_id = azurerm_key_vault.this.id
@@ -90,7 +89,7 @@ resource "azurerm_key_vault_secret" "database_uri" {
 }
 
 resource "azurerm_key_vault_secret" "postgres_host" {
-  count        = var.postgres_host != "" ? 1 : 0
+  count        = var.enable_postgresql_secrets ? 1 : 0
   name         = "postgres-host"
   value        = var.postgres_host
   key_vault_id = azurerm_key_vault.this.id
@@ -100,7 +99,7 @@ resource "azurerm_key_vault_secret" "postgres_host" {
 }
 
 resource "azurerm_key_vault_secret" "postgres_admin" {
-  count        = local.has_postgres_config ? 1 : 0
+  count        = var.enable_postgresql_secrets ? 1 : 0
   name         = "postgres-admin"
   value        = var.postgres_admin
   key_vault_id = azurerm_key_vault.this.id
@@ -110,7 +109,7 @@ resource "azurerm_key_vault_secret" "postgres_admin" {
 }
 
 resource "azurerm_key_vault_secret" "postgres_password" {
-  count        = local.has_postgres_config ? 1 : 0
+  count        = var.enable_postgresql_secrets ? 1 : 0
   name         = "postgres-password"
   value        = var.postgres_password
   key_vault_id = azurerm_key_vault.this.id
@@ -254,7 +253,7 @@ resource "azurerm_key_vault_secret" "admin_user_ids" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "acr_password" {
-  count        = var.acr_password != "" ? 1 : 0
+  count        = var.enable_acr_secrets ? 1 : 0
   name         = "acr-password"
   value        = var.acr_password
   key_vault_id = azurerm_key_vault.this.id

@@ -82,6 +82,22 @@ variable "network_acls_subnet_ids" {
 }
 
 # =============================================================================
+# Feature Flags (control secret creation with known values)
+# =============================================================================
+
+variable "enable_postgresql_secrets" {
+  description = "Whether to create PostgreSQL secrets (set to true when PostgreSQL is enabled)"
+  type        = bool
+  default     = false
+}
+
+variable "enable_acr_secrets" {
+  description = "Whether to create ACR secrets (set to true when Container Registry is enabled)"
+  type        = bool
+  default     = false
+}
+
+# =============================================================================
 # PostgreSQL Secrets
 # =============================================================================
 

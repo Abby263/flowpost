@@ -4,7 +4,7 @@
 
 environment        = "dev"
 shared_environment = "dev"
-location           = "eastus"  # Match existing infrastructure location
+location           = "eastus2"
 project_name       = "flowpost"
 
 # =============================================================================

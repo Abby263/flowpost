@@ -29,7 +29,7 @@ output "tenant_id" {
 
 output "database_uri_secret_uri" {
   description = "URI for DATABASE_URI secret"
-  value       = local.has_postgres_config ? "${azurerm_key_vault.this.vault_uri}secrets/database-uri" : null
+  value       = var.enable_postgresql_secrets ? "${azurerm_key_vault.this.vault_uri}secrets/database-uri" : null
 }
 
 output "openai_api_key_secret_uri" {
