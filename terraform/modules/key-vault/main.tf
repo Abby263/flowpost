@@ -10,6 +10,17 @@
 
 data "azurerm_client_config" "current" {}
 
+# =============================================================================
+# Local Variables
+# =============================================================================
+locals {
+  # Construct database URI from components
+  # Only construct if all required components are provided
+  has_postgres_config = var.postgres_host != "" && var.postgres_admin != null && var.postgres_password != null && var.postgres_database != ""
+
+  database_uri = local.has_postgres_config ? "postgresql://${var.postgres_admin}:${var.postgres_password}@${var.postgres_host}:${var.postgres_port}/${var.postgres_database}?sslmode=require" : ""
+}
+
 resource "azurerm_key_vault" "this" {
   name                        = var.name
   location                    = var.location
@@ -71,9 +82,9 @@ resource "azurerm_key_vault_access_policy" "terraform" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "database_uri" {
-  count        = var.database_uri != null && var.database_uri != "" ? 1 : 0
+  count        = local.has_postgres_config ? 1 : 0
   name         = "database-uri"
-  value        = var.database_uri
+  value        = local.database_uri
   key_vault_id = azurerm_key_vault.this.id
   content_type = "PostgreSQL Connection URI"
 
@@ -81,7 +92,7 @@ resource "azurerm_key_vault_secret" "database_uri" {
 }
 
 resource "azurerm_key_vault_secret" "postgres_host" {
-  count        = var.postgres_host != null && var.postgres_host != "" ? 1 : 0
+  count        = var.postgres_host != "" ? 1 : 0
   name         = "postgres-host"
   value        = var.postgres_host
   key_vault_id = azurerm_key_vault.this.id

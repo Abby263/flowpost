@@ -95,8 +95,7 @@ variable "database_uri" {
 variable "postgres_host" {
   description = "PostgreSQL host"
   type        = string
-  default     = null
-  sensitive   = true
+  default     = ""
 }
 
 variable "postgres_admin" {
@@ -111,6 +110,18 @@ variable "postgres_password" {
   type        = string
   default     = null
   sensitive   = true
+}
+
+variable "postgres_database" {
+  description = "PostgreSQL database name"
+  type        = string
+  default     = ""
+}
+
+variable "postgres_port" {
+  description = "PostgreSQL port"
+  type        = string
+  default     = "5432"
 }
 
 # Legacy secret name variables (deprecated)

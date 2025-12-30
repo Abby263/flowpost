@@ -93,9 +93,6 @@ resource "azurerm_container_app" "this" {
         path      = var.startup_probe_path
         port      = var.target_port
 
-        # Initial delay before first probe (seconds)
-        initial_delay = var.startup_probe_initial_delay
-
         # Time between probes (seconds)
         interval_seconds = var.startup_probe_interval
 
@@ -118,9 +115,6 @@ resource "azurerm_container_app" "this" {
         transport = "HTTP"
         path      = var.liveness_probe_path
         port      = var.target_port
-
-        # Initial delay after startup probe succeeds (seconds)
-        initial_delay = var.liveness_probe_initial_delay
 
         # Time between probes (seconds)
         interval_seconds = var.liveness_probe_interval
@@ -158,14 +152,6 @@ resource "azurerm_container_app" "this" {
         failure_count_threshold = var.readiness_probe_failure_threshold
       }
 
-      # Resource limits
-      dynamic "resources" {
-        for_each = var.enable_resource_limits ? [1] : []
-        content {
-          cpu    = var.cpu
-          memory = var.memory
-        }
-      }
     }
 
     # HTTP scaling rule

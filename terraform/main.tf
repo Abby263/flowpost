@@ -39,13 +39,13 @@ locals {
   # Database configuration
   database = {
     name     = local.postgres_db_name
-    host     = var.enable_postgresql ? module.postgresql[0].server_fqdn : null
     port     = 5432
     ssl_mode = "require"
   }
 
   # Build Database URI for LangGraph API
-  postgres_uri = var.enable_postgresql ? "postgresql://${var.postgres_admin_username}:${var.postgres_admin_password}@${module.postgresql[0].server_fqdn}:5432/${local.postgres_db_name}?sslmode=require" : null
+  # Note: Only reference module output when postgresql is enabled
+  postgres_host = var.enable_postgresql ? module.postgresql[0].server_fqdn : ""
 }
 
 # =============================================================================
@@ -74,11 +74,12 @@ module "key_vault" {
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
 
-  # PostgreSQL secrets
-  database_uri      = local.postgres_uri
-  postgres_host     = var.enable_postgresql ? module.postgresql[0].server_fqdn : null
-  postgres_admin    = var.enable_postgresql ? var.postgres_admin_username : null
-  postgres_password = var.enable_postgresql ? var.postgres_admin_password : null
+  # PostgreSQL secrets - pass components for URI construction in module
+  postgres_host     = var.enable_postgresql ? module.postgresql[0].server_fqdn : ""
+  postgres_admin    = var.postgres_admin_username
+  postgres_password = var.postgres_admin_password
+  postgres_database = local.postgres_db_name
+  postgres_port     = "5432"
 
   # AI Provider secrets
   openai_api_key    = var.openai_api_key
@@ -202,11 +203,11 @@ module "backend" {
     IMAGE_MODEL = var.image_model
   }
 
-  # All secrets stored in Key Vault
+  # All secrets stored in Container App secrets (also backed up in Key Vault)
   secrets = merge(
     # PostgreSQL (DATABASE_URI for LangGraph)
-    var.enable_postgresql && local.postgres_uri != null ? {
-      database-uri = local.postgres_uri
+    var.enable_postgresql ? {
+      database-uri = "postgresql://${var.postgres_admin_username}:${var.postgres_admin_password}@${local.postgres_host}:5432/${local.postgres_db_name}?sslmode=require"
     } : {},
     # AI Provider keys
     var.openai_api_key != "" ? { openai-api-key = var.openai_api_key } : {},
