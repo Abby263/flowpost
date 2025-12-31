@@ -324,7 +324,44 @@ NEXT_PUBLIC_ADMIN_USER_IDS=user_xxx,user_yyy
 # =============================================================================
 INSTAGRAM_USERNAME=your_username
 INSTAGRAM_PASSWORD=your_password
+
+# =============================================================================
+# Database (Production only - local dev uses Docker postgres automatically)
+# =============================================================================
+DATABASE_URI=postgresql://user:pass@host:5432/dbname?sslmode=require
 ```
+
+## Database Setup
+
+### Local Development
+
+No database setup needed! LangGraph runs an embedded PostgreSQL via Docker.
+
+### Production (Azure)
+
+1. **Infrastructure provisioning** creates Azure PostgreSQL Flexible Server via Terraform
+2. **DATABASE_URI** is stored securely in Azure Key Vault
+3. **Container Apps** automatically receive the connection string as an environment variable
+
+### Running Migrations
+
+For Azure PostgreSQL, run migrations after infrastructure is provisioned:
+
+```bash
+# Get DATABASE_URI from Azure Key Vault
+export DATABASE_URI=$(az keyvault secret show \
+  --vault-name "your-keyvault-name" \
+  --name "database-uri" \
+  --query "value" -o tsv)
+
+# Run migrations
+./scripts/run-migration.sh migrations/001_initial_schema.sql
+
+# Or manually with psql
+psql "$DATABASE_URI" -f migrations/001_initial_schema.sql
+```
+
+See [migrations/README.md](./migrations/README.md) for detailed migration instructions.
 
 ## CI/CD & Deployment
 
@@ -560,8 +597,11 @@ flowpost/
 │   ├── backend/         # Backend unit tests (Jest)
 │   ├── frontend/        # Frontend unit tests (Jest)
 │   └── e2e/             # E2E tests (Playwright)
+├── migrations/          # Database migration scripts
+│   └── 001_initial_schema.sql  # Initial database schema
 ├── docs/                # Documentation
 ├── scripts/             # Operational scripts (crons, backfill)
+│   └── run-migration.sh # Database migration runner
 ├── docker-compose.yml   # Local Docker orchestration
 └── langgraph.json       # LangGraph configuration
 ```

@@ -1,6 +1,6 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { query, queryOne } from "@/lib/postgres";
 
 // Admin user IDs - add your Clerk user ID here
 const ADMIN_USER_IDS =
@@ -8,6 +8,73 @@ const ADMIN_USER_IDS =
 
 // Cache for user emails to avoid repeated Clerk API calls
 const userEmailCache = new Map<string, { email: string; name: string }>();
+
+interface Subscription {
+  id: string;
+  user_id: string;
+  status: string;
+  billing_cycle: string;
+  created_at: string;
+  canceled_at: string | null;
+  plan_id: string;
+  plan_name: string;
+  plan_slug: string;
+  price_monthly: number;
+  price_yearly: number;
+}
+
+interface Plan {
+  id: string;
+  name: string;
+  slug: string;
+  price_monthly: number;
+  price_yearly: number;
+  sort_order: number;
+}
+
+interface Post {
+  id: string;
+  user_id: string;
+  platform: string;
+  status: string;
+  created_at: string;
+  content: string;
+  source: string;
+}
+
+interface Workflow {
+  id: string;
+  user_id: string;
+  name: string;
+  type: string;
+  created_at: string;
+}
+
+interface UserCredits {
+  credits_used_this_month: number;
+  credits_balance: number;
+  bonus_credits: number;
+}
+
+interface CreditTransaction {
+  transaction_type: string;
+  amount: number;
+}
+
+interface Connection {
+  platform: string;
+}
+
+interface CostTracking {
+  service: string;
+  service_type: string;
+  amount: number;
+  api_calls: number;
+  tokens_input: number;
+  tokens_output: number;
+  created_at: string;
+  user_id: string;
+}
 
 export async function GET() {
   try {
@@ -130,10 +197,11 @@ async function batchGetUserEmails(
 }
 
 async function getUserStats() {
-  // Get unique users from various tables
-  const { data: uniqueUsers } = await supabaseAdmin
-    .from("user_subscriptions")
-    .select("user_id, created_at");
+  // Get unique users from user_subscriptions table
+  const { rows: uniqueUsers } = await query<{
+    user_id: string;
+    created_at: string;
+  }>(`SELECT user_id, created_at FROM user_subscriptions`);
 
   const totalUsers = uniqueUsers?.length || 0;
 
@@ -195,28 +263,17 @@ async function getUserStats() {
 }
 
 async function getSubscriptionStats() {
-  // Get all subscriptions with plan info
-  const { data: subscriptions } = await supabaseAdmin.from("user_subscriptions")
-    .select(`
-      id,
-      user_id,
-      status,
-      billing_cycle,
-      created_at,
-      canceled_at,
-      plan_id,
-      plans (
-        name,
-        slug,
-        price_monthly,
-        price_yearly
-      )
-    `);
+  // Get all subscriptions with plan info using a JOIN
+  const { rows: subscriptions } = await query<Subscription>(
+    `SELECT us.id, us.user_id, us.status, us.billing_cycle, us.created_at, us.canceled_at, us.plan_id,
+            p.name as plan_name, p.slug as plan_slug, p.price_monthly, p.price_yearly
+     FROM user_subscriptions us
+     LEFT JOIN plans p ON us.plan_id = p.id`,
+  );
 
-  const { data: plans } = await supabaseAdmin
-    .from("plans")
-    .select("*")
-    .order("sort_order");
+  const { rows: plans } = await query<Plan>(
+    `SELECT * FROM plans ORDER BY sort_order`,
+  );
 
   // Count by plan
   const planBreakdown =
@@ -244,16 +301,14 @@ async function getSubscriptionStats() {
 
   // Free vs Paid
   const freeUsers =
-    subscriptions?.filter((s) => {
-      const plan = s.plans as any;
-      return plan?.slug === "free" && s.status === "active";
-    }).length || 0;
+    subscriptions?.filter(
+      (s) => s.plan_slug === "free" && s.status === "active",
+    ).length || 0;
 
   const paidUsers =
-    subscriptions?.filter((s) => {
-      const plan = s.plans as any;
-      return plan?.slug !== "free" && s.status === "active";
-    }).length || 0;
+    subscriptions?.filter(
+      (s) => s.plan_slug !== "free" && s.status === "active",
+    ).length || 0;
 
   const conversionRate =
     freeUsers + paidUsers > 0 ? (paidUsers / (freeUsers + paidUsers)) * 100 : 0;
@@ -279,31 +334,22 @@ async function getSubscriptionStats() {
 }
 
 async function getRevenueStats() {
-  // Get active paid subscriptions
-  const { data: subscriptions } = await supabaseAdmin
-    .from("user_subscriptions")
-    .select(
-      `
-      id,
-      status,
-      billing_cycle,
-      plans (
-        name,
-        price_monthly,
-        price_yearly
-      )
-    `,
-    )
-    .eq("status", "active");
+  // Get active paid subscriptions with plan info
+  const { rows: subscriptions } = await query<Subscription>(
+    `SELECT us.id, us.status, us.billing_cycle, us.plan_id,
+            p.name as plan_name, p.price_monthly, p.price_yearly
+     FROM user_subscriptions us
+     LEFT JOIN plans p ON us.plan_id = p.id
+     WHERE us.status = 'active'`,
+  );
 
   let mrr = 0;
   subscriptions?.forEach((sub) => {
-    const plan = sub.plans as any;
-    if (plan && plan.price_monthly > 0) {
+    if (sub.price_monthly > 0) {
       if (sub.billing_cycle === "yearly") {
-        mrr += plan.price_yearly / 12;
+        mrr += sub.price_yearly / 12;
       } else {
-        mrr += plan.price_monthly;
+        mrr += sub.price_monthly;
       }
     }
   });
@@ -312,10 +358,7 @@ async function getRevenueStats() {
 
   // Average Revenue Per User
   const paidCount =
-    subscriptions?.filter((s) => {
-      const plan = s.plans as any;
-      return plan?.price_monthly > 0;
-    }).length || 0;
+    subscriptions?.filter((s) => s.price_monthly > 0).length || 0;
   const arpu = paidCount > 0 ? mrr / paidCount : 0;
 
   // Revenue by plan
@@ -323,13 +366,12 @@ async function getRevenueStats() {
   const planRevenue: Record<string, number> = {};
 
   subscriptions?.forEach((sub) => {
-    const plan = sub.plans as any;
-    if (plan && plan.price_monthly > 0) {
+    if (sub.price_monthly > 0) {
       const revenue =
         sub.billing_cycle === "yearly"
-          ? plan.price_yearly / 12
-          : plan.price_monthly;
-      planRevenue[plan.name] = (planRevenue[plan.name] || 0) + revenue;
+          ? sub.price_yearly / 12
+          : sub.price_monthly;
+      planRevenue[sub.plan_name] = (planRevenue[sub.plan_name] || 0) + revenue;
     }
   });
 
@@ -348,44 +390,47 @@ async function getRevenueStats() {
 
 async function getUsageStats() {
   // Get workflow counts
-  const { count: totalWorkflows } = await supabaseAdmin
-    .from("workflows")
-    .select("*", { count: "exact", head: true });
+  const totalWorkflowsResult = await queryOne<{ count: string }>(
+    `SELECT COUNT(*) as count FROM workflows`,
+  );
+  const totalWorkflows = parseInt(totalWorkflowsResult?.count || "0");
 
-  const { count: activeWorkflows } = await supabaseAdmin
-    .from("workflows")
-    .select("*", { count: "exact", head: true })
-    .eq("is_active", true);
+  const activeWorkflowsResult = await queryOne<{ count: string }>(
+    `SELECT COUNT(*) as count FROM workflows WHERE is_active = true`,
+  );
+  const activeWorkflows = parseInt(activeWorkflowsResult?.count || "0");
 
   // Get post counts
-  const { count: totalPosts } = await supabaseAdmin
-    .from("posts")
-    .select("*", { count: "exact", head: true });
+  const totalPostsResult = await queryOne<{ count: string }>(
+    `SELECT COUNT(*) as count FROM posts`,
+  );
+  const totalPosts = parseInt(totalPostsResult?.count || "0");
 
-  const { count: publishedPosts } = await supabaseAdmin
-    .from("posts")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "published");
+  const publishedPostsResult = await queryOne<{ count: string }>(
+    `SELECT COUNT(*) as count FROM posts WHERE status = 'published'`,
+  );
+  const publishedPosts = parseInt(publishedPostsResult?.count || "0");
 
-  const { count: scheduledPosts } = await supabaseAdmin
-    .from("posts")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "scheduled");
+  const scheduledPostsResult = await queryOne<{ count: string }>(
+    `SELECT COUNT(*) as count FROM posts WHERE status = 'scheduled'`,
+  );
+  const scheduledPosts = parseInt(scheduledPostsResult?.count || "0");
 
-  const { count: failedPosts } = await supabaseAdmin
-    .from("posts")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "failed");
+  const failedPostsResult = await queryOne<{ count: string }>(
+    `SELECT COUNT(*) as count FROM posts WHERE status = 'failed'`,
+  );
+  const failedPosts = parseInt(failedPostsResult?.count || "0");
 
   // Get connection counts
-  const { count: totalConnections } = await supabaseAdmin
-    .from("connections")
-    .select("*", { count: "exact", head: true });
+  const totalConnectionsResult = await queryOne<{ count: string }>(
+    `SELECT COUNT(*) as count FROM connections`,
+  );
+  const totalConnections = parseInt(totalConnectionsResult?.count || "0");
 
   // Posts by source
-  const { data: postsBySource } = await supabaseAdmin
-    .from("posts")
-    .select("source");
+  const { rows: postsBySource } = await query<{ source: string }>(
+    `SELECT source FROM posts`,
+  );
 
   const sourceBreakdown: Record<string, number> = {};
   postsBySource?.forEach((post) => {
@@ -394,50 +439,50 @@ async function getUsageStats() {
   });
 
   return {
-    totalWorkflows: totalWorkflows || 0,
-    activeWorkflows: activeWorkflows || 0,
-    totalPosts: totalPosts || 0,
-    publishedPosts: publishedPosts || 0,
-    scheduledPosts: scheduledPosts || 0,
-    failedPosts: failedPosts || 0,
-    totalConnections: totalConnections || 0,
+    totalWorkflows,
+    activeWorkflows,
+    totalPosts,
+    publishedPosts,
+    scheduledPosts,
+    failedPosts,
+    totalConnections,
     sourceBreakdown,
     successRate:
-      totalPosts && totalPosts > 0
-        ? Math.round(((publishedPosts || 0) / totalPosts) * 100)
-        : 0,
+      totalPosts > 0 ? Math.round((publishedPosts / totalPosts) * 100) : 0,
   };
 }
 
 async function getRecentActivity() {
-  // Recent subscriptions
-  const { data: recentSubscriptions } = await supabaseAdmin
-    .from("user_subscriptions")
-    .select(
-      `
-      id,
-      user_id,
-      status,
-      created_at,
-      plans (name)
-    `,
-    )
-    .order("created_at", { ascending: false })
-    .limit(10);
+  // Recent subscriptions with plan info
+  const { rows: recentSubscriptions } = await query<{
+    id: string;
+    user_id: string;
+    status: string;
+    created_at: string;
+    plan_name: string;
+  }>(
+    `SELECT us.id, us.user_id, us.status, us.created_at, p.name as plan_name
+     FROM user_subscriptions us
+     LEFT JOIN plans p ON us.plan_id = p.id
+     ORDER BY us.created_at DESC
+     LIMIT 10`,
+  );
 
   // Recent posts
-  const { data: recentPosts } = await supabaseAdmin
-    .from("posts")
-    .select("id, user_id, platform, status, created_at, content")
-    .order("created_at", { ascending: false })
-    .limit(10);
+  const { rows: recentPosts } = await query<Post>(
+    `SELECT id, user_id, platform, status, created_at, content
+     FROM posts
+     ORDER BY created_at DESC
+     LIMIT 10`,
+  );
 
   // Recent workflows
-  const { data: recentWorkflows } = await supabaseAdmin
-    .from("workflows")
-    .select("id, user_id, name, type, created_at")
-    .order("created_at", { ascending: false })
-    .limit(10);
+  const { rows: recentWorkflows } = await query<Workflow>(
+    `SELECT id, user_id, name, type, created_at
+     FROM workflows
+     ORDER BY created_at DESC
+     LIMIT 10`,
+  );
 
   // Collect all user IDs
   const allUserIds = [
@@ -453,6 +498,7 @@ async function getRecentActivity() {
   const enrichedSubscriptions =
     recentSubscriptions?.map((s) => ({
       ...s,
+      plans: { name: s.plan_name },
       user_email: userEmails.get(s.user_id)?.email || s.user_id,
       user_name: userEmails.get(s.user_id)?.name || s.user_id,
     })) || [];
@@ -480,9 +526,9 @@ async function getRecentActivity() {
 
 async function getCreditStats() {
   // Total credits used
-  const { data: creditUsage } = await supabaseAdmin
-    .from("user_credits")
-    .select("credits_used_this_month, credits_balance, bonus_credits");
+  const { rows: creditUsage } = await query<UserCredits>(
+    `SELECT credits_used_this_month, credits_balance, bonus_credits FROM user_credits`,
+  );
 
   const totalCreditsUsed =
     creditUsage?.reduce(
@@ -496,14 +542,15 @@ async function getCreditStats() {
       0,
     ) || 0;
 
-  // Get transaction breakdown
-  const { data: transactions } = await supabaseAdmin
-    .from("credit_transactions")
-    .select("transaction_type, amount")
-    .gte(
-      "created_at",
-      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    );
+  // Get transaction breakdown (last 30 days)
+  const thirtyDaysAgo = new Date(
+    Date.now() - 30 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const { rows: transactions } = await query<CreditTransaction>(
+    `SELECT transaction_type, amount FROM credit_transactions WHERE created_at >= $1`,
+    [thirtyDaysAgo],
+  );
 
   const transactionBreakdown: Record<string, number> = {};
   transactions?.forEach((t) => {
@@ -520,9 +567,9 @@ async function getCreditStats() {
 
 async function getPlatformStats() {
   // Connections by platform
-  const { data: connections } = await supabaseAdmin
-    .from("connections")
-    .select("platform");
+  const { rows: connections } = await query<Connection>(
+    `SELECT platform FROM connections`,
+  );
 
   const connectionsByPlatform: Record<string, number> = {};
   connections?.forEach((c) => {
@@ -531,7 +578,9 @@ async function getPlatformStats() {
   });
 
   // Posts by platform
-  const { data: posts } = await supabaseAdmin.from("posts").select("platform");
+  const { rows: posts } = await query<{ platform: string }>(
+    `SELECT platform FROM posts`,
+  );
 
   const postsByPlatform: Record<string, number> = {};
   posts?.forEach((p) => {
@@ -552,14 +601,13 @@ async function getCostTracking() {
     Date.now() - 30 * 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  const { data: costs, error } = await supabaseAdmin
-    .from("cost_tracking")
-    .select("*")
-    .gte("created_at", thirtyDaysAgo)
-    .order("created_at", { ascending: false });
+  const { rows: costs } = await query<CostTracking>(
+    `SELECT * FROM cost_tracking WHERE created_at >= $1 ORDER BY created_at DESC`,
+    [thirtyDaysAgo],
+  );
 
-  // If table doesn't exist or no data, return empty
-  if (error || !costs || costs.length === 0) {
+  // If no data, return empty
+  if (!costs || costs.length === 0) {
     return {
       totalCost: 0,
       costByService: {},
@@ -635,14 +683,14 @@ async function getUserCostBreakdown() {
     Date.now() - 30 * 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  const { data: costs, error } = await supabaseAdmin
-    .from("cost_tracking")
-    .select(
-      "user_id, service, service_type, amount, tokens_input, tokens_output, api_calls",
-    )
-    .gte("created_at", thirtyDaysAgo);
+  const { rows: costs } = await query<CostTracking>(
+    `SELECT user_id, service, service_type, amount, tokens_input, tokens_output, api_calls
+     FROM cost_tracking
+     WHERE created_at >= $1`,
+    [thirtyDaysAgo],
+  );
 
-  if (error || !costs || costs.length === 0) {
+  if (!costs || costs.length === 0) {
     return {
       userCosts: [],
       topUsers: [],

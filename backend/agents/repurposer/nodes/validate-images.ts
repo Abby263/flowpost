@@ -89,19 +89,13 @@ const YOUTUBE_THUMBNAIL_URL = "https://i.ytimg.com/";
 
 function removeProtectedUrls(imageOptions: string[]): string[] {
   return imageOptions.filter(
-    (fileUri) =>
-      (!process.env.SUPABASE_URL ||
-        !fileUri.startsWith(process.env.SUPABASE_URL)) &&
-      !fileUri.startsWith(YOUTUBE_THUMBNAIL_URL),
+    (fileUri) => !fileUri.startsWith(YOUTUBE_THUMBNAIL_URL),
   );
 }
 
 function getProtectedUrls(imageOptions: string[]): string[] {
-  return imageOptions.filter(
-    (fileUri) =>
-      (process.env.SUPABASE_URL &&
-        fileUri.startsWith(process.env.SUPABASE_URL)) ||
-      fileUri.startsWith(YOUTUBE_THUMBNAIL_URL),
+  return imageOptions.filter((fileUri) =>
+    fileUri.startsWith(YOUTUBE_THUMBNAIL_URL),
   );
 }
 
@@ -229,11 +223,8 @@ export async function validateImages(state: RepurposerState): Promise<{
     baseIndex += imageChunk.length;
   }
 
-  const protectedUrls = imageOptions?.filter(
-    (fileUri) =>
-      (process.env.SUPABASE_URL &&
-        fileUri.startsWith(process.env.SUPABASE_URL)) ||
-      fileUri.startsWith(YOUTUBE_THUMBNAIL_URL),
+  const protectedUrls = imageOptions?.filter((fileUri) =>
+    fileUri.startsWith(YOUTUBE_THUMBNAIL_URL),
   );
 
   // Keep only the relevant images (those whose indices are in allRelevantIndices)

@@ -112,8 +112,40 @@ export async function humanNode<
   State extends BaseGeneratePostState = BaseGeneratePostState,
   Update extends BaseGeneratePostUpdate = BaseGeneratePostUpdate,
 >(state: State, config: LangGraphRunnableConfig): Promise<Update> {
-  if (!state.post) {
-    throw new Error("No post found");
+  // If no post was generated, create a fallback from report/links
+  if (!state.post || state.post.trim().length === 0) {
+    console.warn(
+      "⚠️  [HUMAN NODE] No post was generated, creating fallback...",
+    );
+
+    // Try to create a fallback post from report
+    if (state.report && state.report.length > 10) {
+      const fallbackPost = state.report
+        .split("\n")
+        .filter((line) => line.trim().length > 0)
+        .slice(0, 5)
+        .join("\n")
+        .substring(0, 500);
+
+      if (fallbackPost.length > 10) {
+        console.log("✅ [HUMAN NODE] Created fallback post from report");
+        // Update state with fallback post
+        (state as any).post = fallbackPost;
+      }
+    }
+
+    // If still no post, throw with helpful error
+    if (!state.post || state.post.trim().length === 0) {
+      throw new Error(
+        "No post could be generated. This may happen when:\n" +
+          "1. Content sources could not be scraped (e.g., protected sites like Instagram)\n" +
+          "2. The AI model returned empty output\n" +
+          "3. No relevant content was found for the query\n\n" +
+          `Report available: ${state.report ? "Yes" : "No"}\n` +
+          `Links available: ${state.links?.length || 0}\n` +
+          `Relevant links: ${state.relevantLinks?.length || 0}`,
+      );
+    }
   }
   const isTextOnlyMode = isTextOnly(config);
 

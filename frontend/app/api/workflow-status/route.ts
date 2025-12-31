@@ -1,9 +1,31 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { queryOne, query, insert } from "@/lib/postgres";
 
 // Timeout for workflow runs (30 minutes) - if running longer, consider stale
 const STALE_RUN_TIMEOUT_MS = 30 * 60 * 1000;
+
+// Threshold to check LangGraph for run status (2 minutes)
+const SYNC_CHECK_THRESHOLD_MS = 2 * 60 * 1000;
+
+// Credits required per workflow run (deducted only on success)
+const CREDITS_PER_WORKFLOW = 1;
+
+interface Workflow {
+  id: string;
+  name: string;
+  user_id: string;
+  run_status: string;
+  current_run_id: string | null;
+  run_started_at: string | null;
+  run_completed_at: string | null;
+  last_error: string | null;
+}
+
+interface UserCredits {
+  credits_balance: number;
+  bonus_credits: number;
+}
 
 // GET: Check workflow run status from database
 export async function GET(request: Request) {
@@ -24,16 +46,14 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { data: workflow, error } = await supabaseAdmin
-      .from("workflows")
-      .select(
-        "id, name, run_status, current_run_id, run_started_at, run_completed_at, last_error",
-      )
-      .eq("id", workflowId)
-      .eq("user_id", userId)
-      .single();
+    const workflow = await queryOne<Workflow>(
+      `SELECT id, name, run_status, current_run_id, run_started_at, run_completed_at, last_error
+       FROM workflows
+       WHERE id = $1 AND user_id = $2`,
+      [workflowId, userId],
+    );
 
-    if (error || !workflow) {
+    if (!workflow) {
       return NextResponse.json(
         { error: "Workflow not found" },
         { status: 404 },
@@ -46,27 +66,73 @@ export async function GET(request: Request) {
 
     if (workflow.run_status === "running" && workflow.run_started_at) {
       const runStartedAt = new Date(workflow.run_started_at).getTime();
-      elapsedSeconds = Math.floor((Date.now() - runStartedAt) / 1000);
+      const elapsedMs = Date.now() - runStartedAt;
+      elapsedSeconds = Math.floor(elapsedMs / 1000);
 
       // Auto-detect stale runs and mark them as failed
-      if (Date.now() - runStartedAt > STALE_RUN_TIMEOUT_MS) {
+      if (elapsedMs > STALE_RUN_TIMEOUT_MS) {
         console.warn(
           `Stale run detected for workflow ${workflowId}. Started at ${workflow.run_started_at}. Auto-resetting to failed.`,
         );
 
         // Auto-reset stale workflow
-        await supabaseAdmin
-          .from("workflows")
-          .update({
-            run_status: "failed",
-            run_completed_at: new Date().toISOString(),
-            last_error:
-              "Workflow timed out - run was interrupted or failed to complete",
-          })
-          .eq("id", workflowId)
-          .eq("user_id", userId);
+        await query(
+          `UPDATE workflows
+           SET run_status = 'failed', run_completed_at = NOW(), last_error = $1
+           WHERE id = $2 AND user_id = $3`,
+          [
+            "Workflow timed out - run was interrupted or failed to complete",
+            workflowId,
+            userId,
+          ],
+        );
 
         actualStatus = "failed";
+      } else if (
+        elapsedMs > SYNC_CHECK_THRESHOLD_MS &&
+        workflow.current_run_id
+      ) {
+        // If running for more than 2 minutes, check LangGraph for actual status
+        // This catches cases where the run failed but our DB wasn't updated
+        try {
+          const apiUrl =
+            process.env.LANGGRAPH_API_URL || "http://localhost:54367";
+          const response = await fetch(
+            `${apiUrl}/runs/${workflow.current_run_id}`,
+            {
+              method: "GET",
+              headers: { "Content-Type": "application/json" },
+              signal: AbortSignal.timeout(5000), // 5 second timeout
+            },
+          );
+
+          if (response.ok) {
+            const runData = await response.json();
+            const lgStatus = runData.status?.toLowerCase();
+
+            if (lgStatus === "error" || lgStatus === "failed") {
+              console.log(
+                `LangGraph shows run ${workflow.current_run_id} as ${lgStatus}. Syncing status.`,
+              );
+
+              await query(
+                `UPDATE workflows
+                 SET run_status = 'failed', run_completed_at = NOW(), last_error = $1
+                 WHERE id = $2 AND user_id = $3`,
+                [
+                  runData.error || "Run failed (synced from LangGraph)",
+                  workflowId,
+                  userId,
+                ],
+              );
+
+              actualStatus = "failed";
+            }
+          }
+        } catch (syncError) {
+          // Ignore sync errors - this is just an optimization
+          console.debug("LangGraph sync check failed:", syncError);
+        }
       }
     }
 
@@ -81,14 +147,12 @@ export async function GET(request: Request) {
           ? "Workflow timed out - run was interrupted or failed to complete"
           : workflow.last_error,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Status Fetch Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
-// Credits required per workflow run (deducted only on success)
-const CREDITS_PER_WORKFLOW = 1;
 
 // PATCH: Update workflow run status (called by backend when run completes)
 export async function PATCH(request: Request) {
@@ -123,35 +187,34 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Build update object
-    const updateData: Record<string, unknown> = {
-      run_status: status,
-    };
+    // Build update query
+    let updateQuery = `UPDATE workflows SET run_status = $1`;
+    const params: unknown[] = [status];
+    let paramIndex = 2;
 
     if (status === "completed" || status === "failed") {
-      updateData.run_completed_at = new Date().toISOString();
+      updateQuery += `, run_completed_at = NOW()`;
     }
 
     if (runError) {
-      updateData.last_error = runError;
+      updateQuery += `, last_error = $${paramIndex}`;
+      params.push(runError);
+      paramIndex++;
     }
 
-    // Build query - if user is authenticated, verify ownership
-    let query = supabaseAdmin
-      .from("workflows")
-      .update(updateData)
-      .eq("id", workflowId);
+    updateQuery += ` WHERE id = $${paramIndex}`;
+    params.push(workflowId);
+    paramIndex++;
 
     if (userId) {
-      query = query.eq("user_id", userId);
+      updateQuery += ` AND user_id = $${paramIndex}`;
+      params.push(userId);
     }
 
-    const { data, error } = await query.select("*, user_id").single();
+    updateQuery += ` RETURNING *, user_id`;
 
-    if (error) {
-      console.error("Failed to update workflow status:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const result = await query<Workflow>(updateQuery, params);
+    const data = result.rows[0];
 
     if (!data) {
       return NextResponse.json(
@@ -166,15 +229,58 @@ export async function PATCH(request: Request) {
       const workflowUserId = data.user_id;
       if (workflowUserId) {
         try {
-          await supabaseAdmin.rpc("deduct_credits", {
-            p_user_id: workflowUserId,
-            p_amount: CREDITS_PER_WORKFLOW,
-            p_description: `Workflow completed: ${data.name || workflowId}`,
-          });
-          creditsDeducted = true;
-          console.log(
-            `Workflow ${workflowId} completed successfully. Deducted ${CREDITS_PER_WORKFLOW} credit(s) from user ${workflowUserId}`,
+          // Get current credits
+          const credits = await queryOne<UserCredits>(
+            `SELECT credits_balance, bonus_credits FROM user_credits WHERE user_id = $1`,
+            [workflowUserId],
           );
+
+          if (credits) {
+            // Deduct from bonus credits first, then regular credits
+            let remainingDeduct = CREDITS_PER_WORKFLOW;
+            let newBonusCredits = credits.bonus_credits;
+            let newCreditsBalance = credits.credits_balance;
+
+            if (credits.bonus_credits > 0) {
+              const bonusDeduct = Math.min(
+                credits.bonus_credits,
+                remainingDeduct,
+              );
+              newBonusCredits = credits.bonus_credits - bonusDeduct;
+              remainingDeduct -= bonusDeduct;
+            }
+
+            if (remainingDeduct > 0) {
+              newCreditsBalance = credits.credits_balance - remainingDeduct;
+            }
+
+            // Update credits
+            await query(
+              `UPDATE user_credits
+               SET credits_balance = $1, bonus_credits = $2, credits_used_this_month = credits_used_this_month + $3, updated_at = NOW()
+               WHERE user_id = $4`,
+              [
+                newCreditsBalance,
+                newBonusCredits,
+                CREDITS_PER_WORKFLOW,
+                workflowUserId,
+              ],
+            );
+
+            // Log transaction
+            await insert("credit_transactions", {
+              user_id: workflowUserId,
+              amount: -CREDITS_PER_WORKFLOW,
+              balance_after: newCreditsBalance + newBonusCredits,
+              transaction_type: "usage",
+              description: `Workflow completed: ${data.name || workflowId}`,
+            });
+
+            creditsDeducted = true;
+            console.log(
+              `Workflow ${workflowId} completed successfully. Deducted ${CREDITS_PER_WORKFLOW} credit(s) from user ${workflowUserId}`,
+            );
+          }
         } catch (creditError) {
           console.error("Failed to deduct credits:", creditError);
           // Don't fail the status update if credit deduction fails
@@ -195,8 +301,9 @@ export async function PATCH(request: Request) {
       },
       credits_deducted: creditsDeducted ? CREDITS_PER_WORKFLOW : 0,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Status Update Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

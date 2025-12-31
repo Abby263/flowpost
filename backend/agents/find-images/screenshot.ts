@@ -5,7 +5,6 @@ import {
   getFileContents,
 } from "../../utils/github-repo-contents.js";
 import { takeScreenshot } from "../../utils/screenshot.js";
-import { createSupabaseClient } from "../../utils/supabase.js";
 import {
   GITHUB_SCREENSHOT_OPTIONS,
   GITHUB_BROWSER_CONTEXT_OPTIONS,
@@ -13,9 +12,9 @@ import {
 import { getUrlType } from "../utils.js";
 
 /**
- * Take a screenshot of a URL and upload it to Supabase.
+ * Take a screenshot of a URL and return it as a base64 data URL.
  * @param url The URL to take a screenshot of
- * @returns {Promise<string | undefined>} A public URL to the screenshot or undefined if the screenshot could not be taken
+ * @returns {Promise<string | undefined>} A base64 data URL of the screenshot or undefined if the screenshot could not be taken
  */
 export async function takeScreenshotAndUpload(
   url: string,
@@ -26,8 +25,6 @@ export async function takeScreenshotAndUpload(
     console.warn("No screenshot URL found for", url);
     return undefined;
   }
-
-  const supabase = createSupabaseClient();
 
   let screenshotOptions: PageScreenshotOptions = {};
   let browserContextOptions: BrowserContextOptions = {};
@@ -42,7 +39,6 @@ export async function takeScreenshotAndUpload(
       screenshotOptions,
       browserContextOptions,
     });
-    const urlHostName = new URL(screenshotUrl).hostname;
 
     // Detect the file type from the buffer
     const type = await fileTypeFromBuffer(screenshotBuffer);
@@ -50,38 +46,11 @@ export async function takeScreenshotAndUpload(
       throw new Error("Invalid image file");
     }
 
-    const extension = type.mime.split("/")[1];
-    const fileName = `screenshot-${urlHostName}-${Date.now()}.${extension}`;
-
-    const { data, error } = await supabase.storage
-      .from("images")
-      .upload(fileName, screenshotBuffer, {
-        contentType: type.mime,
-        duplex: "half",
-        upsert: false,
-      });
-
-    if (error) {
-      console.error("Supabase upload error details:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-      });
-      throw error;
-    }
-
-    const expiresIn = 60 * 60 * 24 * 180; // 180 days
-    const { data: signedUrlData } = await supabase.storage
-      .from("images")
-      .createSignedUrl(data.path, expiresIn);
-
-    if (!signedUrlData?.signedUrl) {
-      throw new Error("Failed to create signed URL");
-    }
-
-    return signedUrlData.signedUrl;
+    // Return as base64 data URL
+    const base64Data = screenshotBuffer.toString("base64");
+    return `data:${type.mime};base64,${base64Data}`;
   } catch (error) {
-    console.error("Error taking and uploading screenshot:", error);
+    console.error("Error taking screenshot:", error);
     // Return undefined instead of throwing to prevent workflow crash
     return undefined;
   }

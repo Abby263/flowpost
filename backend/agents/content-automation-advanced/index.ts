@@ -586,55 +586,50 @@ async function savePostToDb(
   state: typeof ContentAutomationAdvancedState.State,
 ) {
   console.log("--- SAVING POST TO DB ---");
+  console.log(`   📋 State Summary:`);
+  console.log(`      - workflowId: ${state.workflowId || "N/A"}`);
+  console.log(`      - userId: ${state.userId || "N/A"}`);
+  console.log(`      - platform: ${state.platform || "N/A"}`);
+  console.log(`      - post length: ${state.post?.length || 0} chars`);
+  console.log(
+    `      - post preview: "${(state.post || "").substring(0, 50)}..."`,
+  );
+  console.log(`      - imageUrl: ${state.imageUrl ? "present" : "missing"}`);
+  console.log(`      - publishStatus: ${state.publishStatus || "N/A"}`);
+  console.log(`      - publishError: ${state.publishError || "none"}`);
 
-  // Check if Supabase is configured (support both NEXT_PUBLIC and regular env vars)
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    console.warn("⚠️  Supabase not configured. Skipping DB save.");
-    console.warn(
-      "   Set either NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    );
-    console.warn("   OR SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY");
+  // Check if PostgreSQL is configured
+  if (!process.env.DATABASE_URI) {
+    console.warn("⚠️  DATABASE_URI not configured. Skipping DB save.");
     return {};
   }
 
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const { queryOne, insert, query } = await import("../../utils/postgres.js");
 
   // Save post to DB if we have content
-  if (state.post) {
+  if (state.post && state.post.length > 0) {
     try {
-      console.log(`   📊 Connecting to Supabase...`);
+      console.log(`   📊 Connecting to PostgreSQL...`);
 
       // Prepare post data - only include fields if they have values
-      const postData: any = {
+      const postData: Record<string, unknown> = {
         workflow_id: state.workflowId,
         user_id: state.userId,
         content: state.post,
         platform: state.platform,
         status: state.publishStatus === "success" ? "published" : "failed",
+        source: "workflow", // Explicitly set source
         posted_at: new Date().toISOString(),
       };
 
       let connectionId: string | null = null;
       if (state.workflowId) {
-        const { data: workflow, error: workflowError } = await supabase
-          .from("workflows")
-          .select("connection_id")
-          .eq("id", state.workflowId)
-          .single();
+        const workflow = await queryOne<{ connection_id: string }>(
+          `SELECT connection_id FROM workflows WHERE id = $1`,
+          [state.workflowId],
+        );
 
-        if (workflowError) {
-          console.warn(
-            "WARN: Failed to load workflow connection:",
-            workflowError.message,
-          );
-        } else if (workflow?.connection_id) {
+        if (workflow?.connection_id) {
           connectionId = workflow.connection_id;
         }
       }
@@ -657,13 +652,8 @@ async function savePostToDb(
         has_url: !!postData.published_url,
       });
 
-      const { error } = await supabase.from("posts").insert(postData);
-
-      if (error) {
-        console.error("❌ Supabase insert error:", error);
-      } else {
-        console.log("✅ Post saved to DB successfully.");
-      }
+      await insert("posts", postData);
+      console.log("✅ Post saved to DB successfully.");
     } catch (e) {
       console.error("❌ Failed to save post:", e);
     }
@@ -684,48 +674,63 @@ async function savePostToDb(
       );
 
       // First, get the workflow to retrieve user_id for credit deduction
-      const { data: workflow, error: fetchError } = await supabase
-        .from("workflows")
-        .select("user_id, name")
-        .eq("id", state.workflowId)
-        .single();
-
-      if (fetchError) {
-        console.error(
-          "❌ Failed to fetch workflow for credit deduction:",
-          fetchError,
-        );
-      }
+      const workflow = await queryOne<{ user_id: string; name: string }>(
+        `SELECT user_id, name FROM workflows WHERE id = $1`,
+        [state.workflowId],
+      );
 
       // Update workflow status
-      const { error: updateError } = await supabase
-        .from("workflows")
-        .update({
-          run_status: finalStatus,
-          run_completed_at: new Date().toISOString(),
-          last_error: errorMessage,
-        })
-        .eq("id", state.workflowId);
-
-      if (updateError) {
-        console.error("❌ Failed to update workflow status:", updateError);
-      } else {
-        console.log(`✅ Workflow status updated to: ${finalStatus}`);
-      }
+      await query(
+        `UPDATE workflows SET run_status = $1, run_completed_at = $2, last_error = $3 WHERE id = $4`,
+        [finalStatus, new Date().toISOString(), errorMessage, state.workflowId],
+      );
+      console.log(`✅ Workflow status updated to: ${finalStatus}`);
 
       // Deduct credits ONLY on successful completion
       if (finalStatus === "completed" && workflow?.user_id) {
         try {
           const CREDITS_PER_WORKFLOW = 1;
-          const { error: creditError } = await supabase.rpc("deduct_credits", {
-            p_user_id: workflow.user_id,
-            p_amount: CREDITS_PER_WORKFLOW,
-            p_description: `Workflow completed: ${workflow.name || state.workflowId}`,
-          });
 
-          if (creditError) {
-            console.error("❌ Failed to deduct credits:", creditError);
-          } else {
+          // Get current credits
+          const currentCredits = await queryOne<{
+            credits_balance: number;
+            bonus_credits: number;
+          }>(
+            `SELECT credits_balance, bonus_credits FROM user_credits WHERE user_id = $1 FOR UPDATE`,
+            [workflow.user_id],
+          );
+
+          if (currentCredits) {
+            let newCreditsBalance = currentCredits.credits_balance;
+            let newBonusCredits = currentCredits.bonus_credits;
+
+            if (newBonusCredits >= CREDITS_PER_WORKFLOW) {
+              newBonusCredits -= CREDITS_PER_WORKFLOW;
+            } else {
+              const remainingAmount = CREDITS_PER_WORKFLOW - newBonusCredits;
+              newBonusCredits = 0;
+              newCreditsBalance -= remainingAmount;
+            }
+
+            await query(
+              `UPDATE user_credits SET credits_balance = $1, bonus_credits = $2, credits_used_this_month = credits_used_this_month + $3 WHERE user_id = $4`,
+              [
+                newCreditsBalance,
+                newBonusCredits,
+                CREDITS_PER_WORKFLOW,
+                workflow.user_id,
+              ],
+            );
+
+            // Log transaction
+            await insert("credit_transactions", {
+              user_id: workflow.user_id,
+              amount: -CREDITS_PER_WORKFLOW,
+              balance_after: newCreditsBalance + newBonusCredits,
+              transaction_type: "deduction",
+              description: `Workflow completed: ${workflow.name || state.workflowId}`,
+            });
+
             console.log(
               `💰 Deducted ${CREDITS_PER_WORKFLOW} credit(s) from user ${workflow.user_id}`,
             );
@@ -766,6 +771,12 @@ async function prepareCaption(
   state: typeof ContentAutomationAdvancedState.State,
 ) {
   console.log(`\n📝 [PREPARE CAPTION] Preparing post caption...`);
+  console.log(
+    `   Current state.post: "${(state.post || "").substring(0, 50)}..." (${state.post?.length || 0} chars)`,
+  );
+  console.log(
+    `   Current state.report: "${(state.report || "").substring(0, 50)}..." (${state.report?.length || 0} chars)`,
+  );
 
   // If we already have a post from generatePostSubgraph, use it
   if (state.post && state.post.length > 10) {
@@ -776,27 +787,36 @@ async function prepareCaption(
     return {};
   }
 
-  console.log(`   📄 Creating caption from report...`);
+  console.log(`   📄 Creating caption from report (no existing post found)...`);
 
   // Otherwise, create a simple caption from the report
-  let caption = `${state.searchQuery}${state.location ? ` in ${state.location}` : ""}!\n\n`;
+  let caption = `${state.searchQuery || "Latest Updates"}${state.location ? ` in ${state.location}` : ""}!\n\n`;
 
-  if (state.report) {
+  if (state.report && state.report.length > 10) {
     // Extract key points from report
     const lines = state.report
       .split("\n")
       .filter((l) => l.trim().length > 0)
       .slice(0, 5);
     caption += lines.join("\n");
+  } else if (state.selectedContent && state.selectedContent.length > 0) {
+    // Fallback to selectedContent if report is empty
+    caption += state.selectedContent
+      .slice(0, 3)
+      .map((item: any) => `• ${item.title || item.snippet || ""}`)
+      .join("\n");
   } else {
-    caption += "Check out these amazing updates!";
+    caption += "Check out these amazing updates! Stay tuned for more content.";
   }
 
   // Add hashtags
   const hashtags = [
     state.location ? `#${state.location.replace(/\s/g, "")}` : null,
-    `#${state.searchQuery.replace(/\s/g, "").replace(/[^a-zA-Z0-9]/g, "")}`,
+    state.searchQuery
+      ? `#${state.searchQuery.replace(/\s/g, "").replace(/[^a-zA-Z0-9]/g, "")}`
+      : null,
     `#${state.platform || "social"}media`,
+    "#FlowPost",
   ]
     .filter(Boolean)
     .join(" ");

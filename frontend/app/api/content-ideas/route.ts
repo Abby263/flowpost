@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { queryOne, query, insert } from "@/lib/postgres";
 import {
   isGeminiConfigured,
   generateTextWithGrounding,
@@ -41,14 +41,18 @@ interface GeneratedIdea {
   imageUrl?: string;
 }
 
-async function searchWithSerper(query: string): Promise<ContentItem[]> {
+interface UserCredits {
+  credits_balance: number;
+  bonus_credits: number;
+}
+
+async function searchWithSerper(searchQuery: string): Promise<ContentItem[]> {
   if (!SERPER_API_KEY) throw new Error("SERPER_API_KEY not configured");
 
   // Get date range for last 7 days
   const today = new Date();
   const sevenDaysAgo = new Date(today);
   sevenDaysAgo.setDate(today.getDate() - 7);
-  const dateRange = `${sevenDaysAgo.toISOString().split("T")[0]}..${today.toISOString().split("T")[0]}`;
 
   const response = await fetch("https://google.serper.dev/search", {
     method: "POST",
@@ -57,7 +61,7 @@ async function searchWithSerper(query: string): Promise<ContentItem[]> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      q: `${query} after:${sevenDaysAgo.toISOString().split("T")[0]}`,
+      q: `${searchQuery} after:${sevenDaysAgo.toISOString().split("T")[0]}`,
       num: RESULTS_PER_QUERY,
       type: "news",
       tbs: "qdr:w", // Last week filter
@@ -70,7 +74,7 @@ async function searchWithSerper(query: string): Promise<ContentItem[]> {
   const results = data.news || data.organic || [];
 
   console.log(
-    `[Serper] Found ${results.length} recent results for query: ${query}`,
+    `[Serper] Found ${results.length} recent results for query: ${searchQuery}`,
   );
 
   return results.map((item: any) => ({
@@ -83,7 +87,7 @@ async function searchWithSerper(query: string): Promise<ContentItem[]> {
   }));
 }
 
-async function searchWithTavily(query: string): Promise<ContentItem[]> {
+async function searchWithTavily(searchQuery: string): Promise<ContentItem[]> {
   if (!TAVILY_API_KEY) throw new Error("TAVILY_API_KEY not configured");
 
   const response = await fetch("https://api.tavily.com/search", {
@@ -93,7 +97,7 @@ async function searchWithTavily(query: string): Promise<ContentItem[]> {
     },
     body: JSON.stringify({
       api_key: TAVILY_API_KEY,
-      query: query,
+      query: searchQuery,
       search_depth: "basic",
       include_answer: false,
       include_images: true,
@@ -108,7 +112,7 @@ async function searchWithTavily(query: string): Promise<ContentItem[]> {
   const data = await response.json();
 
   console.log(
-    `[Tavily] Found ${data.results?.length || 0} recent results for query: ${query}`,
+    `[Tavily] Found ${data.results?.length || 0} recent results for query: ${searchQuery}`,
   );
 
   // Filter results to only include items from the last 7 days
@@ -135,7 +139,9 @@ async function searchWithTavily(query: string): Promise<ContentItem[]> {
   }));
 }
 
-async function searchWithPerplexity(query: string): Promise<ContentItem[]> {
+async function searchWithPerplexity(
+  searchQuery: string,
+): Promise<ContentItem[]> {
   if (!PERPLEXITY_API_KEY) throw new Error("PERPLEXITY_API_KEY not configured");
 
   const response = await fetch("https://api.perplexity.ai/chat/completions", {
@@ -154,7 +160,7 @@ async function searchWithPerplexity(query: string): Promise<ContentItem[]> {
         },
         {
           role: "user",
-          content: `Find the most recent trending news from the last week about: ${query}`,
+          content: `Find the most recent trending news from the last week about: ${searchQuery}`,
         },
       ],
       temperature: 0.2,
@@ -205,30 +211,29 @@ async function searchWithPerplexity(query: string): Promise<ContentItem[]> {
 }
 
 async function fetchTrendingContent(
-  query: string,
+  searchQuery: string,
   provider: string = "auto",
 ): Promise<ContentItem[]> {
-  let results: ContentItem[] = [];
   let errors: string[] = [];
 
   // Try specific provider if requested
   if (provider === "serper" && SERPER_API_KEY) {
     try {
-      return await searchWithSerper(query);
+      return await searchWithSerper(searchQuery);
     } catch (e: any) {
       errors.push(`Serper: ${e.message}`);
     }
   }
   if (provider === "tavily" && TAVILY_API_KEY) {
     try {
-      return await searchWithTavily(query);
+      return await searchWithTavily(searchQuery);
     } catch (e: any) {
       errors.push(`Tavily: ${e.message}`);
     }
   }
   if (provider === "perplexity" && PERPLEXITY_API_KEY) {
     try {
-      return await searchWithPerplexity(query);
+      return await searchWithPerplexity(searchQuery);
     } catch (e: any) {
       errors.push(`Perplexity: ${e.message}`);
     }
@@ -237,49 +242,35 @@ async function fetchTrendingContent(
   // Auto mode or fallback: try available providers in order
   if (SERPER_API_KEY) {
     try {
-      return await searchWithSerper(query);
+      return await searchWithSerper(searchQuery);
     } catch (e: any) {
       errors.push(`Serper: ${e.message}`);
     }
   }
   if (TAVILY_API_KEY) {
     try {
-      return await searchWithTavily(query);
+      return await searchWithTavily(searchQuery);
     } catch (e: any) {
       errors.push(`Tavily: ${e.message}`);
     }
   }
   if (PERPLEXITY_API_KEY) {
     try {
-      return await searchWithPerplexity(query);
+      return await searchWithPerplexity(searchQuery);
     } catch (e: any) {
       errors.push(`Perplexity: ${e.message}`);
     }
   }
 
-  // If all failed or no keys, return mock data
+  // If all failed or no keys, throw error (no mock data)
   console.warn("All search providers failed or unconfigured:", errors);
-  return [
-    {
-      title: "Mock Data: AI Revolution",
-      snippet:
-        "Real search failed. Please configure SERPER_API_KEY, TAVILY_API_KEY, or PERPLEXITY_API_KEY.",
-      link: "https://example.com/ai-news-1",
-      source: "System",
-    },
-    {
-      title: "Mock Data: Future of Work",
-      snippet:
-        "This is placeholder content because no search provider API keys are valid.",
-      link: "https://example.com/remote-work",
-      source: "System",
-    },
-  ];
+  throw new Error(
+    "No search provider configured. Please set SERPER_API_KEY, TAVILY_API_KEY, or PERPLEXITY_API_KEY.",
+  );
 }
 
 /**
  * Generate post ideas using Gemini with Google Search grounding
- * This provides real-time, up-to-date information for trending content
  */
 async function generatePostIdeasWithGemini(
   content: ContentItem[],
@@ -311,7 +302,6 @@ CRITICAL: Return ONLY a valid JSON array with no markdown, no explanations, no t
 [{"title":"Example Title","caption":"Example caption 💡","hashtags":["example","social"],"style":"Professional"}]`;
 
     let responseText: string;
-    let groundingMetadata: any = null;
 
     // Use Google Search grounding if enabled
     if (USE_GOOGLE_SEARCH_GROUNDING) {
@@ -323,14 +313,6 @@ CRITICAL: Return ONLY a valid JSON array with no markdown, no explanations, no t
         maxTokens: 1000,
       });
       responseText = result.text;
-      groundingMetadata = result.groundingMetadata;
-
-      if (groundingMetadata) {
-        console.log(
-          "✅ [Gemini] Grounding metadata received:",
-          JSON.stringify(groundingMetadata, null, 2),
-        );
-      }
     } else {
       const { generateTextWithGemini } = await import("../../../lib/gemini");
       responseText = await generateTextWithGemini(prompt, systemPrompt, {
@@ -439,15 +421,7 @@ async function generatePostIdeasWithOpenAI(
   category: string,
 ): Promise<GeneratedIdea[]> {
   if (!OPENAI_API_KEY) {
-    console.warn("OPENAI_API_KEY not configured, returning mock ideas");
-    return [
-      {
-        title: "Mock Idea 1",
-        caption: "This is a mock caption because OPENAI_API_KEY is missing.",
-        hashtags: ["Mock", "Test"],
-        style: "Casual",
-      },
-    ];
+    throw new Error("OPENAI_API_KEY not configured");
   }
 
   try {
@@ -504,7 +478,7 @@ Only return valid JSON, no markdown or additional text.`;
     const ideas = JSON.parse(content_response);
 
     // Add placeholder images for each idea based on style
-    return ideas.map((idea: GeneratedIdea, index: number) => ({
+    return ideas.map((idea: GeneratedIdea) => ({
       ...idea,
       imageUrl: `https://picsum.photos/seed/${encodeURIComponent(idea.title)}/400/300`,
     }));
@@ -539,93 +513,101 @@ async function checkAndDeductCredits(
   description: string,
 ): Promise<{ success: boolean; error?: string; balance?: number }> {
   // Check current credits
-  const { data: credits, error: creditsError } = await supabaseAdmin
-    .from("user_credits")
-    .select("credits_balance, bonus_credits")
-    .eq("user_id", userId)
-    .single();
+  let credits = await queryOne<UserCredits>(
+    `SELECT credits_balance, bonus_credits FROM user_credits WHERE user_id = $1`,
+    [userId],
+  );
 
-  if (creditsError || !credits) {
+  if (!credits) {
     // Try to initialize credits for new user
     try {
-      await supabaseAdmin.rpc("initialize_user_credits", {
-        p_user_id: userId,
-        p_plan_slug: "free",
+      const plan = await queryOne<{ id: string; credits_per_month: number }>(
+        `SELECT id, credits_per_month FROM plans WHERE slug = $1`,
+        ["free"],
+      );
+
+      await insert("user_credits", {
+        user_id: userId,
+        credits_balance: plan?.credits_per_month || 10,
+        credits_used_this_month: 0,
+        bonus_credits: 0,
       });
-      // Fetch again after initialization
-      const { data: newCredits } = await supabaseAdmin
-        .from("user_credits")
-        .select("credits_balance, bonus_credits")
-        .eq("user_id", userId)
-        .single();
 
-      if (!newCredits) {
-        return { success: false, error: "Failed to initialize credits" };
-      }
-
-      const totalCredits =
-        (newCredits.credits_balance || 0) + (newCredits.bonus_credits || 0);
-      if (totalCredits < amount) {
-        return {
-          success: false,
-          error: `Insufficient credits. You have ${totalCredits} credits, need ${amount}.`,
-          balance: totalCredits,
-        };
-      }
-    } catch {
-      return { success: false, error: "Failed to check credits" };
-    }
-  } else {
-    const totalCredits =
-      (credits.credits_balance || 0) + (credits.bonus_credits || 0);
-    if (totalCredits < amount) {
-      return {
-        success: false,
-        error: `Insufficient credits. You have ${totalCredits} credits, need ${amount}.`,
-        balance: totalCredits,
+      credits = {
+        credits_balance: plan?.credits_per_month || 10,
+        bonus_credits: 0,
       };
+    } catch {
+      return { success: false, error: "Failed to initialize credits" };
     }
   }
 
-  // Deduct credits
-  try {
-    await supabaseAdmin.rpc("deduct_credits", {
-      p_user_id: userId,
-      p_amount: amount,
-      p_description: description,
-    });
-
-    // Get updated balance
-    const { data: updatedCredits } = await supabaseAdmin
-      .from("user_credits")
-      .select("credits_balance, bonus_credits")
-      .eq("user_id", userId)
-      .single();
-
-    const newBalance =
-      (updatedCredits?.credits_balance || 0) +
-      (updatedCredits?.bonus_credits || 0);
-    return { success: true, balance: newBalance };
-  } catch (error) {
-    console.error("Failed to deduct credits:", error);
-    return { success: false, error: "Failed to deduct credits" };
+  const totalCredits =
+    (credits.credits_balance || 0) + (credits.bonus_credits || 0);
+  if (totalCredits < amount) {
+    return {
+      success: false,
+      error: `Insufficient credits. You have ${totalCredits} credits, need ${amount}.`,
+      balance: totalCredits,
+    };
   }
+
+  // Deduct from bonus credits first, then regular credits
+  let remainingDeduct = amount;
+  let newBonusCredits = credits.bonus_credits;
+  let newCreditsBalance = credits.credits_balance;
+
+  if (credits.bonus_credits > 0) {
+    const bonusDeduct = Math.min(credits.bonus_credits, remainingDeduct);
+    newBonusCredits = credits.bonus_credits - bonusDeduct;
+    remainingDeduct -= bonusDeduct;
+  }
+
+  if (remainingDeduct > 0) {
+    newCreditsBalance = credits.credits_balance - remainingDeduct;
+  }
+
+  // Update credits
+  await query(
+    `UPDATE user_credits
+     SET credits_balance = $1, bonus_credits = $2, credits_used_this_month = credits_used_this_month + $3, updated_at = NOW()
+     WHERE user_id = $4`,
+    [newCreditsBalance, newBonusCredits, amount, userId],
+  );
+
+  // Log transaction
+  await insert("credit_transactions", {
+    user_id: userId,
+    amount: -amount,
+    balance_after: newCreditsBalance + newBonusCredits,
+    transaction_type: "usage",
+    description: description,
+  });
+
+  return { success: true, balance: newCreditsBalance + newBonusCredits };
 }
 
 export async function POST(request: Request) {
   try {
     const { userId } = await auth();
     const body = await request.json();
-    const { action, query, content, category, provider, interests } = body;
+    const {
+      action,
+      query: searchQuery,
+      content,
+      category,
+      provider,
+      interests,
+    } = body;
 
     if (action === "fetch") {
       console.log(`[Content Ideas API] Fetch action initiated`);
       let searchQueries: string[] = [];
 
       // 1. Determine what to search for
-      if (query) {
-        console.log(`[Content Ideas API] Direct query: "${query}"`);
-        searchQueries = [query];
+      if (searchQuery) {
+        console.log(`[Content Ideas API] Direct query: "${searchQuery}"`);
+        searchQueries = [searchQuery];
       } else if (
         interests &&
         Array.isArray(interests) &&
@@ -712,8 +694,10 @@ Return ONLY a JSON array of strings. Example: ["latest AI tools 2024", "SpaceX S
             );
 
             const data = await response.json();
-            const content = data.choices[0]?.message?.content || "[]";
-            const jsonStr = content.replace(/```json\n?|```/g, "").trim();
+            const responseContent = data.choices[0]?.message?.content || "[]";
+            const jsonStr = responseContent
+              .replace(/```json\n?|```/g, "")
+              .trim();
             searchQueries = JSON.parse(jsonStr);
             console.log(
               `[Content Ideas API] Generated queries with OpenAI: ${searchQueries.join(", ")}`,
@@ -739,7 +723,6 @@ Return ONLY a JSON array of strings. Example: ["latest AI tools 2024", "SpaceX S
       }
 
       // 2. Execute searches (parallel)
-      // Limit queries to avoid rate limits and reduce total results
       const queriesToRun = searchQueries.slice(0, MAX_SEARCH_QUERIES);
       console.log(
         `[Content Ideas API] Executing ${queriesToRun.length} searches (${RESULTS_PER_QUERY} results each): ${queriesToRun.join(", ")}`,
@@ -791,11 +774,10 @@ Return ONLY a JSON array of strings. Example: ["latest AI tools 2024", "SpaceX S
       }
 
       // Check credits before generating
-      const { data: credits } = await supabaseAdmin
-        .from("user_credits")
-        .select("credits_balance, bonus_credits")
-        .eq("user_id", userId)
-        .single();
+      const credits = await queryOne<UserCredits>(
+        `SELECT credits_balance, bonus_credits FROM user_credits WHERE user_id = $1`,
+        [userId],
+      );
 
       const currentBalance =
         (credits?.credits_balance || 0) + (credits?.bonus_credits || 0);
@@ -849,8 +831,9 @@ Return ONLY a JSON array of strings. Example: ["latest AI tools 2024", "SpaceX S
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Content Ideas API Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

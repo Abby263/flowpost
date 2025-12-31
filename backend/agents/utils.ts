@@ -355,12 +355,8 @@ export function extractAllImageUrlsFromMarkdown(text: string): string[] {
 const BLACKLISTED_IMAGE_URL_ENDINGS = [".svg", ".ico", ".bmp"];
 const BLACKLISTED_IMAGE_URLS = ["img.shields.io", "contrib.rocks"];
 
-function isUpdatedSupabaseUrl(url: string): boolean {
-  // If the env var isn't set, assume all URLs are updated
-  if (!process.env.SUPABASE_URL) return true;
-  // If it's a supabase URL, and it ends with `.jpeg`, this means it's an old URL and is not signed.
-  if (url.startsWith(process.env.SUPABASE_URL) && url.endsWith(".jpeg"))
-    return false;
+function isUpdatedStorageUrl(_url: string): boolean {
+  // All URLs are considered valid - removed legacy Supabase URL check
   return true;
 }
 
@@ -372,7 +368,7 @@ export function filterUnwantedImageUrls(urls: string[]): string[] {
         url.includes(blacklistedUrl),
       ) &&
       isValidUrl(url) &&
-      isUpdatedSupabaseUrl(url),
+      isUpdatedStorageUrl(url),
   );
 }
 

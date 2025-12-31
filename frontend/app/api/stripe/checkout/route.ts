@@ -1,12 +1,36 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { queryOne, upsert } from "@/lib/postgres";
 import Stripe from "stripe";
 
 // Initialize Stripe (will be undefined if not configured)
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
+
+interface UserSubscription {
+  stripe_customer_id: string | null;
+}
+
+interface Plan {
+  id: string;
+  name: string;
+  slug: string;
+  price_monthly: number;
+  price_yearly: number;
+  credits_per_month: number;
+  max_workflows: number;
+  stripe_price_id_monthly: string | null;
+  stripe_price_id_yearly: string | null;
+}
+
+interface CreditPackage {
+  id: string;
+  name: string;
+  credits: number;
+  bonus_credits: number;
+  price: number;
+}
 
 export async function POST(request: Request) {
   try {
@@ -37,11 +61,10 @@ export async function POST(request: Request) {
     }
 
     // Get or create Stripe customer
-    let { data: subscription } = await supabaseAdmin
-      .from("user_subscriptions")
-      .select("stripe_customer_id")
-      .eq("user_id", userId)
-      .single();
+    const subscription = await queryOne<UserSubscription>(
+      `SELECT stripe_customer_id FROM user_subscriptions WHERE user_id = $1`,
+      [userId],
+    );
 
     let customerId = subscription?.stripe_customer_id;
 
@@ -60,19 +83,22 @@ export async function POST(request: Request) {
       customerId = customer.id;
 
       // Save customer ID
-      await supabaseAdmin.from("user_subscriptions").upsert({
-        user_id: userId,
-        stripe_customer_id: customerId,
-      });
+      await upsert(
+        "user_subscriptions",
+        {
+          user_id: userId,
+          stripe_customer_id: customerId,
+        },
+        "user_id",
+      );
     }
 
     // Handle credit package purchase
     if (credit_package_id) {
-      const { data: creditPackage } = await supabaseAdmin
-        .from("credit_packages")
-        .select("*")
-        .eq("id", credit_package_id)
-        .single();
+      const creditPackage = await queryOne<CreditPackage>(
+        `SELECT * FROM credit_packages WHERE id = $1`,
+        [credit_package_id],
+      );
 
       if (!creditPackage) {
         return NextResponse.json(
@@ -105,8 +131,8 @@ export async function POST(request: Request) {
           user_id: userId,
           type: "credit_purchase",
           credit_package_id: creditPackage.id,
-          credits: creditPackage.credits,
-          bonus_credits: creditPackage.bonus_credits,
+          credits: String(creditPackage.credits),
+          bonus_credits: String(creditPackage.bonus_credits),
         },
       });
 
@@ -114,11 +140,9 @@ export async function POST(request: Request) {
     }
 
     // Handle subscription
-    const { data: plan } = await supabaseAdmin
-      .from("plans")
-      .select("*")
-      .eq("slug", plan_slug)
-      .single();
+    const plan = await queryOne<Plan>(`SELECT * FROM plans WHERE slug = $1`, [
+      plan_slug,
+    ]);
 
     if (!plan) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });

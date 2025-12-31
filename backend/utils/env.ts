@@ -8,11 +8,8 @@ const envSchema = z.object({
   // Required API Keys
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required"),
 
-  // Database
-  SUPABASE_URL: z.string().url("SUPABASE_URL must be a valid URL"),
-  SUPABASE_SERVICE_ROLE_KEY: z
-    .string()
-    .min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+  // Database (Azure PostgreSQL)
+  DATABASE_URI: z.string().min(1, "DATABASE_URI is required"),
 
   // Optional API Keys
   LANGCHAIN_API_KEY: z.string().optional(),

@@ -1,7 +1,6 @@
 import "dotenv/config";
 import { Client } from "@langchain/langgraph-sdk";
 import { Image } from "../backend/agents/types.js";
-import { createSupabaseClient } from "../backend/utils/supabase.js";
 
 async function getInterrupts(client: Client) {
   const interrupts = await client.threads.search({
@@ -11,64 +10,11 @@ async function getInterrupts(client: Client) {
   return interrupts;
 }
 
+// Note: Image URL signing functionality removed as Supabase storage is no longer used
 async function updateImageUrls(
   values: Record<string, any> & { image?: Image; imageOptions?: string[] },
 ): Promise<Record<string, any>> {
-  if (!values.image && !values.imageOptions) return values;
-  if (!process.env.SUPABASE_URL) return values;
-
-  const bucketUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/images/`;
-
-  const supabase = createSupabaseClient();
-
-  if (
-    values.image?.imageUrl.startsWith(bucketUrl) &&
-    values.image.imageUrl.endsWith(".jpeg")
-  ) {
-    const path = values.image.imageUrl.split(bucketUrl).pop();
-    if (!path) {
-      throw new Error("Invalid image URL" + values.image.imageUrl);
-    }
-    const expiresIn = 60 * 60 * 24 * 180; // 90 days
-    const { data: signedUrlData } = await supabase.storage
-      .from("images")
-      .createSignedUrl(path, expiresIn);
-
-    if (!signedUrlData) {
-      throw new Error(
-        "[value.image.imageUrl] Failed to create signed URL for image" +
-          values.image.imageUrl,
-      );
-    }
-    values.image.imageUrl = signedUrlData.signedUrl;
-  }
-
-  const imageOptionsPromise = values.imageOptions?.map(async (url) => {
-    if (!url.startsWith(bucketUrl) || !url.endsWith(".jpeg")) {
-      // Not a supabase URL. can return
-      return url;
-    }
-    const path = url.split(bucketUrl).pop();
-    if (!path) {
-      throw new Error("[value.imageOptions] Invalid image URL" + url);
-    }
-    const expiresIn = 60 * 60 * 24 * 180; // 90 days
-    const { data: signedUrlData } = await supabase.storage
-      .from("images")
-      .createSignedUrl(path, expiresIn);
-
-    if (!signedUrlData) {
-      throw new Error(
-        "[value.imageOptions] Failed to create signed URL for image" + path,
-      );
-    }
-    return signedUrlData.signedUrl;
-  });
-
-  if (imageOptionsPromise) {
-    values.imageOptions = await Promise.all(imageOptionsPromise);
-  }
-
+  // Simply return values without modification since we no longer use Supabase storage
   return values;
 }
 

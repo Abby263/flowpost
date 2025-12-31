@@ -1,6 +1,35 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { queryOne, upsert, query } from "@/lib/postgres";
+
+interface Plan {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  price_monthly: number;
+  price_yearly: number;
+  credits_per_month: number;
+  max_workflows: number;
+  features: string[];
+  is_active: boolean;
+}
+
+interface UserSubscription {
+  id: string;
+  user_id: string;
+  plan_id: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  status: string;
+  billing_cycle: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  trial_end: string | null;
+  canceled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export async function GET() {
   try {
@@ -11,32 +40,20 @@ export async function GET() {
     }
 
     // Get user subscription with plan details
-    const { data: subscription, error: subError } = await supabaseAdmin
-      .from("user_subscriptions")
-      .select(
-        `
-        *,
-        plan:plans(*)
-      `,
-      )
-      .eq("user_id", userId)
-      .single();
-
-    if (subError && subError.code !== "PGRST116") {
-      console.error("Error fetching subscription:", subError);
-      return NextResponse.json(
-        { error: "Failed to fetch subscription" },
-        { status: 500 },
-      );
-    }
+    const subscription = await queryOne<UserSubscription & { plan: Plan }>(
+      `SELECT us.*, row_to_json(p) as plan
+       FROM user_subscriptions us
+       LEFT JOIN plans p ON us.plan_id = p.id
+       WHERE us.user_id = $1`,
+      [userId],
+    );
 
     // If no subscription exists, return free plan info
     if (!subscription) {
-      const { data: freePlan } = await supabaseAdmin
-        .from("plans")
-        .select("*")
-        .eq("slug", "free")
-        .single();
+      const freePlan = await queryOne<Plan>(
+        `SELECT * FROM plans WHERE slug = $1`,
+        ["free"],
+      );
 
       return NextResponse.json({
         subscription: null,
@@ -80,52 +97,46 @@ export async function POST(request: Request) {
     const { plan_slug, billing_cycle } = body;
 
     // Get the plan
-    const { data: plan, error: planError } = await supabaseAdmin
-      .from("plans")
-      .select("*")
-      .eq("slug", plan_slug)
-      .single();
+    const plan = await queryOne<Plan>(`SELECT * FROM plans WHERE slug = $1`, [
+      plan_slug,
+    ]);
 
-    if (planError || !plan) {
+    if (!plan) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
     // For free plan, just update the subscription
     if (plan_slug === "free") {
-      const { error: updateError } = await supabaseAdmin
-        .from("user_subscriptions")
-        .upsert({
+      const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      await upsert(
+        "user_subscriptions",
+        {
           user_id: userId,
           plan_id: plan.id,
           status: "active",
           billing_cycle: "monthly",
           current_period_start: new Date().toISOString(),
-          current_period_end: new Date(
-            Date.now() + 30 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-        });
-
-      if (updateError) {
-        console.error("Error updating subscription:", updateError);
-        return NextResponse.json(
-          { error: "Failed to update subscription" },
-          { status: 500 },
-        );
-      }
+          current_period_end: periodEnd.toISOString(),
+        },
+        "user_id",
+      );
 
       // Reset credits to free plan amount
-      await supabaseAdmin.from("user_credits").upsert({
-        user_id: userId,
-        credits_balance: plan.credits_per_month,
-        credits_used_this_month: 0,
-      });
+      await upsert(
+        "user_credits",
+        {
+          user_id: userId,
+          credits_balance: plan.credits_per_month,
+          credits_used_this_month: 0,
+        },
+        "user_id",
+      );
 
       return NextResponse.json({ success: true, plan });
     }
 
     // For paid plans, redirect to Stripe checkout
-    // This would normally create a Stripe checkout session
-    // For now, return the checkout URL placeholder
     return NextResponse.json({
       requires_payment: true,
       checkout_url: `/api/stripe/checkout?plan=${plan_slug}&billing=${billing_cycle || "monthly"}`,

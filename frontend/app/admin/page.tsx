@@ -50,7 +50,22 @@ import {
   Loader2,
   ShieldAlert,
   Hash,
+  Search,
+  Edit2,
+  Plus,
+  Minus,
+  Save,
+  X,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface AdminStats {
   userStats: {
@@ -134,6 +149,20 @@ interface AdminStats {
   generatedAt: string;
 }
 
+interface UserWithCredits {
+  user_id: string;
+  email: string;
+  name: string;
+  imageUrl: string | null;
+  credits_balance: number;
+  credits_used_this_month: number;
+  bonus_credits: number;
+  plan_name: string | null;
+  plan_slug: string | null;
+  subscription_status: string | null;
+  created_at: string;
+}
+
 const platformIcons: Record<string, any> = {
   instagram: Instagram,
   twitter: Twitter,
@@ -164,8 +193,22 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  // User credit management state
+  const [users, setUsers] = useState<UserWithCredits[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const [editingUser, setEditingUser] = useState<UserWithCredits | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [creditAmount, setCreditAmount] = useState<string>("");
+  const [creditMode, setCreditMode] = useState<"add" | "subtract" | "set">(
+    "add",
+  );
+  const [creditReason, setCreditReason] = useState("");
+  const [savingCredits, setSavingCredits] = useState(false);
+
   useEffect(() => {
     fetchStats();
+    fetchUsers();
   }, []);
 
   const fetchStats = async () => {
@@ -193,6 +236,102 @@ export default function AdminDashboard() {
       setRefreshing(false);
     }
   };
+
+  const fetchUsers = async () => {
+    try {
+      setUsersLoading(true);
+      const response = await fetch("/api/admin/users");
+
+      if (!response.ok) {
+        console.error("Failed to fetch users");
+        return;
+      }
+
+      const data = await response.json();
+      setUsers(data.users || []);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const openEditDialog = (user: UserWithCredits) => {
+    setEditingUser(user);
+    setCreditAmount("");
+    setCreditMode("add");
+    setCreditReason("");
+    setEditDialogOpen(true);
+  };
+
+  const saveCredits = async () => {
+    if (!editingUser || !creditAmount) return;
+
+    const amount = parseInt(creditAmount);
+    if (isNaN(amount) || amount < 0) {
+      alert("Please enter a valid positive number");
+      return;
+    }
+
+    try {
+      setSavingCredits(true);
+
+      if (creditMode === "set") {
+        // Use PUT to set exact value
+        const response = await fetch("/api/admin/users/credits", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetUserId: editingUser.user_id,
+            newCredits: amount,
+            reason: creditReason || `Admin set credits to ${amount}`,
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to update credits");
+        }
+      } else {
+        // Use POST to add/subtract
+        const creditsToAdd = creditMode === "add" ? amount : -amount;
+        const response = await fetch("/api/admin/users/credits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetUserId: editingUser.user_id,
+            creditsToAdd,
+            reason:
+              creditReason ||
+              `Admin ${creditMode === "add" ? "added" : "subtracted"} ${amount} credits`,
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to update credits");
+        }
+      }
+
+      // Refresh users list
+      await fetchUsers();
+      setEditDialogOpen(false);
+      setEditingUser(null);
+    } catch (err) {
+      console.error("Error saving credits:", err);
+      alert(err instanceof Error ? err.message : "Failed to save credits");
+    } finally {
+      setSavingCredits(false);
+    }
+  };
+
+  // Filter users based on search
+  const filteredUsers = users.filter(
+    (user) =>
+      user.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      user.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      user.user_id.toLowerCase().includes(userSearch.toLowerCase()),
+  );
 
   if (isLoading) {
     return (
@@ -1292,6 +1431,334 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* User Credit Management */}
+        <Card className="bg-slate-900 border-slate-800">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Edit2 className="h-5 w-5 text-emerald-400" />
+                  User Credit Management
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  View and update AI credits for all users
+                </CardDescription>
+              </div>
+              <Button
+                onClick={fetchUsers}
+                disabled={usersLoading}
+                variant="outline"
+                size="sm"
+                className="border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300"
+              >
+                {usersLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Refresh
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Search */}
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  type="text"
+                  placeholder="Search by email, name, or user ID..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
+                />
+              </div>
+            </div>
+
+            {/* Users Table */}
+            {usersLoading ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-500 mx-auto mb-2" />
+                <p className="text-slate-400">Loading users...</p>
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-400">
+                  {userSearch ? "No users match your search" : "No users found"}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-slate-900">
+                    <tr className="border-b border-slate-800">
+                      <th className="text-left text-xs text-slate-500 uppercase py-3 px-2">
+                        User
+                      </th>
+                      <th className="text-right text-xs text-slate-500 uppercase py-3 px-2">
+                        Plan
+                      </th>
+                      <th className="text-right text-xs text-slate-500 uppercase py-3 px-2">
+                        Credits Balance
+                      </th>
+                      <th className="text-right text-xs text-slate-500 uppercase py-3 px-2">
+                        Used This Month
+                      </th>
+                      <th className="text-right text-xs text-slate-500 uppercase py-3 px-2">
+                        Bonus Credits
+                      </th>
+                      <th className="text-center text-xs text-slate-500 uppercase py-3 px-2">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map((user) => (
+                      <tr
+                        key={user.user_id}
+                        className="border-b border-slate-800/50 hover:bg-slate-800/30"
+                      >
+                        <td className="py-3 px-2">
+                          <div className="flex items-center gap-3">
+                            {user.imageUrl ? (
+                              <img
+                                src={user.imageUrl}
+                                alt={user.name}
+                                className="w-8 h-8 rounded-full"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold">
+                                {user.name?.[0]?.toUpperCase() || "U"}
+                              </div>
+                            )}
+                            <div>
+                              <p
+                                className="text-sm text-white truncate max-w-[200px]"
+                                title={user.email}
+                              >
+                                {user.email}
+                              </p>
+                              <p className="text-xs text-slate-500 truncate max-w-[200px]">
+                                {user.name}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="text-right py-3 px-2">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              user.plan_slug === "enterprise"
+                                ? "border-violet-500/50 text-violet-400"
+                                : user.plan_slug === "pro"
+                                  ? "border-blue-500/50 text-blue-400"
+                                  : user.plan_slug === "starter"
+                                    ? "border-emerald-500/50 text-emerald-400"
+                                    : "border-slate-600 text-slate-400"
+                            }`}
+                          >
+                            {user.plan_name || "Free"}
+                          </Badge>
+                        </td>
+                        <td className="text-right py-3 px-2">
+                          <span className="text-lg font-bold text-emerald-400">
+                            {formatNumber(user.credits_balance)}
+                          </span>
+                        </td>
+                        <td className="text-right py-3 px-2">
+                          <span className="text-sm text-slate-400">
+                            {formatNumber(user.credits_used_this_month)}
+                          </span>
+                        </td>
+                        <td className="text-right py-3 px-2">
+                          <span className="text-sm text-amber-400">
+                            {formatNumber(user.bonus_credits)}
+                          </span>
+                        </td>
+                        <td className="text-center py-3 px-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openEditDialog(user)}
+                            className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
+                          >
+                            <Edit2 className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="mt-4 text-xs text-slate-500">
+              Showing {filteredUsers.length} of {users.length} users
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Edit Credits Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="bg-slate-900 border-slate-700 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-white flex items-center gap-2">
+                <Coins className="h-5 w-5 text-emerald-400" />
+                Update AI Credits
+              </DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Modify credits for {editingUser?.email}
+              </DialogDescription>
+            </DialogHeader>
+
+            {editingUser && (
+              <div className="space-y-4 py-4">
+                {/* Current Balance */}
+                <div className="p-4 bg-slate-800/50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-slate-400">
+                      Current Balance
+                    </span>
+                    <span className="text-2xl font-bold text-emerald-400">
+                      {formatNumber(editingUser.credits_balance)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500">Used this month</span>
+                    <span className="text-slate-400">
+                      {formatNumber(editingUser.credits_used_this_month)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Mode Selection */}
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    variant={creditMode === "add" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCreditMode("add")}
+                    className={
+                      creditMode === "add"
+                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        : "border-slate-700 text-slate-300"
+                    }
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                  <Button
+                    variant={creditMode === "subtract" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCreditMode("subtract")}
+                    className={
+                      creditMode === "subtract"
+                        ? "bg-red-600 hover:bg-red-700"
+                        : "border-slate-700 text-slate-300"
+                    }
+                  >
+                    <Minus className="h-4 w-4 mr-1" />
+                    Subtract
+                  </Button>
+                  <Button
+                    variant={creditMode === "set" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCreditMode("set")}
+                    className={
+                      creditMode === "set"
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "border-slate-700 text-slate-300"
+                    }
+                  >
+                    <Edit2 className="h-4 w-4 mr-1" />
+                    Set
+                  </Button>
+                </div>
+
+                {/* Amount Input */}
+                <div>
+                  <label className="text-sm text-slate-400 mb-2 block">
+                    {creditMode === "set" ? "New Balance" : "Amount"}
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="Enter amount..."
+                    value={creditAmount}
+                    onChange={(e) => setCreditAmount(e.target.value)}
+                    className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
+                  />
+                </div>
+
+                {/* Preview */}
+                {creditAmount && !isNaN(parseInt(creditAmount)) && (
+                  <div className="p-3 bg-slate-800/30 rounded-lg border border-slate-700">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400">
+                        New Balance:
+                      </span>
+                      <span className="text-lg font-bold text-white">
+                        {creditMode === "set"
+                          ? formatNumber(parseInt(creditAmount))
+                          : creditMode === "add"
+                            ? formatNumber(
+                                editingUser.credits_balance +
+                                  parseInt(creditAmount),
+                              )
+                            : formatNumber(
+                                Math.max(
+                                  0,
+                                  editingUser.credits_balance -
+                                    parseInt(creditAmount),
+                                ),
+                              )}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Reason */}
+                <div>
+                  <label className="text-sm text-slate-400 mb-2 block">
+                    Reason (optional)
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g., Promotional credits, refund..."
+                    value={creditReason}
+                    onChange={(e) => setCreditReason(e.target.value)}
+                    className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setEditDialogOpen(false)}
+                className="border-slate-700 text-slate-300"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+              <Button
+                onClick={saveCredits}
+                disabled={savingCredits || !creditAmount}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                {savingCredits ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Subscription Status Breakdown */}
         <Card className="bg-slate-900 border-slate-800">
