@@ -83,8 +83,11 @@ export default function WorkflowDetailPage() {
         postsData?.filter((p: Post) => p.status === "published").length || 0;
       const failed =
         postsData?.filter((p: Post) => p.status === "failed").length || 0;
+      // Get last post timestamp (use posted_at if available, otherwise created_at)
       const lastPost =
-        postsData && postsData.length > 0 ? postsData[0].posted_at : null;
+        postsData && postsData.length > 0
+          ? postsData[0].posted_at || postsData[0].created_at
+          : null;
 
       setStats({
         totalRuns: postsData?.length || 0,
@@ -406,19 +409,36 @@ export default function WorkflowDetailPage() {
                         )}
                         {post.status === "published" ? "Published" : "Failed"}
                       </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {format(
-                          new Date(post.posted_at),
-                          "MMM d, yyyy 'at' h:mm a",
-                        )}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        (
-                        {formatDistanceToNow(new Date(post.posted_at), {
-                          addSuffix: true,
-                        })}
-                        )
-                      </span>
+                      {post.posted_at ? (
+                        <>
+                          <span className="text-sm text-muted-foreground">
+                            {format(
+                              new Date(post.posted_at),
+                              "MMM d, yyyy 'at' h:mm a",
+                            )}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            (
+                            {formatDistanceToNow(new Date(post.posted_at), {
+                              addSuffix: true,
+                            })}
+                            )
+                          </span>
+                        </>
+                      ) : post.created_at ? (
+                        <>
+                          <span className="text-sm text-muted-foreground">
+                            Created:{" "}
+                            {format(
+                              new Date(post.created_at),
+                              "MMM d, yyyy 'at' h:mm a",
+                            )}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            (Not yet posted)
+                          </span>
+                        </>
+                      ) : null}
                     </div>
                     {post.published_url && (
                       <Button

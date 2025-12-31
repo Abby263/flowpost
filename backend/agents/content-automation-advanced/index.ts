@@ -586,6 +586,17 @@ async function savePostToDb(
   state: typeof ContentAutomationAdvancedState.State,
 ) {
   console.log("--- SAVING POST TO DB ---");
+  console.log(`   📋 State Summary:`);
+  console.log(`      - workflowId: ${state.workflowId || "N/A"}`);
+  console.log(`      - userId: ${state.userId || "N/A"}`);
+  console.log(`      - platform: ${state.platform || "N/A"}`);
+  console.log(`      - post length: ${state.post?.length || 0} chars`);
+  console.log(
+    `      - post preview: "${(state.post || "").substring(0, 50)}..."`,
+  );
+  console.log(`      - imageUrl: ${state.imageUrl ? "present" : "missing"}`);
+  console.log(`      - publishStatus: ${state.publishStatus || "N/A"}`);
+  console.log(`      - publishError: ${state.publishError || "none"}`);
 
   // Check if PostgreSQL is configured
   if (!process.env.DATABASE_URI) {
@@ -596,7 +607,7 @@ async function savePostToDb(
   const { queryOne, insert, query } = await import("../../utils/postgres.js");
 
   // Save post to DB if we have content
-  if (state.post) {
+  if (state.post && state.post.length > 0) {
     try {
       console.log(`   📊 Connecting to PostgreSQL...`);
 
@@ -607,6 +618,7 @@ async function savePostToDb(
         content: state.post,
         platform: state.platform,
         status: state.publishStatus === "success" ? "published" : "failed",
+        source: "workflow", // Explicitly set source
         posted_at: new Date().toISOString(),
       };
 
@@ -759,6 +771,12 @@ async function prepareCaption(
   state: typeof ContentAutomationAdvancedState.State,
 ) {
   console.log(`\n📝 [PREPARE CAPTION] Preparing post caption...`);
+  console.log(
+    `   Current state.post: "${(state.post || "").substring(0, 50)}..." (${state.post?.length || 0} chars)`,
+  );
+  console.log(
+    `   Current state.report: "${(state.report || "").substring(0, 50)}..." (${state.report?.length || 0} chars)`,
+  );
 
   // If we already have a post from generatePostSubgraph, use it
   if (state.post && state.post.length > 10) {
@@ -769,27 +787,36 @@ async function prepareCaption(
     return {};
   }
 
-  console.log(`   📄 Creating caption from report...`);
+  console.log(`   📄 Creating caption from report (no existing post found)...`);
 
   // Otherwise, create a simple caption from the report
-  let caption = `${state.searchQuery}${state.location ? ` in ${state.location}` : ""}!\n\n`;
+  let caption = `${state.searchQuery || "Latest Updates"}${state.location ? ` in ${state.location}` : ""}!\n\n`;
 
-  if (state.report) {
+  if (state.report && state.report.length > 10) {
     // Extract key points from report
     const lines = state.report
       .split("\n")
       .filter((l) => l.trim().length > 0)
       .slice(0, 5);
     caption += lines.join("\n");
+  } else if (state.selectedContent && state.selectedContent.length > 0) {
+    // Fallback to selectedContent if report is empty
+    caption += state.selectedContent
+      .slice(0, 3)
+      .map((item: any) => `• ${item.title || item.snippet || ""}`)
+      .join("\n");
   } else {
-    caption += "Check out these amazing updates!";
+    caption += "Check out these amazing updates! Stay tuned for more content.";
   }
 
   // Add hashtags
   const hashtags = [
     state.location ? `#${state.location.replace(/\s/g, "")}` : null,
-    `#${state.searchQuery.replace(/\s/g, "").replace(/[^a-zA-Z0-9]/g, "")}`,
+    state.searchQuery
+      ? `#${state.searchQuery.replace(/\s/g, "").replace(/[^a-zA-Z0-9]/g, "")}`
+      : null,
     `#${state.platform || "social"}media`,
+    "#FlowPost",
   ]
     .filter(Boolean)
     .join(" ");

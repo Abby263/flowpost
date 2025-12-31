@@ -12,6 +12,90 @@
 
 import { GoogleGenAI } from "@google/genai";
 
+/**
+ * Retry configuration for API calls
+ */
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  initialDelayMs: 1000,
+  maxDelayMs: 10000,
+  backoffMultiplier: 2,
+};
+
+/**
+ * Check if an error is retryable (network errors, rate limits, server errors)
+ */
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    // Network errors
+    if (
+      message.includes("fetch failed") ||
+      message.includes("network") ||
+      message.includes("timeout") ||
+      message.includes("econnreset") ||
+      message.includes("econnrefused") ||
+      message.includes("socket hang up")
+    ) {
+      return true;
+    }
+    // Rate limiting
+    if (message.includes("429") || message.includes("rate limit")) {
+      return true;
+    }
+    // Server errors (5xx)
+    if (
+      message.includes("500") ||
+      message.includes("502") ||
+      message.includes("503") ||
+      message.includes("504")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Execute a function with retry logic and exponential backoff
+ */
+async function withRetry<T>(fn: () => Promise<T>, context: string): Promise<T> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      if (!isRetryableError(error) || attempt === RETRY_CONFIG.maxRetries) {
+        // Not retryable or exhausted retries
+        console.error(
+          `❌ [Gemini ${context}] Failed after ${attempt} attempt(s):`,
+          lastError.message,
+        );
+        throw lastError;
+      }
+
+      // Calculate delay with exponential backoff
+      const delay = Math.min(
+        RETRY_CONFIG.initialDelayMs *
+          Math.pow(RETRY_CONFIG.backoffMultiplier, attempt - 1),
+        RETRY_CONFIG.maxDelayMs,
+      );
+
+      console.warn(
+        `⚠️  [Gemini ${context}] Attempt ${attempt}/${RETRY_CONFIG.maxRetries} failed: ${lastError.message}. Retrying in ${delay}ms...`,
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  // This should never be reached, but TypeScript needs it
+  throw lastError || new Error("Unknown error in retry logic");
+}
+
 // Check if Gemini is configured
 export function isGeminiConfigured(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
@@ -49,32 +133,34 @@ export async function generateTextWithGemini(
     maxTokens?: number;
   },
 ): Promise<string> {
-  const client = getGeminiClient();
-  const model =
-    options?.model || process.env.LLM_MODEL || "gemini-2.0-flash-exp";
+  return withRetry(async () => {
+    const client = getGeminiClient();
+    const model =
+      options?.model || process.env.LLM_MODEL || "gemini-2.0-flash-exp";
 
-  const messages = [];
-  if (systemPrompt) {
-    messages.push({ role: "system" as const, content: systemPrompt });
-  }
-  messages.push({ role: "user" as const, content: prompt });
+    const messages = [];
+    if (systemPrompt) {
+      messages.push({ role: "system" as const, content: systemPrompt });
+    }
+    messages.push({ role: "user" as const, content: prompt });
 
-  const response = await client.models.generateContent({
-    model,
-    contents: messages.map((msg) => ({
-      role: msg.role === "system" ? "user" : msg.role,
-      parts: [{ text: msg.content }],
-    })),
-    config: {
-      temperature:
-        options?.temperature ??
-        parseFloat(process.env.LLM_TEMPERATURE || "0.5"),
-      maxOutputTokens: options?.maxTokens,
-    },
-  });
+    const response = await client.models.generateContent({
+      model,
+      contents: messages.map((msg) => ({
+        role: msg.role === "system" ? "user" : msg.role,
+        parts: [{ text: msg.content }],
+      })),
+      config: {
+        temperature:
+          options?.temperature ??
+          parseFloat(process.env.LLM_TEMPERATURE || "0.5"),
+        maxOutputTokens: options?.maxTokens,
+      },
+    });
 
-  const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  return text;
+    const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    return text;
+  }, "generateText");
 }
 
 /**
@@ -99,45 +185,48 @@ export async function generateTextWithGrounding(
     dynamicThreshold?: number;
   },
 ): Promise<{ text: string; groundingMetadata?: any }> {
-  const client = getGeminiClient();
-  const model =
-    options?.model || process.env.LLM_MODEL || "gemini-2.0-flash-exp";
+  return withRetry(async () => {
+    const client = getGeminiClient();
+    const model =
+      options?.model || process.env.LLM_MODEL || "gemini-2.0-flash-exp";
 
-  const messages = [];
-  if (systemPrompt) {
-    messages.push({ role: "system" as const, content: systemPrompt });
-  }
-  messages.push({ role: "user" as const, content: prompt });
+    const messages = [];
+    if (systemPrompt) {
+      messages.push({ role: "system" as const, content: systemPrompt });
+    }
+    messages.push({ role: "user" as const, content: prompt });
 
-  // Build config with Google Search tool
-  const config: any = {
-    temperature:
-      options?.temperature ?? parseFloat(process.env.LLM_TEMPERATURE || "0.7"),
-    maxOutputTokens: options?.maxTokens,
-    tools: [{ googleSearch: {} }],
-  };
+    // Build config with Google Search tool
+    const config: any = {
+      temperature:
+        options?.temperature ??
+        parseFloat(process.env.LLM_TEMPERATURE || "0.7"),
+      maxOutputTokens: options?.maxTokens,
+      tools: [{ googleSearch: {} }],
+    };
 
-  const response = await client.models.generateContent({
-    model,
-    contents: messages.map((msg) => ({
-      role: msg.role === "system" ? "user" : msg.role,
-      parts: [{ text: msg.content }],
-    })),
-    config,
-  });
+    const response = await client.models.generateContent({
+      model,
+      contents: messages.map((msg) => ({
+        role: msg.role === "system" ? "user" : msg.role,
+        parts: [{ text: msg.content }],
+      })),
+      config,
+    });
 
-  const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  const groundingMetadata = (response as any).groundingMetadata;
+    const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const groundingMetadata = (response as any).groundingMetadata;
 
-  // Log grounding information if available
-  if (groundingMetadata) {
-    console.log(
-      "✅ [Gemini Grounding] Real-time data used:",
-      JSON.stringify(groundingMetadata, null, 2),
-    );
-  }
+    // Log grounding information if available
+    if (groundingMetadata) {
+      console.log(
+        "✅ [Gemini Grounding] Real-time data used:",
+        JSON.stringify(groundingMetadata, null, 2),
+      );
+    }
 
-  return { text, groundingMetadata };
+    return { text, groundingMetadata };
+  }, "generateTextWithGrounding");
 }
 
 /**
@@ -158,43 +247,45 @@ export async function generateImageWithGemini(
     safetySettings?: any;
   },
 ): Promise<{ imageUrl: string; imageData: string }[]> {
-  const client = getGeminiClient();
-  const model =
-    options?.model || process.env.IMAGE_MODEL || "gemini-2.5-flash-image";
+  return withRetry(async () => {
+    const client = getGeminiClient();
+    const model =
+      options?.model || process.env.IMAGE_MODEL || "gemini-2.5-flash-image";
 
-  // Build config object with proper typing
-  const config: any = {
-    responseModalities: ["IMAGE"],
-  };
-
-  // Add imageConfig if aspect ratio or size is specified
-  if (options?.aspectRatio || options?.imageSize) {
-    config.imageConfig = {
-      ...(options.aspectRatio && { aspectRatio: options.aspectRatio }),
-      ...(options.imageSize && { imageSize: options.imageSize }),
+    // Build config object with proper typing
+    const config: any = {
+      responseModalities: ["IMAGE"],
     };
-  }
 
-  const response = await client.models.generateContent({
-    model,
-    contents: prompt,
-    config,
-  });
-
-  const images: { imageUrl: string; imageData: string }[] = [];
-
-  // Extract images from response parts
-  for (const part of response.candidates?.[0]?.content?.parts || []) {
-    if (part.inlineData) {
-      const imageData = part.inlineData.data;
-      // Convert base64 to data URL
-      const mimeType = part.inlineData.mimeType || "image/png";
-      const imageUrl = `data:${mimeType};base64,${imageData}`;
-      images.push({ imageUrl, imageData: imageData as string });
+    // Add imageConfig if aspect ratio or size is specified
+    if (options?.aspectRatio || options?.imageSize) {
+      config.imageConfig = {
+        ...(options.aspectRatio && { aspectRatio: options.aspectRatio }),
+        ...(options.imageSize && { imageSize: options.imageSize }),
+      };
     }
-  }
 
-  return images;
+    const response = await client.models.generateContent({
+      model,
+      contents: prompt,
+      config,
+    });
+
+    const images: { imageUrl: string; imageData: string }[] = [];
+
+    // Extract images from response parts
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        const imageData = part.inlineData.data;
+        // Convert base64 to data URL
+        const mimeType = part.inlineData.mimeType || "image/png";
+        const imageUrl = `data:${mimeType};base64,${imageData}`;
+        images.push({ imageUrl, imageData: imageData as string });
+      }
+    }
+
+    return images;
+  }, "generateImage");
 }
 
 /**
@@ -223,72 +314,74 @@ export async function generateImageWithGrounding(
     groundingMetadata?: any;
   }[]
 > {
-  const client = getGeminiClient();
+  return withRetry(async () => {
+    const client = getGeminiClient();
 
-  // Use Gemini 3 Pro Image Preview for grounding (supports up to 4K)
-  const model =
-    options?.model || process.env.IMAGE_MODEL || "gemini-3-pro-image-preview";
+    // Use Gemini 3 Pro Image Preview for grounding (supports up to 4K)
+    const model =
+      options?.model || process.env.IMAGE_MODEL || "gemini-3-pro-image-preview";
 
-  // Build config with Google Search tool for grounding
-  const config: any = {
-    responseModalities: ["Text", "Image"], // Include both text and image
-  };
-
-  // Add imageConfig if specified
-  if (options?.aspectRatio || options?.imageSize) {
-    config.imageConfig = {
-      ...(options.aspectRatio && { aspectRatio: options.aspectRatio }),
-      ...(options.imageSize && { imageSize: options.imageSize }),
+    // Build config with Google Search tool for grounding
+    const config: any = {
+      responseModalities: ["Text", "Image"], // Include both text and image
     };
-  }
 
-  // Add Google Search tool for real-time grounding
-  config.tools = [{ googleSearch: {} }];
-
-  const response = await client.models.generateContent({
-    model,
-    contents: prompt,
-    config,
-  });
-
-  const images: {
-    imageUrl: string;
-    imageData: string;
-    groundingMetadata?: any;
-  }[] = [];
-
-  // Extract grounding metadata if available
-  const groundingMetadata = (response as any).groundingMetadata;
-  let textResponse = "";
-
-  // Process response parts
-  for (const part of response.candidates?.[0]?.content?.parts || []) {
-    if (part.text) {
-      textResponse += part.text;
-    } else if (part.inlineData) {
-      const imageData = part.inlineData.data;
-      const mimeType = part.inlineData.mimeType || "image/png";
-      const imageUrl = `data:${mimeType};base64,${imageData}`;
-      images.push({
-        imageUrl,
-        imageData: imageData as string,
-        groundingMetadata,
-      });
+    // Add imageConfig if specified
+    if (options?.aspectRatio || options?.imageSize) {
+      config.imageConfig = {
+        ...(options.aspectRatio && { aspectRatio: options.aspectRatio }),
+        ...(options.imageSize && { imageSize: options.imageSize }),
+      };
     }
-  }
 
-  // Log grounding information if available
-  if (groundingMetadata) {
-    console.log(
-      "✅ [Gemini Grounding] Real-time data used:",
-      JSON.stringify(groundingMetadata, null, 2),
-    );
-  }
-  if (textResponse) {
-    console.log("📝 [Gemini Response] Text:", textResponse);
-  }
+    // Add Google Search tool for real-time grounding
+    config.tools = [{ googleSearch: {} }];
 
-  return images;
+    const response = await client.models.generateContent({
+      model,
+      contents: prompt,
+      config,
+    });
+
+    const images: {
+      imageUrl: string;
+      imageData: string;
+      groundingMetadata?: any;
+    }[] = [];
+
+    // Extract grounding metadata if available
+    const groundingMetadata = (response as any).groundingMetadata;
+    let textResponse = "";
+
+    // Process response parts
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.text) {
+        textResponse += part.text;
+      } else if (part.inlineData) {
+        const imageData = part.inlineData.data;
+        const mimeType = part.inlineData.mimeType || "image/png";
+        const imageUrl = `data:${mimeType};base64,${imageData}`;
+        images.push({
+          imageUrl,
+          imageData: imageData as string,
+          groundingMetadata,
+        });
+      }
+    }
+
+    // Log grounding information if available
+    if (groundingMetadata) {
+      console.log(
+        "✅ [Gemini Grounding] Real-time data used:",
+        JSON.stringify(groundingMetadata, null, 2),
+      );
+    }
+    if (textResponse) {
+      console.log("📝 [Gemini Response] Text:", textResponse);
+    }
+
+    return images;
+  }, "generateImageWithGrounding");
 }
 
 /**

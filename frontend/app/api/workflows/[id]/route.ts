@@ -66,7 +66,7 @@ export async function GET(
     const posts = await queryMany<Post>(
       `SELECT * FROM posts
        WHERE workflow_id = $1 AND user_id = $2
-       ORDER BY posted_at DESC`,
+       ORDER BY COALESCE(posted_at, created_at) DESC, created_at DESC`,
       [workflowId, userId],
     );
 

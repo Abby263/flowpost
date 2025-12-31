@@ -5,6 +5,9 @@ import { queryOne, query, insert } from "@/lib/postgres";
 // Timeout for workflow runs (30 minutes) - if running longer, consider stale
 const STALE_RUN_TIMEOUT_MS = 30 * 60 * 1000;
 
+// Threshold to check LangGraph for run status (2 minutes)
+const SYNC_CHECK_THRESHOLD_MS = 2 * 60 * 1000;
+
 // Credits required per workflow run (deducted only on success)
 const CREDITS_PER_WORKFLOW = 1;
 
@@ -63,10 +66,11 @@ export async function GET(request: Request) {
 
     if (workflow.run_status === "running" && workflow.run_started_at) {
       const runStartedAt = new Date(workflow.run_started_at).getTime();
-      elapsedSeconds = Math.floor((Date.now() - runStartedAt) / 1000);
+      const elapsedMs = Date.now() - runStartedAt;
+      elapsedSeconds = Math.floor(elapsedMs / 1000);
 
       // Auto-detect stale runs and mark them as failed
-      if (Date.now() - runStartedAt > STALE_RUN_TIMEOUT_MS) {
+      if (elapsedMs > STALE_RUN_TIMEOUT_MS) {
         console.warn(
           `Stale run detected for workflow ${workflowId}. Started at ${workflow.run_started_at}. Auto-resetting to failed.`,
         );
@@ -84,6 +88,51 @@ export async function GET(request: Request) {
         );
 
         actualStatus = "failed";
+      } else if (
+        elapsedMs > SYNC_CHECK_THRESHOLD_MS &&
+        workflow.current_run_id
+      ) {
+        // If running for more than 2 minutes, check LangGraph for actual status
+        // This catches cases where the run failed but our DB wasn't updated
+        try {
+          const apiUrl =
+            process.env.LANGGRAPH_API_URL || "http://localhost:54367";
+          const response = await fetch(
+            `${apiUrl}/runs/${workflow.current_run_id}`,
+            {
+              method: "GET",
+              headers: { "Content-Type": "application/json" },
+              signal: AbortSignal.timeout(5000), // 5 second timeout
+            },
+          );
+
+          if (response.ok) {
+            const runData = await response.json();
+            const lgStatus = runData.status?.toLowerCase();
+
+            if (lgStatus === "error" || lgStatus === "failed") {
+              console.log(
+                `LangGraph shows run ${workflow.current_run_id} as ${lgStatus}. Syncing status.`,
+              );
+
+              await query(
+                `UPDATE workflows
+                 SET run_status = 'failed', run_completed_at = NOW(), last_error = $1
+                 WHERE id = $2 AND user_id = $3`,
+                [
+                  runData.error || "Run failed (synced from LangGraph)",
+                  workflowId,
+                  userId,
+                ],
+              );
+
+              actualStatus = "failed";
+            }
+          }
+        } catch (syncError) {
+          // Ignore sync errors - this is just an optimization
+          console.debug("LangGraph sync check failed:", syncError);
+        }
       }
     }
 

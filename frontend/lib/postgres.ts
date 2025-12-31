@@ -37,9 +37,9 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
   const result = await pool.query<T>(text, params);
   const duration = Date.now() - start;
 
-  // Log slow queries in development
-  if (process.env.NODE_ENV === "development" && duration > 100) {
-    console.log("Slow query:", { text, duration, rows: result.rowCount });
+  // Log slow queries in development (threshold: 3000ms to account for Azure network latency)
+  if (process.env.NODE_ENV === "development" && duration > 3000) {
+    console.warn("⚠️ Slow query:", { text, duration, rows: result.rowCount });
   }
 
   return result;

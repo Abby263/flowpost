@@ -109,6 +109,8 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (user) {
       loadCachedData();
+      // Always fetch connections in case they're not in cache
+      fetchConnections();
     }
   }, [user]);
 
@@ -117,14 +119,18 @@ export default function AnalyticsPage() {
       const res = await fetch("/api/analytics/cache");
       const data = await res.json();
 
-      if (data.cached && data.posts?.length > 0) {
-        setPosts(data.posts);
-        setConnections(data.connections || []);
-        setLastUpdated(data.lastUpdated);
-        setDataLoaded(true);
-      } else if (data.connections?.length > 0) {
-        // If we have cached connections but no posts, at least restore connections
-        setConnections(data.connections);
+      if (data.cached) {
+        // Restore cached data if it exists
+        if (data.posts && data.posts.length > 0) {
+          setPosts(data.posts);
+          setDataLoaded(true);
+        }
+        if (data.connections && data.connections.length > 0) {
+          setConnections(data.connections);
+        }
+        if (data.lastUpdated) {
+          setLastUpdated(data.lastUpdated);
+        }
       }
     } catch (error) {
       console.error("Error loading cached analytics:", error);

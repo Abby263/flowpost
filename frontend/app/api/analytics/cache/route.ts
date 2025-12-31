@@ -60,17 +60,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { posts, connections } = body;
 
-    // Upsert the cache
-    // Note: Don't use JSON.stringify() - pg library handles JSONB serialization automatically
-    await upsert<AnalyticsCache>(
-      "user_analytics_cache",
-      {
-        user_id: userId,
-        posts_data: posts || [],
-        connections_data: connections || [],
-        last_updated_at: new Date().toISOString(),
-      },
-      "user_id",
+    // Upsert the cache using raw SQL for proper JSONB handling
+    await query(
+      `INSERT INTO user_analytics_cache (user_id, posts_data, connections_data, last_updated_at)
+       VALUES ($1, $2::jsonb, $3::jsonb, $4)
+       ON CONFLICT (user_id) DO UPDATE SET
+         posts_data = $2::jsonb,
+         connections_data = $3::jsonb,
+         last_updated_at = $4`,
+      [
+        userId,
+        JSON.stringify(posts || []),
+        JSON.stringify(connections || []),
+        new Date().toISOString(),
+      ],
     );
 
     return NextResponse.json({
