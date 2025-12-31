@@ -26,7 +26,8 @@ interface Post {
   image_url?: string;
   published_url?: string;
   status: string;
-  posted_at: string;
+  posted_at?: string;
+  created_at?: string;
   platform: string;
 }
 
