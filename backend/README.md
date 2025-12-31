@@ -11,6 +11,7 @@ AI-powered social media automation backend built with LangGraph and LangChain.
 | **TypeScript**   | Type-safe development                       |
 | **Node.js 20**   | Runtime environment                         |
 | **OpenAI GPT-4** | Content generation and analysis             |
+| **Gemini 2.0**   | Content & Image generation                  |
 | **Playwright**   | Web scraping and screenshots                |
 | **Supabase**     | Database and storage                        |
 
@@ -81,6 +82,12 @@ backend/
 │   ├── verify-tweet/         # Tweet verification
 │   ├── verify-reddit-post/   # Reddit post verification
 │   ├── upload-post/          # Post upload to platforms
+│   ├── curated-post-interrupt/ # Human-in-the-loop for curated posts
+│   ├── find-images/          # Find images for posts
+│   ├── ingest-repurposed-data/ # Ingest data for repurposing
+│   ├── reflection/           # Self-reflection and prompt optimization
+│   ├── repurposer-post-interrupt/ # Human-in-the-loop for repurposed posts
+│   ├── verify-links/         # Link verification and content extraction
 │   └── shared/               # Shared utilities and nodes
 ├── clients/                   # External service clients
 │   ├── twitter/              # Twitter API client
@@ -117,6 +124,10 @@ Input → Curate Data → Generate Post → Human Review → Upload Post
 | `upload_post`                 | Upload posts to social platforms               |
 | `generate_thread`             | Generate Twitter threads                       |
 | `repurposer`                  | Repurpose existing content                     |
+| `verify_links`                | Verify and extract content from links          |
+| `reflection`                  | Optimize prompts based on user feedback        |
+| `find_images`                 | Find or generate images for posts              |
+| `ingest_repurposed_data`      | Ingest external data for repurposing           |
 
 ## Development
 

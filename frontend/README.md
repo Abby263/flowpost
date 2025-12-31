@@ -35,6 +35,8 @@ Modern dashboard for managing AI-powered social media automation workflows.
 │  │  /dashboard/connections     Social account connections    │   │
 │  │  /dashboard/analytics       Performance analytics         │   │
 │  │  /dashboard/content-ideas   AI content suggestions        │   │
+│  │  /dashboard/schedule-post   Manual post scheduling        │   │
+│  │  /dashboard/billing         Subscription management       │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                  │
 │  ┌──────────────────────────────────────────────────────────┐   │
@@ -92,6 +94,7 @@ frontend/
 │   │   ├── connections/       # Connections page
 │   │   ├── content-ideas/     # Content ideas page
 │   │   ├── schedule-post/     # Schedule post page
+│   │   ├── billing/           # Billing & subscription page
 │   │   └── workflows/         # Workflows pages
 │   ├── sign-in/               # Clerk sign-in
 │   ├── sign-up/               # Clerk sign-up
