@@ -1,0 +1,152 @@
+# =============================================================================
+# Cleanup Review Environment on PR Close
+# =============================================================================
+# This workflow triggers when a PR is closed (merged or not) to clean up any
+# resources created for the review environment.
+#
+# Actions performed:
+# - Delete GitHub deployment environment (if created)
+# - Clean up Docker images tagged with PR number (optional)
+# - Remove any Azure resources specific to the PR (if applicable)
+
+name: Cleanup Review Environment
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  cleanup:
+    name: Cleanup Review Environment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log PR Close Event
+        run: |
+          echo "## PR Cleanup Triggered" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**PR Number:** #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**PR Title:** ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Merged:** ${{ github.event.pull_request.merged }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Base Branch:** ${{ github.event.pull_request.base.ref }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Delete GitHub Deployment Environment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const envName = `pr-${prNumber}`;
+            
+            console.log(`Looking for deployment environment: ${envName}`);
+            
+            try {
+              // List all deployments for this repo
+              const { data: deployments } = await github.rest.repos.listDeployments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                environment: envName,
+                per_page: 100
+              });
+              
+              console.log(`Found ${deployments.length} deployments for environment ${envName}`);
+              
+              // Delete each deployment
+              for (const deployment of deployments) {
+                // First set deployment to inactive
+                await github.rest.repos.createDeploymentStatus({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  deployment_id: deployment.id,
+                  state: 'inactive'
+                });
+                
+                // Then delete the deployment
+                await github.rest.repos.deleteDeployment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  deployment_id: deployment.id
+                });
+                
+                console.log(`Deleted deployment ${deployment.id}`);
+              }
+              
+              console.log(`✅ Cleaned up ${deployments.length} deployments`);
+            } catch (error) {
+              if (error.status === 404) {
+                console.log(`No deployments found for environment ${envName}`);
+              } else {
+                console.log(`Warning: Could not clean up deployments: ${error.message}`);
+              }
+            }
+
+      - name: Check Azure Credentials
+        id: check-azure
+        env:
+          AZURE_CREDS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          if [ -z "$AZURE_CREDS" ]; then
+            echo "has-azure=false" >> $GITHUB_OUTPUT
+          else
+            echo "has-azure=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Login to Azure
+        if: steps.check-azure.outputs.has-azure == 'true'
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+        continue-on-error: true
+
+      - name: Cleanup PR-specific Container Images
+        if: steps.check-azure.outputs.has-azure == 'true'
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          ACR_NAME="flowpostdevacr"
+          
+          echo "Cleaning up images tagged with PR-${PR_NUMBER}..."
+          
+          # Check if ACR exists
+          if ! az acr show --name ${ACR_NAME} --query "name" -o tsv 2>/dev/null; then
+            echo "ACR ${ACR_NAME} not found, skipping image cleanup"
+            exit 0
+          fi
+          
+          # Delete backend images with PR tag
+          az acr repository delete \
+            --name ${ACR_NAME} \
+            --image "flowpost-backend:pr-${PR_NUMBER}" \
+            --yes 2>/dev/null || echo "No backend PR image to delete"
+          
+          # Delete frontend images with PR tag
+          az acr repository delete \
+            --name ${ACR_NAME} \
+            --image "flowpost-frontend:pr-${PR_NUMBER}" \
+            --yes 2>/dev/null || echo "No frontend PR image to delete"
+          
+          echo "✅ Image cleanup complete"
+        continue-on-error: true
+
+      - name: Post Cleanup Summary
+        if: github.event.pull_request.merged == true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `## 🧹 Review Environment Cleanup Complete\n\nThe review environment for this PR has been cleaned up after merge.\n\n- ✅ GitHub deployments removed\n- ✅ PR-specific container images deleted (if any)`
+            });
+
