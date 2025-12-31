@@ -46,9 +46,9 @@ jobs:
           script: |
             const prNumber = context.payload.pull_request.number;
             const envName = `pr-${prNumber}`;
-            
+
             console.log(`Looking for deployment environment: ${envName}`);
-            
+
             try {
               // List all deployments for this repo
               const { data: deployments } = await github.rest.repos.listDeployments({
@@ -112,27 +112,27 @@ jobs:
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
           ACR_NAME="flowpostdevacr"
-          
+
           echo "Cleaning up images tagged with PR-${PR_NUMBER}..."
-          
+
           # Check if ACR exists
           if ! az acr show --name ${ACR_NAME} --query "name" -o tsv 2>/dev/null; then
             echo "ACR ${ACR_NAME} not found, skipping image cleanup"
             exit 0
           fi
-          
+
           # Delete backend images with PR tag
           az acr repository delete \
             --name ${ACR_NAME} \
             --image "flowpost-backend:pr-${PR_NUMBER}" \
             --yes 2>/dev/null || echo "No backend PR image to delete"
-          
+
           # Delete frontend images with PR tag
           az acr repository delete \
             --name ${ACR_NAME} \
             --image "flowpost-frontend:pr-${PR_NUMBER}" \
             --yes 2>/dev/null || echo "No frontend PR image to delete"
-          
+
           echo "✅ Image cleanup complete"
         continue-on-error: true
 
@@ -142,11 +142,10 @@ jobs:
         with:
           script: |
             const prNumber = context.payload.pull_request.number;
-            
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
               body: `## 🧹 Review Environment Cleanup Complete\n\nThe review environment for this PR has been cleaned up after merge.\n\n- ✅ GitHub deployments removed\n- ✅ PR-specific container images deleted (if any)`
             });
-
