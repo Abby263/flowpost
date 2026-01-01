@@ -7,22 +7,25 @@ import {
   generateImageWithGrounding,
   isGeminiModel,
 } from "../../../lib/gemini";
+import {
+  AI_CONFIG,
+  SEARCH_CONFIG,
+  CREDITS_CONFIG,
+  CONTENT_CONFIG,
+  FEATURE_FLAGS,
+} from "@/config";
 
 const SERPER_API_KEY = process.env.SERPER_API_KEY;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const AI_PROVIDER = process.env.AI_PROVIDER || "openai";
-const USE_GOOGLE_SEARCH_GROUNDING =
-  process.env.USE_GOOGLE_SEARCH_GROUNDING === "true";
+const AI_PROVIDER = process.env.AI_PROVIDER || AI_CONFIG.defaults.provider;
 
-// Configuration
-const MAX_SEARCH_QUERIES = 2; // Limit number of parallel searches
-const RESULTS_PER_QUERY = 5; // Results per search query
-const MAX_TRENDING_RESULTS = 5; // Maximum trending content items to return
-
-// Credits required for generating content ideas
-const CREDITS_PER_GENERATION = 1;
+// Use centralized configuration
+const MAX_SEARCH_QUERIES = SEARCH_CONFIG.maxSearchQueries;
+const RESULTS_PER_QUERY = SEARCH_CONFIG.resultsPerQuery;
+const MAX_TRENDING_RESULTS = SEARCH_CONFIG.maxTrendingResults;
+const CREDITS_PER_GENERATION = CREDITS_CONFIG.perOperation.contentIdeas;
 
 interface ContentItem {
   title: string;
@@ -163,7 +166,7 @@ async function searchWithPerplexity(
           content: `Find the most recent trending news from the last week about: ${searchQuery}`,
         },
       ],
-      temperature: 0.2,
+      temperature: AI_CONFIG.temperature.search,
     }),
   });
 
@@ -287,7 +290,7 @@ async function generatePostIdeasWithGemini(
 
     const prompt = `Based on the following trending content about "${category}", generate 3 unique post ideas for social media (Instagram/LinkedIn/Twitter).
 
-${USE_GOOGLE_SEARCH_GROUNDING ? "Use Google Search to find the latest real-time information, trends, and data to make these post ideas as current and relevant as possible." : ""}
+${FEATURE_FLAGS.useGoogleSearchGrounding ? "Use Google Search to find the latest real-time information, trends, and data to make these post ideas as current and relevant as possible." : ""}
 
 Trending Content:
 ${contentSummary}
@@ -304,20 +307,20 @@ CRITICAL: Return ONLY a valid JSON array with no markdown, no explanations, no t
     let responseText: string;
 
     // Use Google Search grounding if enabled
-    if (USE_GOOGLE_SEARCH_GROUNDING) {
+    if (FEATURE_FLAGS.useGoogleSearchGrounding) {
       console.log(
         "🔍 [Gemini] Using Google Search grounding for real-time content ideas",
       );
       const result = await generateTextWithGrounding(prompt, systemPrompt, {
-        temperature: 0.8,
-        maxTokens: 1000,
+        temperature: AI_CONFIG.temperature.creative,
+        maxTokens: AI_CONFIG.maxTokens.long,
       });
       responseText = result.text;
     } else {
       const { generateTextWithGemini } = await import("../../../lib/gemini");
       responseText = await generateTextWithGemini(prompt, systemPrompt, {
-        temperature: 0.8,
-        maxTokens: 1000,
+        temperature: AI_CONFIG.temperature.creative,
+        maxTokens: AI_CONFIG.maxTokens.long,
       });
     }
 
@@ -343,11 +346,55 @@ CRITICAL: Return ONLY a valid JSON array with no markdown, no explanations, no t
     try {
       ideas = JSON.parse(cleanedResponse);
     } catch (parseError) {
-      console.error("❌ [Gemini] Failed to parse JSON:", cleanedResponse);
-      throw new Error(
-        "Gemini response is not valid JSON. Response: " +
-          cleanedResponse.substring(0, 500),
-      );
+      // Try to repair truncated JSON by closing open brackets
+      console.warn("⚠️ [Gemini] JSON parse failed, attempting repair...");
+      let repairedJson = cleanedResponse;
+
+      // Count open/close brackets to detect truncation
+      const openBrackets = (repairedJson.match(/\[/g) || []).length;
+      const closeBrackets = (repairedJson.match(/\]/g) || []).length;
+      const openBraces = (repairedJson.match(/\{/g) || []).length;
+      const closeBraces = (repairedJson.match(/\}/g) || []).length;
+
+      // If truncated, try to close the JSON properly
+      if (openBrackets > closeBrackets || openBraces > closeBraces) {
+        // Remove trailing incomplete object/string
+        repairedJson = repairedJson.replace(/,\s*\{[^}]*$/, ""); // Remove incomplete object at end
+        repairedJson = repairedJson.replace(/,\s*"[^"]*$/, ""); // Remove incomplete string
+        repairedJson = repairedJson.replace(/,\s*$/, ""); // Remove trailing comma
+
+        // Close remaining brackets
+        for (let i = 0; i < openBraces - closeBraces; i++) repairedJson += "}";
+        for (let i = 0; i < openBrackets - closeBrackets; i++)
+          repairedJson += "]";
+
+        try {
+          ideas = JSON.parse(repairedJson);
+          console.log(
+            "✅ [Gemini] JSON repaired successfully, got",
+            ideas.length,
+            "ideas",
+          );
+        } catch (repairError) {
+          console.error(
+            "❌ [Gemini] Failed to repair JSON:",
+            cleanedResponse.substring(0, 300),
+          );
+          throw new Error(
+            "Gemini response is not valid JSON. Response: " +
+              cleanedResponse.substring(0, 500),
+          );
+        }
+      } else {
+        console.error(
+          "❌ [Gemini] Failed to parse JSON:",
+          cleanedResponse.substring(0, 300),
+        );
+        throw new Error(
+          "Gemini response is not valid JSON. Response: " +
+            cleanedResponse.substring(0, 500),
+        );
+      }
     }
 
     // Validate ideas array
@@ -366,7 +413,7 @@ CRITICAL: Return ONLY a valid JSON array with no markdown, no explanations, no t
           let imageUrl = `https://picsum.photos/seed/${encodeURIComponent(idea.title)}/400/300`;
 
           // Use Gemini image generation with grounding if enabled
-          if (USE_GOOGLE_SEARCH_GROUNDING) {
+          if (FEATURE_FLAGS.useGoogleSearchGrounding) {
             try {
               console.log(
                 `🖼️  [Gemini] Generating image with Google Search grounding: "${idea.title}"`,
@@ -460,8 +507,8 @@ Only return valid JSON, no markdown or additional text.`;
           },
           { role: "user", content: prompt },
         ],
-        temperature: 0.8,
-        max_tokens: 1000,
+        temperature: AI_CONFIG.temperature.creative,
+        max_tokens: AI_CONFIG.maxTokens.long,
       }),
     });
 
@@ -631,11 +678,11 @@ Generate 3 specific, trending search queries to find the latest news and content
 Return ONLY a JSON array of strings. Example: ["latest AI tools 2024", "SpaceX Starship update", "React 19 features"]`;
 
             let responseText: string;
-            if (USE_GOOGLE_SEARCH_GROUNDING) {
+            if (FEATURE_FLAGS.useGoogleSearchGrounding) {
               const result = await generateTextWithGrounding(
                 prompt,
                 systemPrompt,
-                { temperature: 0.7 },
+                { temperature: AI_CONFIG.temperature.smart_queries },
               );
               responseText = result.text;
             } else {
@@ -645,7 +692,7 @@ Return ONLY a JSON array of strings. Example: ["latest AI tools 2024", "SpaceX S
               responseText = await generateTextWithGemini(
                 prompt,
                 systemPrompt,
-                { temperature: 0.7 },
+                { temperature: AI_CONFIG.temperature.smart_queries },
               );
             }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { queryOne, query, insert } from "@/lib/postgres";
+import { CREDITS_CONFIG } from "@/config";
 
 // Timeout for workflow runs (30 minutes) - if running longer, consider stale
 const STALE_RUN_TIMEOUT_MS = 30 * 60 * 1000;
@@ -8,8 +9,8 @@ const STALE_RUN_TIMEOUT_MS = 30 * 60 * 1000;
 // Threshold to check LangGraph for run status (2 minutes)
 const SYNC_CHECK_THRESHOLD_MS = 2 * 60 * 1000;
 
-// Credits required per workflow run (deducted only on success)
-const CREDITS_PER_WORKFLOW = 1;
+// Credits required per workflow run (deducted only on success) - from centralized config
+const CREDITS_PER_WORKFLOW = CREDITS_CONFIG.perOperation.workflowRun;
 
 interface Workflow {
   id: string;

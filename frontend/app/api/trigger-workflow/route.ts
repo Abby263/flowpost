@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { queryOne, query, insert, upsert } from "@/lib/postgres";
+import { CREDITS_CONFIG, API_CONFIG } from "@/config";
 
 // Timeout for workflow runs (10 minutes)
 const WORKFLOW_TIMEOUT_MS = 10 * 60 * 1000;
 
-// Credits required per workflow run
-const CREDITS_PER_RUN = 1;
+// Credits required per workflow run - from centralized config
+const CREDITS_PER_RUN = CREDITS_CONFIG.perOperation.workflowRun;
 
 interface UserCredits {
   credits_balance: number;
