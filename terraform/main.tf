@@ -208,40 +208,36 @@ module "backend" {
   }
 
   # All secrets stored in Container App secrets (also backed up in Key Vault)
-  # Note: Using postgresql module output to avoid sensitive values in conditionals
+  # Note: Only include secrets with non-empty values (Azure rejects empty secrets)
   secrets = merge(
     # PostgreSQL (DATABASE_URI for LangGraph) - use module output directly
     var.enable_postgresql ? {
       database-uri = module.postgresql[0].database_uri
     } : {},
-    # AI Provider keys - always include, empty string is safe
-    {
-      openai-api-key    = var.openai_api_key
-      gemini-api-key    = var.gemini_api_key
-      langchain-api-key = var.langchain_api_key
-      serper-api-key    = var.serper_api_key
-      firecrawl-api-key = var.firecrawl_api_key
-    }
+    # AI Provider keys - only include if not empty
+    var.openai_api_key != "" ? { openai-api-key = var.openai_api_key } : {},
+    var.gemini_api_key != "" ? { gemini-api-key = var.gemini_api_key } : {},
+    var.langchain_api_key != "" ? { langchain-api-key = var.langchain_api_key } : {},
+    var.serper_api_key != "" ? { serper-api-key = var.serper_api_key } : {},
+    var.firecrawl_api_key != "" ? { firecrawl-api-key = var.firecrawl_api_key } : {},
   )
 
   # Map secret names to environment variables
-  # Only DATABASE_URI is conditional on postgresql being enabled
+  # Only include env vars for secrets that exist
   secret_environment_variables = merge(
     var.enable_postgresql ? { DATABASE_URI = "database-uri" } : {},
-    {
-      OPENAI_API_KEY    = "openai-api-key"
-      GEMINI_API_KEY    = "gemini-api-key"
-      LANGCHAIN_API_KEY = "langchain-api-key"
-      SERPER_API_KEY    = "serper-api-key"
-      FIRECRAWL_API_KEY = "firecrawl-api-key"
-    }
+    var.openai_api_key != "" ? { OPENAI_API_KEY = "openai-api-key" } : {},
+    var.gemini_api_key != "" ? { GEMINI_API_KEY = "gemini-api-key" } : {},
+    var.langchain_api_key != "" ? { LANGCHAIN_API_KEY = "langchain-api-key" } : {},
+    var.serper_api_key != "" ? { SERPER_API_KEY = "serper-api-key" } : {},
+    var.firecrawl_api_key != "" ? { FIRECRAWL_API_KEY = "firecrawl-api-key" } : {},
   )
 
   # Health Probes
   startup_probe_path              = "/health/startup"
   startup_probe_initial_delay     = 10
   startup_probe_interval          = 10
-  startup_probe_failure_threshold = 30
+  startup_probe_failure_threshold = 10  # Max allowed by Azure is 10
 
   liveness_probe_path              = "/health/live"
   liveness_probe_interval          = 30
@@ -294,33 +290,32 @@ module "frontend" {
     LANGGRAPH_API_URL                   = "https://${module.backend.fqdn}"
   }
 
-  # All secrets stored in Key Vault - always include all secrets
-  # Empty strings are handled by the container app module
-  secrets = {
-    clerk-publishable-key = var.clerk_publishable_key
-    clerk-secret-key      = var.clerk_secret_key
-    stripe-secret-key     = var.stripe_secret_key
-    stripe-webhook-secret = var.stripe_webhook_secret
-    admin-user-ids        = var.admin_user_ids
-    serper-api-key        = var.serper_api_key
-    perplexity-api-key    = var.perplexity_api_key
-  }
+  # All secrets stored in Key Vault - only include non-empty values
+  secrets = merge(
+    { clerk-publishable-key = var.clerk_publishable_key },
+    { clerk-secret-key = var.clerk_secret_key },
+    var.stripe_secret_key != "" ? { stripe-secret-key = var.stripe_secret_key } : {},
+    var.stripe_webhook_secret != "" ? { stripe-webhook-secret = var.stripe_webhook_secret } : {},
+    var.admin_user_ids != "" ? { admin-user-ids = var.admin_user_ids } : {},
+    var.serper_api_key != "" ? { serper-api-key = var.serper_api_key } : {},
+    var.perplexity_api_key != "" ? { perplexity-api-key = var.perplexity_api_key } : {},
+  )
 
-  secret_environment_variables = {
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "clerk-publishable-key"
-    CLERK_SECRET_KEY                  = "clerk-secret-key"
-    STRIPE_SECRET_KEY                 = "stripe-secret-key"
-    STRIPE_WEBHOOK_SECRET             = "stripe-webhook-secret"
-    ADMIN_USER_IDS                    = "admin-user-ids"
-    SERPER_API_KEY                    = "serper-api-key"
-    PERPLEXITY_API_KEY                = "perplexity-api-key"
-  }
+  secret_environment_variables = merge(
+    { NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "clerk-publishable-key" },
+    { CLERK_SECRET_KEY = "clerk-secret-key" },
+    var.stripe_secret_key != "" ? { STRIPE_SECRET_KEY = "stripe-secret-key" } : {},
+    var.stripe_webhook_secret != "" ? { STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret" } : {},
+    var.admin_user_ids != "" ? { ADMIN_USER_IDS = "admin-user-ids" } : {},
+    var.serper_api_key != "" ? { SERPER_API_KEY = "serper-api-key" } : {},
+    var.perplexity_api_key != "" ? { PERPLEXITY_API_KEY = "perplexity-api-key" } : {},
+  )
 
   # Health Probes
   startup_probe_path              = "/api/health/startup"
   startup_probe_initial_delay     = 5
   startup_probe_interval          = 5
-  startup_probe_failure_threshold = 24
+  startup_probe_failure_threshold = 10  # Max allowed by Azure is 10
 
   liveness_probe_path              = "/api/health/live"
   liveness_probe_interval          = 30
