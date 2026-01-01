@@ -237,7 +237,7 @@ module "backend" {
   startup_probe_path              = "/health/startup"
   startup_probe_initial_delay     = 10
   startup_probe_interval          = 10
-  startup_probe_failure_threshold = 10  # Max allowed by Azure is 10
+  startup_probe_failure_threshold = 10 # Max allowed by Azure is 10
 
   liveness_probe_path              = "/health/live"
   liveness_probe_interval          = 30
@@ -315,7 +315,7 @@ module "frontend" {
   startup_probe_path              = "/api/health/startup"
   startup_probe_initial_delay     = 5
   startup_probe_interval          = 5
-  startup_probe_failure_threshold = 10  # Max allowed by Azure is 10
+  startup_probe_failure_threshold = 10 # Max allowed by Azure is 10
 
   liveness_probe_path              = "/api/health/live"
   liveness_probe_interval          = 30
