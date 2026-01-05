@@ -40,6 +40,9 @@ locals {
   stripe_secret_key_provided     = trimspace(nonsensitive(var.stripe_secret_key)) != ""
   stripe_webhook_secret_provided = trimspace(nonsensitive(var.stripe_webhook_secret)) != ""
   admin_user_ids_provided        = trimspace(nonsensitive(var.admin_user_ids)) != ""
+  clerk_publishable_key_present  = trimspace(nonsensitive(var.clerk_publishable_key)) != ""
+  clerk_secret_key_present       = trimspace(nonsensitive(var.clerk_secret_key)) != ""
+  acr_password_present           = trimspace(nonsensitive(var.acr_password)) != ""
 
   openai_api_key_value = local.openai_api_key_provided ? var.openai_api_key : (
     local.preserve_optional_secrets ? try(nonsensitive(data.azurerm_key_vault_secret.openai_api_key[0].value), "") : ""
@@ -338,7 +341,7 @@ resource "azurerm_key_vault_secret" "firecrawl_api_key" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "clerk_publishable_key" {
-  count        = var.clerk_publishable_key != "" ? 1 : 0
+  count        = local.clerk_publishable_key_present ? 1 : 0
   name         = "clerk-publishable-key"
   value        = var.clerk_publishable_key
   key_vault_id = azurerm_key_vault.this.id
@@ -348,7 +351,7 @@ resource "azurerm_key_vault_secret" "clerk_publishable_key" {
 }
 
 resource "azurerm_key_vault_secret" "clerk_secret_key" {
-  count        = var.clerk_secret_key != "" ? 1 : 0
+  count        = local.clerk_secret_key_present ? 1 : 0
   name         = "clerk-secret-key"
   value        = var.clerk_secret_key
   key_vault_id = azurerm_key_vault.this.id
