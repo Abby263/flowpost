@@ -171,6 +171,27 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+      - name: Verify Required Secrets
+        run: |
+          echo "Checking required secrets..."
+          MISSING_SECRETS=()
+          
+          [ -z "${{ secrets.POSTGRES_ADMIN_PASSWORD }}" ] && MISSING_SECRETS+=("POSTGRES_ADMIN_PASSWORD")
+          [ -z "${{ secrets.CLERK_PUBLISHABLE_KEY }}" ] && MISSING_SECRETS+=("CLERK_PUBLISHABLE_KEY")
+          [ -z "${{ secrets.CLERK_SECRET_KEY }}" ] && MISSING_SECRETS+=("CLERK_SECRET_KEY")
+          
+          if [ -z "${{ secrets.GEMINI_API_KEY }}" ] && [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            MISSING_SECRETS+=("GEMINI_API_KEY or OPENAI_API_KEY (at least one required)")
+          fi
+          
+          if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
+            echo "::error::Missing required secrets: ${MISSING_SECRETS[*]}"
+            echo "Please add these secrets in GitHub → Settings → Secrets → Actions"
+            exit 1
+          fi
+          
+          echo "✅ All required secrets are present"
+
       - name: Terraform Plan
         id: plan
         env:
@@ -241,7 +262,15 @@ jobs:
         if: steps.plan.outcome == 'failure'
         run: |
           echo "::error::Terraform plan failed. Check the plan step output above for details."
-          echo "See the 'Terraform Plan' step output for details."
+          echo ""
+          echo "Common issues:"
+          echo "1. Missing POSTGRES_ADMIN_PASSWORD secret in GitHub Secrets"
+          echo "2. Missing CLERK_PUBLISHABLE_KEY or CLERK_SECRET_KEY"
+          echo "3. Missing GEMINI_API_KEY or OPENAI_API_KEY"
+          echo "4. Backend state lock (another Terraform run in progress)"
+          echo "5. Azure authentication failure"
+          echo ""
+          echo "Please check the 'Terraform Plan' step output above for the actual error message."
           exit 1
 
   # ===========================================================================
