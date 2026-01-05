@@ -459,18 +459,17 @@ jobs:
 
           # Check backend health
           for i in {1..30}; do
-            BACKEND_HEALTH=$(az containerapp revision show \
-              --name "${BACKEND_REVISION}" \
-              --app flowpost-${ENV}-backend \
+            BACKEND_FIELDS=$(az containerapp revision list \
+              --name flowpost-${ENV}-backend \
               --resource-group ${RG} \
-              --query "properties.healthState" -o tsv 2>/dev/null || echo "Unknown")
-            BACKEND_PROVISIONING=$(az containerapp revision show \
-              --name "${BACKEND_REVISION}" \
-              --app flowpost-${ENV}-backend \
-              --resource-group ${RG} \
-              --query "properties.provisioningState" -o tsv 2>/dev/null || echo "Unknown")
+              --query "[?name=='${BACKEND_REVISION}'].[properties.healthState, properties.provisioningState, properties.runningState, properties.active] | [0]" \
+              -o tsv 2>/dev/null || echo "")
+            if [ -z "${BACKEND_FIELDS}" ]; then
+              BACKEND_FIELDS=$(printf "Unknown\tUnknown\tUnknown\tUnknown")
+            fi
+            IFS=$'\t' read -r BACKEND_HEALTH BACKEND_PROVISIONING BACKEND_RUNNING BACKEND_ACTIVE <<< "${BACKEND_FIELDS}"
 
-            echo "Backend health state: ${BACKEND_HEALTH} (attempt ${i}/30)"
+            echo "Backend health: ${BACKEND_HEALTH} | provisioning: ${BACKEND_PROVISIONING} | running: ${BACKEND_RUNNING} | active: ${BACKEND_ACTIVE} (attempt ${i}/30)"
 
             if [ "$BACKEND_PROVISIONING" == "Failed" ]; then
               echo "❌ Backend revision provisioning failed"
@@ -497,18 +496,17 @@ jobs:
 
           # Check frontend health
           for i in {1..30}; do
-            FRONTEND_HEALTH=$(az containerapp revision show \
-              --name "${FRONTEND_REVISION}" \
-              --app flowpost-${ENV}-frontend \
+            FRONTEND_FIELDS=$(az containerapp revision list \
+              --name flowpost-${ENV}-frontend \
               --resource-group ${RG} \
-              --query "properties.healthState" -o tsv 2>/dev/null || echo "Unknown")
-            FRONTEND_PROVISIONING=$(az containerapp revision show \
-              --name "${FRONTEND_REVISION}" \
-              --app flowpost-${ENV}-frontend \
-              --resource-group ${RG} \
-              --query "properties.provisioningState" -o tsv 2>/dev/null || echo "Unknown")
+              --query "[?name=='${FRONTEND_REVISION}'].[properties.healthState, properties.provisioningState, properties.runningState, properties.active] | [0]" \
+              -o tsv 2>/dev/null || echo "")
+            if [ -z "${FRONTEND_FIELDS}" ]; then
+              FRONTEND_FIELDS=$(printf "Unknown\tUnknown\tUnknown\tUnknown")
+            fi
+            IFS=$'\t' read -r FRONTEND_HEALTH FRONTEND_PROVISIONING FRONTEND_RUNNING FRONTEND_ACTIVE <<< "${FRONTEND_FIELDS}"
 
-            echo "Frontend health state: ${FRONTEND_HEALTH} (attempt ${i}/30)"
+            echo "Frontend health: ${FRONTEND_HEALTH} | provisioning: ${FRONTEND_PROVISIONING} | running: ${FRONTEND_RUNNING} | active: ${FRONTEND_ACTIVE} (attempt ${i}/30)"
 
             if [ "$FRONTEND_PROVISIONING" == "Failed" ]; then
               echo "❌ Frontend revision provisioning failed"
