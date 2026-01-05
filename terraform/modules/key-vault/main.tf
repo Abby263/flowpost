@@ -31,7 +31,7 @@ locals {
 
   preserve_optional_secrets = var.preserve_optional_secrets
 
-  optional_secret_names = local.preserve_optional_secrets ? toset(try(data.azurerm_key_vault_secrets.optional[0].names, [])) : toset([])
+  optional_secret_names = local.preserve_optional_secrets ? toset(try(nonsensitive(data.azurerm_key_vault_secrets.optional[0].names), [])) : toset([])
 
   openai_api_key_exists        = contains(local.optional_secret_names, "openai-api-key")
   gemini_api_key_exists        = contains(local.optional_secret_names, "gemini-api-key")
