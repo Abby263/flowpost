@@ -109,6 +109,9 @@ module "key_vault" {
   # Container Registry secrets
   acr_password = module.container_registry.admin_password
 
+  # Grant access to additional service principal (e.g., GitHub Actions)
+  additional_service_principal_client_id = var.service_principal_client_id
+
   tags = local.common_tags
 
   depends_on = [module.postgresql, module.container_registry]

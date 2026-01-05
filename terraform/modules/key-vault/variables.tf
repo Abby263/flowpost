@@ -274,3 +274,13 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# =============================================================================
+# Additional Service Principal Access (for CI/CD)
+# =============================================================================
+
+variable "additional_service_principal_client_id" {
+  description = "Optional: Client ID of additional service principal to grant Key Vault access (e.g., GitHub Actions service principal)"
+  type        = string
+  default     = ""
+}

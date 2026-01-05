@@ -10,6 +10,12 @@
 
 data "azurerm_client_config" "current" {}
 
+# Look up additional service principal by client ID (for CI/CD)
+data "azuread_service_principal" "additional" {
+  count     = var.additional_service_principal_client_id != "" ? 1 : 0
+  client_id = var.additional_service_principal_client_id
+}
+
 # =============================================================================
 # Local Variables
 # =============================================================================
@@ -53,6 +59,33 @@ resource "azurerm_key_vault_access_policy" "terraform" {
   key_vault_id = azurerm_key_vault.this.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
   object_id    = data.azurerm_client_config.current.object_id
+
+  secret_permissions = [
+    "Backup",
+    "Delete",
+    "Get",
+    "List",
+    "Purge",
+    "Recover",
+    "Restore",
+    "Set"
+  ]
+
+  key_permissions = [
+    "Create",
+    "Delete",
+    "Get",
+    "List",
+    "Update"
+  ]
+}
+
+# Access policy for additional service principal (e.g., GitHub Actions)
+resource "azurerm_key_vault_access_policy" "additional_sp" {
+  count        = var.enable_rbac_authorization || var.additional_service_principal_client_id == "" ? 0 : 1
+  key_vault_id = azurerm_key_vault.this.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = data.azuread_service_principal.additional[0].object_id
 
   secret_permissions = [
     "Backup",

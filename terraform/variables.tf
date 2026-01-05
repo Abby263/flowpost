@@ -50,6 +50,12 @@ variable "subscription_id" {
   default     = ""
 }
 
+variable "service_principal_client_id" {
+  description = "Optional: Client ID of service principal to grant Key Vault access (e.g., GitHub Actions service principal). If not provided, only the current user/SP will have access."
+  type        = string
+  default     = ""
+}
+
 variable "location" {
   description = "Azure region for resources"
   type        = string
