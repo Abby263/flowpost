@@ -175,21 +175,21 @@ jobs:
         run: |
           echo "Checking required secrets..."
           MISSING_SECRETS=()
-          
+
           [ -z "${{ secrets.POSTGRES_ADMIN_PASSWORD }}" ] && MISSING_SECRETS+=("POSTGRES_ADMIN_PASSWORD")
           [ -z "${{ secrets.CLERK_PUBLISHABLE_KEY }}" ] && MISSING_SECRETS+=("CLERK_PUBLISHABLE_KEY")
           [ -z "${{ secrets.CLERK_SECRET_KEY }}" ] && MISSING_SECRETS+=("CLERK_SECRET_KEY")
-          
+
           if [ -z "${{ secrets.GEMINI_API_KEY }}" ] && [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
             MISSING_SECRETS+=("GEMINI_API_KEY or OPENAI_API_KEY (at least one required)")
           fi
-          
+
           if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
             echo "::error::Missing required secrets: ${MISSING_SECRETS[*]}"
             echo "Please add these secrets in GitHub → Settings → Secrets → Actions"
             exit 1
           fi
-          
+
           echo "✅ All required secrets are present"
 
       - name: Terraform Plan
