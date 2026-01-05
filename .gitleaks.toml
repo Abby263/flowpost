@@ -1,0 +1,13 @@
+title = "Flowpost Gitleaks Allowlist"
+
+[allowlist]
+  description = "Ignore false positives for non-secret identifiers"
+  regexes = [
+    '''(?i)linkedin[a-z]+''',
+    '''password_secret_name''',
+    '''postgres_password''',
+    '''acr_password''',
+  ]
+  paths = [
+    '''package\.json''',
+  ]
