@@ -22,6 +22,12 @@ data "azuread_service_principal" "additional" {
 locals {
   # Use feature flags for count conditions (known at plan time)
   # These avoid the "count depends on resource attributes" error
+  additional_sp_object_id = try(data.azuread_service_principal.additional[0].object_id, "")
+  create_additional_sp = (
+    !var.enable_rbac_authorization &&
+    local.additional_sp_object_id != "" &&
+    local.additional_sp_object_id != data.azurerm_client_config.current.object_id
+  )
 }
 
 resource "azurerm_key_vault" "this" {
@@ -82,10 +88,10 @@ resource "azurerm_key_vault_access_policy" "terraform" {
 
 # Access policy for additional service principal (e.g., GitHub Actions)
 resource "azurerm_key_vault_access_policy" "additional_sp" {
-  count        = var.enable_rbac_authorization || var.additional_service_principal_client_id == "" ? 0 : 1
+  count        = local.create_additional_sp ? 1 : 0
   key_vault_id = azurerm_key_vault.this.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = data.azuread_service_principal.additional[0].object_id
+  object_id    = local.additional_sp_object_id
 
   secret_permissions = [
     "Backup",
