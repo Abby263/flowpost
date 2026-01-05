@@ -447,21 +447,43 @@ jobs:
         run: |
           ENV="${{ needs.determine-environment.outputs.environment }}"
           RG="${{ needs.determine-environment.outputs.resource_group }}"
+          BACKEND_REVISION="${{ needs.deploy-green.outputs.backend_revision }}"
+          FRONTEND_REVISION="${{ needs.deploy-green.outputs.frontend_revision }}"
 
           echo "Waiting for green revision to become healthy..."
+
+          if [ -z "${BACKEND_REVISION}" ] || [ -z "${FRONTEND_REVISION}" ]; then
+            echo "❌ Missing green revision name(s). Backend='${BACKEND_REVISION}' Frontend='${FRONTEND_REVISION}'"
+            exit 1
+          fi
 
           # Check backend health
           for i in {1..30}; do
             BACKEND_HEALTH=$(az containerapp revision show \
-              --name "${{ needs.deploy-green.outputs.backend_revision }}" \
+              --name "${BACKEND_REVISION}" \
               --app flowpost-${ENV}-backend \
               --resource-group ${RG} \
               --query "properties.healthState" -o tsv 2>/dev/null || echo "Unknown")
+            BACKEND_PROVISIONING=$(az containerapp revision show \
+              --name "${BACKEND_REVISION}" \
+              --app flowpost-${ENV}-backend \
+              --resource-group ${RG} \
+              --query "properties.provisioningState" -o tsv 2>/dev/null || echo "Unknown")
 
             echo "Backend health state: ${BACKEND_HEALTH} (attempt ${i}/30)"
 
+            if [ "$BACKEND_PROVISIONING" == "Failed" ]; then
+              echo "❌ Backend revision provisioning failed"
+              exit 1
+            fi
+
             if [ "$BACKEND_HEALTH" == "Healthy" ]; then
               echo "✅ Backend green revision is healthy"
+              break
+            fi
+
+            if [ "$ENV" == "dev" ] && [ "$BACKEND_HEALTH" == "Unknown" ] && [ "$BACKEND_PROVISIONING" == "Succeeded" ]; then
+              echo "✅ Backend revision provisioned (scale-to-zero in dev)"
               break
             fi
 
@@ -476,15 +498,30 @@ jobs:
           # Check frontend health
           for i in {1..30}; do
             FRONTEND_HEALTH=$(az containerapp revision show \
-              --name "${{ needs.deploy-green.outputs.frontend_revision }}" \
+              --name "${FRONTEND_REVISION}" \
               --app flowpost-${ENV}-frontend \
               --resource-group ${RG} \
               --query "properties.healthState" -o tsv 2>/dev/null || echo "Unknown")
+            FRONTEND_PROVISIONING=$(az containerapp revision show \
+              --name "${FRONTEND_REVISION}" \
+              --app flowpost-${ENV}-frontend \
+              --resource-group ${RG} \
+              --query "properties.provisioningState" -o tsv 2>/dev/null || echo "Unknown")
 
             echo "Frontend health state: ${FRONTEND_HEALTH} (attempt ${i}/30)"
 
+            if [ "$FRONTEND_PROVISIONING" == "Failed" ]; then
+              echo "❌ Frontend revision provisioning failed"
+              exit 1
+            fi
+
             if [ "$FRONTEND_HEALTH" == "Healthy" ]; then
               echo "✅ Frontend green revision is healthy"
+              break
+            fi
+
+            if [ "$ENV" == "dev" ] && [ "$FRONTEND_HEALTH" == "Unknown" ] && [ "$FRONTEND_PROVISIONING" == "Succeeded" ]; then
+              echo "✅ Frontend revision provisioned (scale-to-zero in dev)"
               break
             fi
 
