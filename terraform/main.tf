@@ -49,15 +49,15 @@ locals {
 
   preserve_optional_secrets = var.preserve_optional_secrets && var.enable_key_vault
 
-  openai_api_key_provided = trimspace(nonsensitive(var.openai_api_key)) != ""
-  gemini_api_key_provided = trimspace(nonsensitive(var.gemini_api_key)) != ""
-  langchain_api_key_provided = trimspace(nonsensitive(var.langchain_api_key)) != ""
-  serper_api_key_provided = trimspace(nonsensitive(var.serper_api_key)) != ""
-  perplexity_api_key_provided = trimspace(nonsensitive(var.perplexity_api_key)) != ""
-  firecrawl_api_key_provided = trimspace(nonsensitive(var.firecrawl_api_key)) != ""
-  stripe_secret_key_provided = trimspace(nonsensitive(var.stripe_secret_key)) != ""
+  openai_api_key_provided        = trimspace(nonsensitive(var.openai_api_key)) != ""
+  gemini_api_key_provided        = trimspace(nonsensitive(var.gemini_api_key)) != ""
+  langchain_api_key_provided     = trimspace(nonsensitive(var.langchain_api_key)) != ""
+  serper_api_key_provided        = trimspace(nonsensitive(var.serper_api_key)) != ""
+  perplexity_api_key_provided    = trimspace(nonsensitive(var.perplexity_api_key)) != ""
+  firecrawl_api_key_provided     = trimspace(nonsensitive(var.firecrawl_api_key)) != ""
+  stripe_secret_key_provided     = trimspace(nonsensitive(var.stripe_secret_key)) != ""
   stripe_webhook_secret_provided = trimspace(nonsensitive(var.stripe_webhook_secret)) != ""
-  admin_user_ids_provided = trimspace(nonsensitive(var.admin_user_ids)) != ""
+  admin_user_ids_provided        = trimspace(nonsensitive(var.admin_user_ids)) != ""
 
   openai_api_key_effective = local.openai_api_key_provided ? var.openai_api_key : (
     local.preserve_optional_secrets ? try(nonsensitive(data.azurerm_key_vault_secret.openai_api_key[0].value), "") : ""
@@ -87,15 +87,15 @@ locals {
     local.preserve_optional_secrets ? try(nonsensitive(data.azurerm_key_vault_secret.admin_user_ids[0].value), "") : ""
   )
 
-  openai_api_key_effective_present = trimspace(nonsensitive(local.openai_api_key_effective)) != ""
-  gemini_api_key_effective_present = trimspace(nonsensitive(local.gemini_api_key_effective)) != ""
-  langchain_api_key_effective_present = trimspace(nonsensitive(local.langchain_api_key_effective)) != ""
-  serper_api_key_effective_present = trimspace(nonsensitive(local.serper_api_key_effective)) != ""
-  perplexity_api_key_effective_present = trimspace(nonsensitive(local.perplexity_api_key_effective)) != ""
-  firecrawl_api_key_effective_present = trimspace(nonsensitive(local.firecrawl_api_key_effective)) != ""
-  stripe_secret_key_effective_present = trimspace(nonsensitive(local.stripe_secret_key_effective)) != ""
+  openai_api_key_effective_present        = trimspace(nonsensitive(local.openai_api_key_effective)) != ""
+  gemini_api_key_effective_present        = trimspace(nonsensitive(local.gemini_api_key_effective)) != ""
+  langchain_api_key_effective_present     = trimspace(nonsensitive(local.langchain_api_key_effective)) != ""
+  serper_api_key_effective_present        = trimspace(nonsensitive(local.serper_api_key_effective)) != ""
+  perplexity_api_key_effective_present    = trimspace(nonsensitive(local.perplexity_api_key_effective)) != ""
+  firecrawl_api_key_effective_present     = trimspace(nonsensitive(local.firecrawl_api_key_effective)) != ""
+  stripe_secret_key_effective_present     = trimspace(nonsensitive(local.stripe_secret_key_effective)) != ""
   stripe_webhook_secret_effective_present = trimspace(nonsensitive(local.stripe_webhook_secret_effective)) != ""
-  admin_user_ids_effective_present = trimspace(nonsensitive(local.admin_user_ids_effective)) != ""
+  admin_user_ids_effective_present        = trimspace(nonsensitive(local.admin_user_ids_effective)) != ""
 }
 
 # =============================================================================
