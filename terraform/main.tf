@@ -363,16 +363,16 @@ module "backend" {
   )
 
   # Health Probes
-  startup_probe_path              = "/health/startup"
+  startup_probe_path              = "/ok"
   startup_probe_initial_delay     = 10
   startup_probe_interval          = 10
   startup_probe_failure_threshold = 10 # Max allowed by Azure is 10
 
-  liveness_probe_path              = "/health/live"
+  liveness_probe_path              = "/ok"
   liveness_probe_interval          = 30
   liveness_probe_failure_threshold = 3
 
-  readiness_probe_path              = "/health/ready"
+  readiness_probe_path              = "/ok"
   readiness_probe_interval          = 10
   readiness_probe_failure_threshold = 3
 
