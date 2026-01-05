@@ -50,31 +50,31 @@ locals {
   preserve_optional_secrets = var.preserve_optional_secrets && var.enable_key_vault
 
   openai_api_key_effective = var.openai_api_key != "" ? var.openai_api_key : (
-    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.openai_api_key[0].value, "") : ""
+    local.preserve_optional_secrets ? try(nonsensitive(data.azurerm_key_vault_secret.openai_api_key[0].value), "") : ""
   )
   gemini_api_key_effective = var.gemini_api_key != "" ? var.gemini_api_key : (
-    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.gemini_api_key[0].value, "") : ""
+    local.preserve_optional_secrets ? try(nonsensitive(data.azurerm_key_vault_secret.gemini_api_key[0].value), "") : ""
   )
   langchain_api_key_effective = var.langchain_api_key != "" ? var.langchain_api_key : (
-    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.langchain_api_key[0].value, "") : ""
+    local.preserve_optional_secrets ? try(nonsensitive(data.azurerm_key_vault_secret.langchain_api_key[0].value), "") : ""
   )
   serper_api_key_effective = var.serper_api_key != "" ? var.serper_api_key : (
-    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.serper_api_key[0].value, "") : ""
+    local.preserve_optional_secrets ? try(nonsensitive(data.azurerm_key_vault_secret.serper_api_key[0].value), "") : ""
   )
   perplexity_api_key_effective = var.perplexity_api_key != "" ? var.perplexity_api_key : (
-    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.perplexity_api_key[0].value, "") : ""
+    local.preserve_optional_secrets ? try(nonsensitive(data.azurerm_key_vault_secret.perplexity_api_key[0].value), "") : ""
   )
   firecrawl_api_key_effective = var.firecrawl_api_key != "" ? var.firecrawl_api_key : (
-    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.firecrawl_api_key[0].value, "") : ""
+    local.preserve_optional_secrets ? try(nonsensitive(data.azurerm_key_vault_secret.firecrawl_api_key[0].value), "") : ""
   )
   stripe_secret_key_effective = var.stripe_secret_key != "" ? var.stripe_secret_key : (
-    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.stripe_secret_key[0].value, "") : ""
+    local.preserve_optional_secrets ? try(nonsensitive(data.azurerm_key_vault_secret.stripe_secret_key[0].value), "") : ""
   )
   stripe_webhook_secret_effective = var.stripe_webhook_secret != "" ? var.stripe_webhook_secret : (
-    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.stripe_webhook_secret[0].value, "") : ""
+    local.preserve_optional_secrets ? try(nonsensitive(data.azurerm_key_vault_secret.stripe_webhook_secret[0].value), "") : ""
   )
   admin_user_ids_effective = var.admin_user_ids != "" ? var.admin_user_ids : (
-    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.admin_user_ids[0].value, "") : ""
+    local.preserve_optional_secrets ? try(nonsensitive(data.azurerm_key_vault_secret.admin_user_ids[0].value), "") : ""
   )
 }
 
