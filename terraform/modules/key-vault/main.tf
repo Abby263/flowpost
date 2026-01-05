@@ -28,6 +28,36 @@ locals {
     local.additional_sp_object_id != "" &&
     local.additional_sp_object_id != data.azurerm_client_config.current.object_id
   )
+
+  preserve_optional_secrets = var.preserve_optional_secrets
+
+  openai_api_key_value = var.openai_api_key != "" ? var.openai_api_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.openai_api_key[0].value, "") : ""
+  )
+  gemini_api_key_value = var.gemini_api_key != "" ? var.gemini_api_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.gemini_api_key[0].value, "") : ""
+  )
+  langchain_api_key_value = var.langchain_api_key != "" ? var.langchain_api_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.langchain_api_key[0].value, "") : ""
+  )
+  serper_api_key_value = var.serper_api_key != "" ? var.serper_api_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.serper_api_key[0].value, "") : ""
+  )
+  perplexity_api_key_value = var.perplexity_api_key != "" ? var.perplexity_api_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.perplexity_api_key[0].value, "") : ""
+  )
+  firecrawl_api_key_value = var.firecrawl_api_key != "" ? var.firecrawl_api_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.firecrawl_api_key[0].value, "") : ""
+  )
+  stripe_secret_key_value = var.stripe_secret_key != "" ? var.stripe_secret_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.stripe_secret_key[0].value, "") : ""
+  )
+  stripe_webhook_secret_value = var.stripe_webhook_secret != "" ? var.stripe_webhook_secret : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.stripe_webhook_secret[0].value, "") : ""
+  )
+  admin_user_ids_value = var.admin_user_ids != "" ? var.admin_user_ids : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.admin_user_ids[0].value, "") : ""
+  )
 }
 
 resource "azurerm_key_vault" "this" {
@@ -57,6 +87,64 @@ resource "azurerm_key_vault" "this" {
   }
 
   tags = var.tags
+}
+
+# =============================================================================
+# Optional Secret Preservation (Key Vault lookups)
+# =============================================================================
+
+data "azurerm_key_vault_secret" "openai_api_key" {
+  count        = var.preserve_optional_secrets && var.openai_api_key == "" ? 1 : 0
+  name         = "openai-api-key"
+  key_vault_id = azurerm_key_vault.this.id
+}
+
+data "azurerm_key_vault_secret" "gemini_api_key" {
+  count        = var.preserve_optional_secrets && var.gemini_api_key == "" ? 1 : 0
+  name         = "gemini-api-key"
+  key_vault_id = azurerm_key_vault.this.id
+}
+
+data "azurerm_key_vault_secret" "langchain_api_key" {
+  count        = var.preserve_optional_secrets && var.langchain_api_key == "" ? 1 : 0
+  name         = "langchain-api-key"
+  key_vault_id = azurerm_key_vault.this.id
+}
+
+data "azurerm_key_vault_secret" "serper_api_key" {
+  count        = var.preserve_optional_secrets && var.serper_api_key == "" ? 1 : 0
+  name         = "serper-api-key"
+  key_vault_id = azurerm_key_vault.this.id
+}
+
+data "azurerm_key_vault_secret" "perplexity_api_key" {
+  count        = var.preserve_optional_secrets && var.perplexity_api_key == "" ? 1 : 0
+  name         = "perplexity-api-key"
+  key_vault_id = azurerm_key_vault.this.id
+}
+
+data "azurerm_key_vault_secret" "firecrawl_api_key" {
+  count        = var.preserve_optional_secrets && var.firecrawl_api_key == "" ? 1 : 0
+  name         = "firecrawl-api-key"
+  key_vault_id = azurerm_key_vault.this.id
+}
+
+data "azurerm_key_vault_secret" "stripe_secret_key" {
+  count        = var.preserve_optional_secrets && var.stripe_secret_key == "" ? 1 : 0
+  name         = "stripe-secret-key"
+  key_vault_id = azurerm_key_vault.this.id
+}
+
+data "azurerm_key_vault_secret" "stripe_webhook_secret" {
+  count        = var.preserve_optional_secrets && var.stripe_webhook_secret == "" ? 1 : 0
+  name         = "stripe-webhook-secret"
+  key_vault_id = azurerm_key_vault.this.id
+}
+
+data "azurerm_key_vault_secret" "admin_user_ids" {
+  count        = var.preserve_optional_secrets && var.admin_user_ids == "" ? 1 : 0
+  name         = "admin-user-ids"
+  key_vault_id = azurerm_key_vault.this.id
 }
 
 # Access policy for the current service principal (Terraform)
@@ -162,9 +250,9 @@ resource "azurerm_key_vault_secret" "postgres_password" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "openai_api_key" {
-  count        = var.openai_api_key != "" ? 1 : 0
+  count        = local.openai_api_key_value != "" ? 1 : 0
   name         = "openai-api-key"
-  value        = var.openai_api_key
+  value        = local.openai_api_key_value
   key_vault_id = azurerm_key_vault.this.id
   content_type = "OpenAI API Key"
 
@@ -172,9 +260,9 @@ resource "azurerm_key_vault_secret" "openai_api_key" {
 }
 
 resource "azurerm_key_vault_secret" "gemini_api_key" {
-  count        = var.gemini_api_key != "" ? 1 : 0
+  count        = local.gemini_api_key_value != "" ? 1 : 0
   name         = "gemini-api-key"
-  value        = var.gemini_api_key
+  value        = local.gemini_api_key_value
   key_vault_id = azurerm_key_vault.this.id
   content_type = "Google Gemini API Key"
 
@@ -182,9 +270,9 @@ resource "azurerm_key_vault_secret" "gemini_api_key" {
 }
 
 resource "azurerm_key_vault_secret" "langchain_api_key" {
-  count        = var.langchain_api_key != "" ? 1 : 0
+  count        = local.langchain_api_key_value != "" ? 1 : 0
   name         = "langchain-api-key"
-  value        = var.langchain_api_key
+  value        = local.langchain_api_key_value
   key_vault_id = azurerm_key_vault.this.id
   content_type = "LangChain API Key"
 
@@ -196,9 +284,9 @@ resource "azurerm_key_vault_secret" "langchain_api_key" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "serper_api_key" {
-  count        = var.serper_api_key != "" ? 1 : 0
+  count        = local.serper_api_key_value != "" ? 1 : 0
   name         = "serper-api-key"
-  value        = var.serper_api_key
+  value        = local.serper_api_key_value
   key_vault_id = azurerm_key_vault.this.id
   content_type = "Serper API Key"
 
@@ -206,9 +294,9 @@ resource "azurerm_key_vault_secret" "serper_api_key" {
 }
 
 resource "azurerm_key_vault_secret" "perplexity_api_key" {
-  count        = var.perplexity_api_key != "" ? 1 : 0
+  count        = local.perplexity_api_key_value != "" ? 1 : 0
   name         = "perplexity-api-key"
-  value        = var.perplexity_api_key
+  value        = local.perplexity_api_key_value
   key_vault_id = azurerm_key_vault.this.id
   content_type = "Perplexity API Key"
 
@@ -216,9 +304,9 @@ resource "azurerm_key_vault_secret" "perplexity_api_key" {
 }
 
 resource "azurerm_key_vault_secret" "firecrawl_api_key" {
-  count        = var.firecrawl_api_key != "" ? 1 : 0
+  count        = local.firecrawl_api_key_value != "" ? 1 : 0
   name         = "firecrawl-api-key"
-  value        = var.firecrawl_api_key
+  value        = local.firecrawl_api_key_value
   key_vault_id = azurerm_key_vault.this.id
   content_type = "FireCrawl API Key"
 
@@ -254,9 +342,9 @@ resource "azurerm_key_vault_secret" "clerk_secret_key" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "stripe_secret_key" {
-  count        = var.stripe_secret_key != "" ? 1 : 0
+  count        = local.stripe_secret_key_value != "" ? 1 : 0
   name         = "stripe-secret-key"
-  value        = var.stripe_secret_key
+  value        = local.stripe_secret_key_value
   key_vault_id = azurerm_key_vault.this.id
   content_type = "Stripe Secret Key"
 
@@ -264,9 +352,9 @@ resource "azurerm_key_vault_secret" "stripe_secret_key" {
 }
 
 resource "azurerm_key_vault_secret" "stripe_webhook_secret" {
-  count        = var.stripe_webhook_secret != "" ? 1 : 0
+  count        = local.stripe_webhook_secret_value != "" ? 1 : 0
   name         = "stripe-webhook-secret"
-  value        = var.stripe_webhook_secret
+  value        = local.stripe_webhook_secret_value
   key_vault_id = azurerm_key_vault.this.id
   content_type = "Stripe Webhook Secret"
 
@@ -278,9 +366,9 @@ resource "azurerm_key_vault_secret" "stripe_webhook_secret" {
 # =============================================================================
 
 resource "azurerm_key_vault_secret" "admin_user_ids" {
-  count        = var.admin_user_ids != "" ? 1 : 0
+  count        = local.admin_user_ids_value != "" ? 1 : 0
   name         = "admin-user-ids"
-  value        = var.admin_user_ids
+  value        = local.admin_user_ids_value
   key_vault_id = azurerm_key_vault.this.id
   content_type = "Admin User IDs (comma-separated)"
 

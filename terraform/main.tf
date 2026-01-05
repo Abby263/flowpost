@@ -46,6 +46,36 @@ locals {
   # Build Database URI for LangGraph API
   # Note: Only reference module output when postgresql is enabled
   postgres_host = var.enable_postgresql ? module.postgresql[0].server_fqdn : ""
+
+  preserve_optional_secrets = var.preserve_optional_secrets && var.enable_key_vault
+
+  openai_api_key_effective = var.openai_api_key != "" ? var.openai_api_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.openai_api_key[0].value, "") : ""
+  )
+  gemini_api_key_effective = var.gemini_api_key != "" ? var.gemini_api_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.gemini_api_key[0].value, "") : ""
+  )
+  langchain_api_key_effective = var.langchain_api_key != "" ? var.langchain_api_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.langchain_api_key[0].value, "") : ""
+  )
+  serper_api_key_effective = var.serper_api_key != "" ? var.serper_api_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.serper_api_key[0].value, "") : ""
+  )
+  perplexity_api_key_effective = var.perplexity_api_key != "" ? var.perplexity_api_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.perplexity_api_key[0].value, "") : ""
+  )
+  firecrawl_api_key_effective = var.firecrawl_api_key != "" ? var.firecrawl_api_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.firecrawl_api_key[0].value, "") : ""
+  )
+  stripe_secret_key_effective = var.stripe_secret_key != "" ? var.stripe_secret_key : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.stripe_secret_key[0].value, "") : ""
+  )
+  stripe_webhook_secret_effective = var.stripe_webhook_secret != "" ? var.stripe_webhook_secret : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.stripe_webhook_secret[0].value, "") : ""
+  )
+  admin_user_ids_effective = var.admin_user_ids != "" ? var.admin_user_ids : (
+    local.preserve_optional_secrets ? try(data.azurerm_key_vault_secret.admin_user_ids[0].value, "") : ""
+  )
 }
 
 # =============================================================================
@@ -111,10 +141,69 @@ module "key_vault" {
 
   # Grant access to additional service principal (e.g., GitHub Actions)
   additional_service_principal_client_id = var.service_principal_client_id
+  preserve_optional_secrets              = var.preserve_optional_secrets
 
   tags = local.common_tags
 
   depends_on = [module.postgresql, module.container_registry]
+}
+
+# =============================================================================
+# Optional Secret Preservation (Key Vault lookups)
+# =============================================================================
+
+data "azurerm_key_vault_secret" "openai_api_key" {
+  count        = var.enable_key_vault && var.preserve_optional_secrets && var.openai_api_key == "" ? 1 : 0
+  name         = "openai-api-key"
+  key_vault_id = module.key_vault[0].key_vault_id
+}
+
+data "azurerm_key_vault_secret" "gemini_api_key" {
+  count        = var.enable_key_vault && var.preserve_optional_secrets && var.gemini_api_key == "" ? 1 : 0
+  name         = "gemini-api-key"
+  key_vault_id = module.key_vault[0].key_vault_id
+}
+
+data "azurerm_key_vault_secret" "langchain_api_key" {
+  count        = var.enable_key_vault && var.preserve_optional_secrets && var.langchain_api_key == "" ? 1 : 0
+  name         = "langchain-api-key"
+  key_vault_id = module.key_vault[0].key_vault_id
+}
+
+data "azurerm_key_vault_secret" "serper_api_key" {
+  count        = var.enable_key_vault && var.preserve_optional_secrets && var.serper_api_key == "" ? 1 : 0
+  name         = "serper-api-key"
+  key_vault_id = module.key_vault[0].key_vault_id
+}
+
+data "azurerm_key_vault_secret" "perplexity_api_key" {
+  count        = var.enable_key_vault && var.preserve_optional_secrets && var.perplexity_api_key == "" ? 1 : 0
+  name         = "perplexity-api-key"
+  key_vault_id = module.key_vault[0].key_vault_id
+}
+
+data "azurerm_key_vault_secret" "firecrawl_api_key" {
+  count        = var.enable_key_vault && var.preserve_optional_secrets && var.firecrawl_api_key == "" ? 1 : 0
+  name         = "firecrawl-api-key"
+  key_vault_id = module.key_vault[0].key_vault_id
+}
+
+data "azurerm_key_vault_secret" "stripe_secret_key" {
+  count        = var.enable_key_vault && var.preserve_optional_secrets && var.stripe_secret_key == "" ? 1 : 0
+  name         = "stripe-secret-key"
+  key_vault_id = module.key_vault[0].key_vault_id
+}
+
+data "azurerm_key_vault_secret" "stripe_webhook_secret" {
+  count        = var.enable_key_vault && var.preserve_optional_secrets && var.stripe_webhook_secret == "" ? 1 : 0
+  name         = "stripe-webhook-secret"
+  key_vault_id = module.key_vault[0].key_vault_id
+}
+
+data "azurerm_key_vault_secret" "admin_user_ids" {
+  count        = var.enable_key_vault && var.preserve_optional_secrets && var.admin_user_ids == "" ? 1 : 0
+  name         = "admin-user-ids"
+  key_vault_id = module.key_vault[0].key_vault_id
 }
 
 # =============================================================================
@@ -218,22 +307,22 @@ module "backend" {
       database-uri = module.postgresql[0].database_uri
     } : {},
     # AI Provider keys - only include if not empty
-    var.openai_api_key != "" ? { openai-api-key = var.openai_api_key } : {},
-    var.gemini_api_key != "" ? { gemini-api-key = var.gemini_api_key } : {},
-    var.langchain_api_key != "" ? { langchain-api-key = var.langchain_api_key } : {},
-    var.serper_api_key != "" ? { serper-api-key = var.serper_api_key } : {},
-    var.firecrawl_api_key != "" ? { firecrawl-api-key = var.firecrawl_api_key } : {},
+    local.openai_api_key_effective != "" ? { openai-api-key = local.openai_api_key_effective } : {},
+    local.gemini_api_key_effective != "" ? { gemini-api-key = local.gemini_api_key_effective } : {},
+    local.langchain_api_key_effective != "" ? { langchain-api-key = local.langchain_api_key_effective } : {},
+    local.serper_api_key_effective != "" ? { serper-api-key = local.serper_api_key_effective } : {},
+    local.firecrawl_api_key_effective != "" ? { firecrawl-api-key = local.firecrawl_api_key_effective } : {},
   )
 
   # Map secret names to environment variables
   # Only include env vars for secrets that exist
   secret_environment_variables = merge(
     var.enable_postgresql ? { DATABASE_URI = "database-uri" } : {},
-    var.openai_api_key != "" ? { OPENAI_API_KEY = "openai-api-key" } : {},
-    var.gemini_api_key != "" ? { GEMINI_API_KEY = "gemini-api-key" } : {},
-    var.langchain_api_key != "" ? { LANGCHAIN_API_KEY = "langchain-api-key" } : {},
-    var.serper_api_key != "" ? { SERPER_API_KEY = "serper-api-key" } : {},
-    var.firecrawl_api_key != "" ? { FIRECRAWL_API_KEY = "firecrawl-api-key" } : {},
+    local.openai_api_key_effective != "" ? { OPENAI_API_KEY = "openai-api-key" } : {},
+    local.gemini_api_key_effective != "" ? { GEMINI_API_KEY = "gemini-api-key" } : {},
+    local.langchain_api_key_effective != "" ? { LANGCHAIN_API_KEY = "langchain-api-key" } : {},
+    local.serper_api_key_effective != "" ? { SERPER_API_KEY = "serper-api-key" } : {},
+    local.firecrawl_api_key_effective != "" ? { FIRECRAWL_API_KEY = "firecrawl-api-key" } : {},
   )
 
   # Health Probes
@@ -297,21 +386,21 @@ module "frontend" {
   secrets = merge(
     { clerk-publishable-key = var.clerk_publishable_key },
     { clerk-secret-key = var.clerk_secret_key },
-    var.stripe_secret_key != "" ? { stripe-secret-key = var.stripe_secret_key } : {},
-    var.stripe_webhook_secret != "" ? { stripe-webhook-secret = var.stripe_webhook_secret } : {},
-    var.admin_user_ids != "" ? { admin-user-ids = var.admin_user_ids } : {},
-    var.serper_api_key != "" ? { serper-api-key = var.serper_api_key } : {},
-    var.perplexity_api_key != "" ? { perplexity-api-key = var.perplexity_api_key } : {},
+    local.stripe_secret_key_effective != "" ? { stripe-secret-key = local.stripe_secret_key_effective } : {},
+    local.stripe_webhook_secret_effective != "" ? { stripe-webhook-secret = local.stripe_webhook_secret_effective } : {},
+    local.admin_user_ids_effective != "" ? { admin-user-ids = local.admin_user_ids_effective } : {},
+    local.serper_api_key_effective != "" ? { serper-api-key = local.serper_api_key_effective } : {},
+    local.perplexity_api_key_effective != "" ? { perplexity-api-key = local.perplexity_api_key_effective } : {},
   )
 
   secret_environment_variables = merge(
     { NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "clerk-publishable-key" },
     { CLERK_SECRET_KEY = "clerk-secret-key" },
-    var.stripe_secret_key != "" ? { STRIPE_SECRET_KEY = "stripe-secret-key" } : {},
-    var.stripe_webhook_secret != "" ? { STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret" } : {},
-    var.admin_user_ids != "" ? { ADMIN_USER_IDS = "admin-user-ids" } : {},
-    var.serper_api_key != "" ? { SERPER_API_KEY = "serper-api-key" } : {},
-    var.perplexity_api_key != "" ? { PERPLEXITY_API_KEY = "perplexity-api-key" } : {},
+    local.stripe_secret_key_effective != "" ? { STRIPE_SECRET_KEY = "stripe-secret-key" } : {},
+    local.stripe_webhook_secret_effective != "" ? { STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret" } : {},
+    local.admin_user_ids_effective != "" ? { ADMIN_USER_IDS = "admin-user-ids" } : {},
+    local.serper_api_key_effective != "" ? { SERPER_API_KEY = "serper-api-key" } : {},
+    local.perplexity_api_key_effective != "" ? { PERPLEXITY_API_KEY = "perplexity-api-key" } : {},
   )
 
   # Health Probes

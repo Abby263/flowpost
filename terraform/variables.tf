@@ -84,6 +84,12 @@ variable "enable_key_vault" {
   default     = true
 }
 
+variable "preserve_optional_secrets" {
+  description = "Preserve optional secrets when values are omitted by reusing existing Key Vault values"
+  type        = bool
+  default     = false
+}
+
 # =============================================================================
 # PostgreSQL Configuration
 # =============================================================================

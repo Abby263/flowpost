@@ -97,6 +97,12 @@ variable "enable_acr_secrets" {
   default     = false
 }
 
+variable "preserve_optional_secrets" {
+  description = "Preserve optional secrets when values are omitted by reusing existing Key Vault values"
+  type        = bool
+  default     = false
+}
+
 # =============================================================================
 # PostgreSQL Secrets
 # =============================================================================

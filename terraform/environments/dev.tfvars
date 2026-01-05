@@ -15,6 +15,7 @@ project_name       = "flowpost"
 
 enable_postgresql              = true
 enable_key_vault               = true
+preserve_optional_secrets      = true
 postgres_sku_name              = "B_Standard_B1ms" # Burstable for dev (cost-effective)
 postgres_storage_mb            = 32768             # 32GB
 postgres_backup_retention_days = 7
