@@ -31,6 +31,18 @@ locals {
 
   preserve_optional_secrets = var.preserve_optional_secrets
 
+  optional_secret_names = local.preserve_optional_secrets ? toset(try(data.azurerm_key_vault_secrets.optional[0].names, [])) : toset([])
+
+  openai_api_key_exists        = contains(local.optional_secret_names, "openai-api-key")
+  gemini_api_key_exists        = contains(local.optional_secret_names, "gemini-api-key")
+  langchain_api_key_exists     = contains(local.optional_secret_names, "langchain-api-key")
+  serper_api_key_exists        = contains(local.optional_secret_names, "serper-api-key")
+  perplexity_api_key_exists    = contains(local.optional_secret_names, "perplexity-api-key")
+  firecrawl_api_key_exists     = contains(local.optional_secret_names, "firecrawl-api-key")
+  stripe_secret_key_exists     = contains(local.optional_secret_names, "stripe-secret-key")
+  stripe_webhook_secret_exists = contains(local.optional_secret_names, "stripe-webhook-secret")
+  admin_user_ids_exists        = contains(local.optional_secret_names, "admin-user-ids")
+
   openai_api_key_provided        = trimspace(nonsensitive(var.openai_api_key)) != ""
   gemini_api_key_provided        = trimspace(nonsensitive(var.gemini_api_key)) != ""
   langchain_api_key_provided     = trimspace(nonsensitive(var.langchain_api_key)) != ""
@@ -116,56 +128,61 @@ resource "azurerm_key_vault" "this" {
 # Optional Secret Preservation (Key Vault lookups)
 # =============================================================================
 
+data "azurerm_key_vault_secrets" "optional" {
+  count        = var.preserve_optional_secrets ? 1 : 0
+  key_vault_id = azurerm_key_vault.this.id
+}
+
 data "azurerm_key_vault_secret" "openai_api_key" {
-  count        = var.preserve_optional_secrets && !local.openai_api_key_provided ? 1 : 0
+  count        = var.preserve_optional_secrets && !local.openai_api_key_provided && local.openai_api_key_exists ? 1 : 0
   name         = "openai-api-key"
   key_vault_id = azurerm_key_vault.this.id
 }
 
 data "azurerm_key_vault_secret" "gemini_api_key" {
-  count        = var.preserve_optional_secrets && !local.gemini_api_key_provided ? 1 : 0
+  count        = var.preserve_optional_secrets && !local.gemini_api_key_provided && local.gemini_api_key_exists ? 1 : 0
   name         = "gemini-api-key"
   key_vault_id = azurerm_key_vault.this.id
 }
 
 data "azurerm_key_vault_secret" "langchain_api_key" {
-  count        = var.preserve_optional_secrets && !local.langchain_api_key_provided ? 1 : 0
+  count        = var.preserve_optional_secrets && !local.langchain_api_key_provided && local.langchain_api_key_exists ? 1 : 0
   name         = "langchain-api-key"
   key_vault_id = azurerm_key_vault.this.id
 }
 
 data "azurerm_key_vault_secret" "serper_api_key" {
-  count        = var.preserve_optional_secrets && !local.serper_api_key_provided ? 1 : 0
+  count        = var.preserve_optional_secrets && !local.serper_api_key_provided && local.serper_api_key_exists ? 1 : 0
   name         = "serper-api-key"
   key_vault_id = azurerm_key_vault.this.id
 }
 
 data "azurerm_key_vault_secret" "perplexity_api_key" {
-  count        = var.preserve_optional_secrets && !local.perplexity_api_key_provided ? 1 : 0
+  count        = var.preserve_optional_secrets && !local.perplexity_api_key_provided && local.perplexity_api_key_exists ? 1 : 0
   name         = "perplexity-api-key"
   key_vault_id = azurerm_key_vault.this.id
 }
 
 data "azurerm_key_vault_secret" "firecrawl_api_key" {
-  count        = var.preserve_optional_secrets && !local.firecrawl_api_key_provided ? 1 : 0
+  count        = var.preserve_optional_secrets && !local.firecrawl_api_key_provided && local.firecrawl_api_key_exists ? 1 : 0
   name         = "firecrawl-api-key"
   key_vault_id = azurerm_key_vault.this.id
 }
 
 data "azurerm_key_vault_secret" "stripe_secret_key" {
-  count        = var.preserve_optional_secrets && !local.stripe_secret_key_provided ? 1 : 0
+  count        = var.preserve_optional_secrets && !local.stripe_secret_key_provided && local.stripe_secret_key_exists ? 1 : 0
   name         = "stripe-secret-key"
   key_vault_id = azurerm_key_vault.this.id
 }
 
 data "azurerm_key_vault_secret" "stripe_webhook_secret" {
-  count        = var.preserve_optional_secrets && !local.stripe_webhook_secret_provided ? 1 : 0
+  count        = var.preserve_optional_secrets && !local.stripe_webhook_secret_provided && local.stripe_webhook_secret_exists ? 1 : 0
   name         = "stripe-webhook-secret"
   key_vault_id = azurerm_key_vault.this.id
 }
 
 data "azurerm_key_vault_secret" "admin_user_ids" {
-  count        = var.preserve_optional_secrets && !local.admin_user_ids_provided ? 1 : 0
+  count        = var.preserve_optional_secrets && !local.admin_user_ids_provided && local.admin_user_ids_exists ? 1 : 0
   name         = "admin-user-ids"
   key_vault_id = azurerm_key_vault.this.id
 }
