@@ -655,6 +655,15 @@ For detailed documentation:
 - Verify environment variables are set correctly
 - Ensure DATABASE_URI is configured (if using PostgreSQL)
 
+## TODO
+
+- [x] Handle blacklisted MIME types (svg, bmp, ico) by re-routing to human node with error message instead of silently falling back to previous image (`generate-thread` and `generate-post` human nodes)
+- [ ] Handle invalid dates better in generate-thread human node — re-route to human node with error message instead of throwing
+- [ ] Update Slack message handler in ingest-repurposed-data to include `fileIds` (`backend/agents/ingest-repurposed-data/nodes/extract.ts:123`)
+- [ ] Replace YouTube video-too-long warning with an interrupt requesting user confirmation before continuing (`backend/agents/shared/youtube/video-summary.ts:85`)
+- [ ] Use LLM to extract thread count in generate-thread-plan instead of regex (`backend/agents/generate-thread/nodes/generate-thread-plan.ts:96`)
+- [ ] Refactor post/complexPost state interfaces to use a single shared interface including images (tracking: https://github.com/langchain-ai/social-media-agent/issues/144)
+
 ## License
 
 MIT

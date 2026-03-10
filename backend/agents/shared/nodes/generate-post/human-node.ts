@@ -315,7 +315,13 @@ export async function humanNode<
     undefined;
   if (!isTextOnlyMode) {
     const processedImage = await processImageInput(castArgs.image);
-    if (processedImage && processedImage !== "remove") {
+    if (processedImage === "blacklisted") {
+      return {
+        next: "humanNode",
+        scheduleDate: postDate,
+        userResponse: `The image you provided has an unsupported format. Please use a JPEG, PNG, GIF, or WebP image URL instead.`,
+      } as Update;
+    } else if (processedImage && processedImage !== "remove") {
       imageState = processedImage;
     } else if (processedImage === "remove") {
       imageState = undefined;
@@ -329,7 +335,6 @@ export async function humanNode<
     scheduleDate: postDate,
     ...(post ? { post } : {}),
     ...(complexPost ? { complexPost } : {}),
-    // TODO: Update so if the mime type is blacklisted, it re-routes to human node with an error message.
     image: imageState,
     userResponse: undefined,
   } as Update;

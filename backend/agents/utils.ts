@@ -300,7 +300,7 @@ export function extractMimeTypeFromBase64(base64String: string): string | null {
  */
 export async function processImageInput(
   imageInput: string,
-): Promise<Image | "remove" | undefined> {
+): Promise<Image | "remove" | "blacklisted" | undefined> {
   if (imageInput.toLowerCase() === "remove" || !imageInput) {
     return "remove";
   }
@@ -309,7 +309,7 @@ export async function processImageInput(
     const { contentType } = await imageUrlToBuffer(imageInput);
 
     if (BLACKLISTED_MIME_TYPES.find((mt) => contentType.startsWith(mt))) {
-      return undefined;
+      return "blacklisted";
     }
 
     return {
