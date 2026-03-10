@@ -237,7 +237,7 @@ export async function humanNode(
   const processedImage = await processImageInput(castArgs.image);
   if (processedImage === "blacklisted") {
     return {
-      next: "humanNode",
+      next: "unknownResponse",
       userResponse: `The image you provided has an unsupported format. Please use a JPEG, PNG, GIF, or WebP image URL instead.`,
     };
   } else if (processedImage && processedImage !== "remove") {

@@ -115,7 +115,12 @@ export async function humanNode(
 
   let imageState: Image | undefined = undefined;
   const processedImage = await processImageInput(castArgs.image);
-  if (processedImage && processedImage !== "remove") {
+  if (processedImage === "blacklisted") {
+    return {
+      next: "unknownResponse",
+      userResponse: `The image you provided has an unsupported format. Please use a JPEG, PNG, GIF, or WebP image URL instead.`,
+    };
+  } else if (processedImage && processedImage !== "remove") {
     imageState = processedImage;
   } else if (processedImage === "remove") {
     imageState = undefined;
