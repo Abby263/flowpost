@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isHealthy } from "@/lib/postgres";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export async function GET() {
   // Check critical dependencies
   const checks: Record<string, boolean> = {
     clerk: !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-    database: !!process.env.DATABASE_URI,
+    database: await isHealthy(),
     langgraph: !!process.env.LANGGRAPH_API_URL,
   };
 
