@@ -11,6 +11,10 @@ const poolMax =
   Number.isFinite(parsedPoolMax) && parsedPoolMax > 0
     ? parsedPoolMax
     : DEFAULT_POOL_MAX;
+const requiresSupabaseSsl =
+  !!DATABASE_URI &&
+  DATABASE_URI.includes("supabase") &&
+  !/[?&]sslmode=disable(?:&|$)/i.test(DATABASE_URI);
 
 // Create a connection pool for better performance
 const pool = DATABASE_URI
@@ -19,6 +23,7 @@ const pool = DATABASE_URI
       max: poolMax, // Keep serverless connection usage low for Supabase pooler.
       idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
       connectionTimeoutMillis: 10000, // Wait max 10 seconds for connection
+      ssl: requiresSupabaseSsl ? { rejectUnauthorized: false } : undefined,
     })
   : null;
 
