@@ -970,7 +970,7 @@ export default function AnalyticsPage() {
                   <ImageIcon className="h-5 w-5 text-indigo-600" />
                   Platform Distribution
                 </CardTitle>
-                <CardDescription>Where you're posting</CardDescription>
+                <CardDescription>Where you are posting</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100">

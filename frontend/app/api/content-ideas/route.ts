@@ -15,6 +15,8 @@ import {
   FEATURE_FLAGS,
 } from "@/config";
 
+export const dynamic = "force-dynamic";
+
 const SERPER_API_KEY = process.env.SERPER_API_KEY;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;

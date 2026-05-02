@@ -329,6 +329,7 @@ INSTAGRAM_PASSWORD=your_password
 # Database (Production only - local dev uses Docker postgres automatically)
 # =============================================================================
 DATABASE_URI=postgresql://user:pass@host:5432/dbname?sslmode=require
+POSTGRES_POOL_MAX=5  # Optional; keep small for low-cost Azure PostgreSQL tiers
 ```
 
 ## Database Setup

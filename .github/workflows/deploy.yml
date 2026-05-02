@@ -205,7 +205,7 @@ jobs:
           cache: yarn
 
       - name: Install dependencies
-        run: yarn install --immutable
+        run: yarn install --frozen-lockfile
 
       - name: Lint
         run: yarn lint
@@ -223,6 +223,7 @@ jobs:
   build-backend:
     name: Build Backend
     needs: [determine-environment, code-quality, version]
+    if: needs.determine-environment.outputs.is_review != 'true'
     runs-on: ubuntu-latest
     environment: ${{ needs.determine-environment.outputs.environment }}
     outputs:
@@ -294,6 +295,7 @@ jobs:
   build-frontend:
     name: Build Frontend
     needs: [determine-environment, code-quality, version]
+    if: needs.determine-environment.outputs.is_review != 'true'
     runs-on: ubuntu-latest
     environment: ${{ needs.determine-environment.outputs.environment }}
     outputs:
@@ -630,7 +632,7 @@ jobs:
           cache: yarn
 
       - name: Install dependencies
-        run: yarn install --immutable
+        run: yarn install --frozen-lockfile
 
       - name: Install Playwright
         run: npx playwright install --with-deps chromium

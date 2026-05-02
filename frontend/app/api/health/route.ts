@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Health check endpoint for container orchestration
  * Used by Azure Container Apps, Kubernetes, and load balancers

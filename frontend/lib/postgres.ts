@@ -2,18 +2,21 @@ import "server-only";
 import { Pool, QueryResult, QueryResultRow } from "pg";
 
 const DATABASE_URI = process.env.DATABASE_URI;
-
-if (!DATABASE_URI) {
-  console.warn(
-    "DATABASE_URI is not set. Database operations will fail at runtime.",
-  );
-}
+const DEFAULT_POOL_MAX = 5;
+const parsedPoolMax = Number.parseInt(
+  process.env.POSTGRES_POOL_MAX || `${DEFAULT_POOL_MAX}`,
+  10,
+);
+const poolMax =
+  Number.isFinite(parsedPoolMax) && parsedPoolMax > 0
+    ? parsedPoolMax
+    : DEFAULT_POOL_MAX;
 
 // Create a connection pool for better performance
 const pool = DATABASE_URI
   ? new Pool({
       connectionString: DATABASE_URI,
-      max: 20, // Maximum number of clients in the pool
+      max: poolMax, // Keep the default small for low-cost Azure PostgreSQL tiers
       idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
       connectionTimeoutMillis: 10000, // Wait max 10 seconds for connection
     })

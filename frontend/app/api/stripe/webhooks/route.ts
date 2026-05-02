@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { queryOne, query, insert, upsert } from "@/lib/postgres";
 import Stripe from "stripe";
 
+export const dynamic = "force-dynamic";
+
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY.trim())
   : null;

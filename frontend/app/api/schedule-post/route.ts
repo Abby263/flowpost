@@ -3,6 +3,8 @@ import { Client } from "@langchain/langgraph-sdk";
 import { auth } from "@clerk/nextjs/server";
 import { queryOne, query, insert } from "@/lib/postgres";
 
+export const dynamic = "force-dynamic";
+
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // Initialize LangGraph Client for direct posting

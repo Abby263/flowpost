@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne, upsert } from "@/lib/postgres";
 
+export const dynamic = "force-dynamic";
+
 interface AnalyticsCache {
   id: string;
   user_id: string;

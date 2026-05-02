@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { queryOne, upsert } from "@/lib/postgres";
 import Stripe from "stripe";
 
+export const dynamic = "force-dynamic";
+
 // Initialize Stripe (will be undefined if not configured)
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)

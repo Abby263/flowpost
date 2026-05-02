@@ -388,7 +388,7 @@ export default function WorkflowDetailPage() {
                 No runs yet
               </p>
               <p className="text-sm text-muted-foreground mt-2">
-                Click "Run Now" to execute this workflow
+                Click Run Now to execute this workflow
               </p>
             </div>
           ) : (
