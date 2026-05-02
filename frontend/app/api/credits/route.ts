@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { queryOne, insert, upsert, query } from "@/lib/postgres";
 
+export const dynamic = "force-dynamic";
+
 interface UserCredits {
   id: string;
   user_id: string;

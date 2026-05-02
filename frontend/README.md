@@ -4,16 +4,16 @@ Modern dashboard for managing AI-powered social media automation workflows.
 
 ## Tech Stack
 
-| Technology        | Purpose                              |
-| ----------------- | ------------------------------------ |
-| **Next.js 14**    | React framework with App Router      |
-| **React 18**      | UI library                           |
-| **TypeScript**    | Type-safe development                |
-| **Tailwind CSS**  | Utility-first CSS framework          |
-| **shadcn/ui**     | Accessible component library         |
-| **Clerk**         | Authentication and user management   |
-| **Supabase**      | Database and real-time subscriptions |
-| **LangGraph SDK** | Backend API communication            |
+| Technology        | Purpose                            |
+| ----------------- | ---------------------------------- |
+| **Next.js 14**    | React framework with App Router    |
+| **React 18**      | UI library                         |
+| **TypeScript**    | Type-safe development              |
+| **Tailwind CSS**  | Utility-first CSS framework        |
+| **shadcn/ui**     | Accessible component library       |
+| **Clerk**         | Authentication and user management |
+| **Supabase**      | Hosted Postgres database           |
+| **LangGraph SDK** | Backend API communication          |
 
 ## Architecture
 
@@ -47,7 +47,7 @@ Modern dashboard for managing AI-powered social media automation workflows.
 │  │  /api/trigger-workflow  Start agent run                   │   │
 │  │  /api/workflow-status   Poll run status                   │   │
 │  │  /api/posts           View generated posts                │   │
-│  │  /api/health          Container health check              │   │
+│  │  /api/health          Health check                        │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                  │
 │  ┌──────────────────────────────────────────────────────────┐   │
@@ -109,7 +109,7 @@ frontend/
 │   └── schedule-workflow-dialog.tsx
 ├── lib/                       # Utilities
 │   ├── utils.ts               # Helper functions
-│   ├── supabase-admin.ts      # Supabase client
+│   ├── postgres.ts            # Postgres client
 │   └── gemini.ts              # Gemini AI client
 ├── public/                    # Static assets
 ├── next.config.mjs            # Next.js configuration
@@ -166,9 +166,9 @@ NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
 
-# Supabase
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=...
+# Supabase Postgres
+DATABASE_URI=postgresql://postgres.project_ref:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require
+POSTGRES_POOL_MAX=1
 
 # LangGraph Backend
 LANGGRAPH_API_URL=http://localhost:54367
@@ -269,4 +269,4 @@ Container health check endpoint.
 
 ## Deployment
 
-See [Azure deployment documentation](/azure/README.md) for production deployment instructions.
+See the root README for Vercel, Clerk, and Supabase deployment instructions.

@@ -3,6 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { queryOne, query, insert, upsert } from "@/lib/postgres";
 import { CREDITS_CONFIG, API_CONFIG } from "@/config";
 
+export const dynamic = "force-dynamic";
+
 // Timeout for workflow runs (10 minutes)
 const WORKFLOW_TIMEOUT_MS = 10 * 60 * 1000;
 

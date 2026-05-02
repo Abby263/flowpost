@@ -2,6 +2,8 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/postgres";
 
+export const dynamic = "force-dynamic";
+
 // Admin user IDs - add your Clerk user ID here
 const ADMIN_USER_IDS =
   process.env.ADMIN_USER_IDS?.split(",").map((id) => id.trim()) || [];

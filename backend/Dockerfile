@@ -1,7 +1,7 @@
 # =============================================================================
 # Backend Dockerfile for LangGraph Server (TypeScript/Node.js)
 # =============================================================================
-# Optimized for Azure Container Apps with PostgreSQL support
+# Generic LangGraph container for local development or non-Vercel workers.
 #
 # NOTE: This application uses LangGraph.js (TypeScript implementation).
 # PostgreSQL is used by LangGraph for its internal state management.
@@ -116,7 +116,7 @@ ENV HOST=0.0.0.0
 ENV PORT=54367
 
 # PostgreSQL connection for LangGraph state management
-# DATABASE_URI is injected at runtime from Azure Key Vault
+# DATABASE_URI is injected at runtime.
 # Format: postgresql://user:password@host:5432/database?sslmode=require
 # This enables LangGraph to persist:
 # - Graph execution checkpoints

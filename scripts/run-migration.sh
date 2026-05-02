@@ -2,7 +2,7 @@
 # ==============================================================================
 # FlowPost Database Migration Script
 # ==============================================================================
-# This script runs SQL migrations against the Azure PostgreSQL database.
+# This script runs SQL migrations against the configured Postgres database.
 #
 # Prerequisites:
 #   - psql (PostgreSQL client) installed
@@ -75,4 +75,3 @@ else
     echo "======================================${NC}"
     exit 1
 fi
-

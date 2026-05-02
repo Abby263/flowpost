@@ -1,16 +1,6 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { ClerkProvider } from "@clerk/nextjs";
 
 export const metadata: Metadata = {
   title: "FlowPost - AI-Powered Social Media Automation",
@@ -18,21 +8,22 @@ export const metadata: Metadata = {
     "Automate your social media presence with intelligent workflows. FlowPost uses AI to discover content, generate visuals, and post automatically to Instagram, Twitter, and LinkedIn.",
 };
 
-import { ClerkProvider } from "@clerk/nextjs";
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // ClerkProvider is required while Next prerenders protected client routes
+  // that use Clerk hooks. Runtime access remains blocked by middleware until
+  // real Clerk environment variables are configured.
+  const publishableKey =
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+    "pk_test_Zmxvd3Bvc3QtZGV2LmNsZXJrLmFjY291bnRzLmRldiQ=";
+
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={publishableKey}>
       <html lang="en">
-        <body
-          className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
-        >
-          {children}
-        </body>
+        <body className="antialiased">{children}</body>
       </html>
     </ClerkProvider>
   );

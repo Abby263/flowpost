@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { queryMany } from "@/lib/postgres";
 
+export const dynamic = "force-dynamic";
+
 interface Plan {
   id: string;
   name: string;

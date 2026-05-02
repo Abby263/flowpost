@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { queryOne, queryMany } from "@/lib/postgres";
 
+export const dynamic = "force-dynamic";
+
 interface Workflow {
   id: string;
   user_id: string;

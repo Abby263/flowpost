@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Health check endpoint for container orchestration
- * Used by Azure Container Apps, Kubernetes, and load balancers
+ * Used by Vercel, uptime checks, and local smoke tests.
  *
  * This is the main health endpoint that provides detailed status.
  * For specific probe endpoints, see:
@@ -22,6 +24,7 @@ export async function GET() {
   // Check critical dependencies
   const checks: Record<string, boolean> = {
     clerk: !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+    database: !!process.env.DATABASE_URI,
     langgraph: !!process.env.LANGGRAPH_API_URL,
   };
 

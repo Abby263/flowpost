@@ -131,7 +131,7 @@ export function ScheduleWorkflowDialog({
             Schedule Workflow Run
           </DialogTitle>
           <DialogDescription>
-            Schedule "{workflowName}" to run automatically
+            Schedule {workflowName} to run automatically
           </DialogDescription>
         </DialogHeader>
 

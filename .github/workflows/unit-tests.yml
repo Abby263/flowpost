@@ -31,7 +31,7 @@ jobs:
           cache: "yarn"
 
       - name: Install dependencies
-        run: yarn install --immutable
+        run: yarn install --frozen-lockfile
 
       - name: Run backend tests
         run: yarn test --passWithNoTests --coverage
@@ -60,7 +60,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.26.1
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4

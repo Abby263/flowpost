@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { queryMany, remove } from "@/lib/postgres";
 
+export const dynamic = "force-dynamic";
+
 interface Post {
   id: string;
   workflow_id: string | null;

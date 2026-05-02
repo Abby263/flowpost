@@ -50,6 +50,7 @@ __pycache__/
 build/
 .next/
 out/
+.vercel/
 
 # Logs
 *.log
@@ -74,15 +75,8 @@ test-results/
 *.tar
 docker-compose.override.yml
 
-# Terraform
+# Infrastructure state files
 *.tfstate
 *.tfstate.*
 *.tfplan
-.terraform/
-.terraform.lock.hcl
-crash.log
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
 *.auto.tfvars

@@ -31,6 +31,10 @@ COMMENT ON COLUMN user_analytics_cache.last_updated_at IS 'When the cache was la
 -- Index for fast lookups by user_id
 CREATE INDEX IF NOT EXISTS idx_user_analytics_cache_user_id ON user_analytics_cache(user_id);
 
+-- Prevent accidental exposure through Supabase APIs. The app uses server-side
+-- Postgres access through DATABASE_URI.
+ALTER TABLE user_analytics_cache ENABLE ROW LEVEL SECURITY;
+
 -- ============================================================================
 -- SUCCESS MESSAGE
 -- ============================================================================
@@ -41,4 +45,3 @@ BEGIN
   RAISE NOTICE 'Table created:';
   RAISE NOTICE '  - user_analytics_cache';
 END $$;
-

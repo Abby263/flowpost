@@ -1,8 +1,8 @@
 -- ============================================================================
--- FlowPost Database Schema for Azure PostgreSQL
+-- FlowPost Database Schema for Supabase/Postgres
 -- ============================================================================
 -- This migration creates the complete database schema for FlowPost
--- Run this against your Azure PostgreSQL Flexible Server
+-- Run this against Supabase Postgres or local Postgres
 --
 -- Usage:
 --   psql $DATABASE_URI -f migrations/001_initial_schema.sql
@@ -327,8 +327,24 @@ CREATE INDEX IF NOT EXISTS idx_cost_tracking_created_at ON cost_tracking(created
 CREATE INDEX IF NOT EXISTS idx_monthly_cost_summary_year_month ON monthly_cost_summary(year_month DESC);
 
 -- ============================================================================
+-- ROW LEVEL SECURITY
+-- The application uses server-side database access through DATABASE_URI.
+-- RLS is enabled to prevent accidental table exposure through Supabase APIs.
+-- ============================================================================
+
+ALTER TABLE connections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_credits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE credit_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE credit_packages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cost_tracking ENABLE ROW LEVEL SECURITY;
+ALTER TABLE monthly_cost_summary ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
 -- HELPER FUNCTIONS
--- Note: Azure PostgreSQL supports PL/pgSQL, no RLS needed as auth is at app level
 -- ============================================================================
 
 -- Function to reset stale running workflows (runs stuck for > 10 minutes)
@@ -403,4 +419,3 @@ BEGIN
   RAISE NOTICE '  - cost_tracking';
   RAISE NOTICE '  - monthly_cost_summary';
 END $$;
-
