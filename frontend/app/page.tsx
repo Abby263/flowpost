@@ -396,8 +396,8 @@ export default function Home() {
             <Link href="/pricing" className="hover:text-neutral-950">
               Pricing
             </Link>
-            <Link href="/sign-in" className="hover:text-neutral-950">
-              Sign in
+            <Link href="/sign-up" className="hover:text-neutral-950">
+              Get started
             </Link>
             <Link href="/dashboard" className="hover:text-neutral-950">
               Dashboard
