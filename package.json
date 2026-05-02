@@ -2,6 +2,7 @@
   "name": "flowpost",
   "version": "1.0.0",
   "description": "AI-Powered Social Media Automation Platform - Automate content discovery, image generation, and posting to Instagram, Twitter, and LinkedIn.",
+  "homepage": "https://flowpost.vercel.app",
   "packageManager": "yarn@1.22.22",
   "main": "backend/agents/content-automation/index.ts",
   "author": "LangChain",

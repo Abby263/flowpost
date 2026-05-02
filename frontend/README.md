@@ -176,7 +176,7 @@ LANGGRAPH_API_URL=http://localhost:54367
 # Stripe (for subscriptions & payments)
 STRIPE_SECRET_KEY=sk_live_...              # or sk_test_... for testing
 STRIPE_WEBHOOK_SECRET=whsec_...           # Webhook signing secret
-NEXT_PUBLIC_APP_URL=https://your-domain.com  # For Stripe redirect URLs
+NEXT_PUBLIC_APP_URL=https://flowpost.vercel.app  # For Stripe redirect URLs
 ```
 
 ## Testing

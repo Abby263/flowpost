@@ -2,6 +2,7 @@
   "name": "flowpost-web",
   "version": "1.0.0",
   "description": "FlowPost Web UI - AI-powered social media automation dashboard",
+  "homepage": "https://flowpost.vercel.app",
   "private": true,
   "packageManager": "pnpm@10.26.1",
   "resolutions": {

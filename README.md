@@ -3,6 +3,8 @@
 [![CI](https://github.com/Abby263/flowpost/actions/workflows/ci.yml/badge.svg)](https://github.com/Abby263/flowpost/actions/workflows/ci.yml)
 [![Unit Tests](https://github.com/Abby263/flowpost/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/Abby263/flowpost/actions/workflows/unit-tests.yml)
 
+Live app: [https://flowpost.vercel.app](https://flowpost.vercel.app)
+
 FlowPost is an AI-powered social media automation app. It combines a Next.js dashboard, Clerk authentication, Supabase Postgres, and LangGraph workflows for content discovery, generation, scheduling, and publishing.
 
 ## Stack
@@ -87,7 +89,7 @@ NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
 
 LANGGRAPH_API_URL=https://your-langgraph-api.example.com
-NEXT_PUBLIC_APP_URL=https://your-vercel-app.vercel.app
+NEXT_PUBLIC_APP_URL=https://flowpost.vercel.app
 ```
 
 Optional provider keys include `OPENAI_API_KEY`, `GEMINI_API_KEY`, `LANGCHAIN_API_KEY`, `SERPER_API_KEY`, `FIRECRAWL_API_KEY`, `PERPLEXITY_API_KEY`, and Stripe keys.
@@ -101,6 +103,8 @@ The migration enables row-level security on app tables. The application uses ser
 ## Vercel Deployment
 
 Deploy the `frontend/` directory as the Vercel project root. The project includes `frontend/vercel.json` for Vercel builds.
+
+Production URL: [https://flowpost.vercel.app](https://flowpost.vercel.app)
 
 Required Vercel environment variables:
 
