@@ -3,9 +3,9 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 
 export const metadata: Metadata = {
-  title: "FlowPost - AI-Powered Social Media Automation",
+  title: "FlowPost - AI Social Publishing Command Center",
   description:
-    "Automate your social media presence with intelligent workflows. FlowPost uses AI to discover content, generate visuals, and post automatically to Instagram, Twitter, and LinkedIn.",
+    "Find content ideas, generate social drafts, schedule posts, and monitor publishing workflows from one Vercel-hosted dashboard.",
 };
 
 export default function RootLayout({

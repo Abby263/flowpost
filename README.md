@@ -7,6 +7,14 @@ Live app: [https://flowpost.vercel.app](https://flowpost.vercel.app)
 
 FlowPost is an AI-powered social media automation app. It combines a Next.js dashboard, Clerk authentication, Supabase Postgres, and LangGraph workflows for content discovery, generation, scheduling, and publishing.
 
+## Product Features
+
+- App-first homepage with a publishing command-center preview.
+- Authenticated dashboard overview with setup progress, AI credit balance, workflow status, recent posts, scheduled queue, and quick actions.
+- Social account connection management for Instagram, X/Twitter, and LinkedIn.
+- Reusable publishing workflows with platform, topic, cadence, approval, and run-status controls.
+- Manual post scheduling, AI image generation entry points, content idea generation, analytics cache, billing, and admin views.
+
 ## Stack
 
 | Area            | Technology                                         |

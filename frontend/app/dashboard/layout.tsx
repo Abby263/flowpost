@@ -8,6 +8,7 @@ import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import {
   Shield,
+  LayoutDashboard,
   Workflow,
   Sparkles,
   Activity,
@@ -70,6 +71,12 @@ export default function DashboardLayout({
   const isAdmin = user?.id && adminUserIds.includes(user.id);
 
   const navItems = [
+    {
+      href: "/dashboard",
+      label: "Overview",
+      icon: LayoutDashboard,
+      description: "Command center",
+    },
     {
       href: "/dashboard/connections",
       label: "Connections",
@@ -163,7 +170,10 @@ export default function DashboardLayout({
           <nav className="space-y-1">
             {navItems.map((item) => {
               const isActive =
-                pathname === item.href || pathname.startsWith(item.href + "/");
+                item.href === "/dashboard"
+                  ? pathname === item.href
+                  : pathname === item.href ||
+                    pathname.startsWith(item.href + "/");
               const Icon = item.icon;
 
               return (
@@ -274,8 +284,10 @@ export default function DashboardLayout({
               </p>
               {navItems.map((item) => {
                 const isActive =
-                  pathname === item.href ||
-                  pathname.startsWith(item.href + "/");
+                  item.href === "/dashboard"
+                    ? pathname === item.href
+                    : pathname === item.href ||
+                      pathname.startsWith(item.href + "/");
                 const Icon = item.icon;
 
                 return (

@@ -1,161 +1,259 @@
+import Link from "next/link";
+import type { ElementType } from "react";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import Link from "next/link";
 import {
-  Sparkles,
-  Zap,
-  Calendar,
-  BarChart3,
-  Workflow,
-  Image as ImageIcon,
-  Globe,
-  CheckCircle2,
+  Activity,
   ArrowRight,
-  Play,
-  Instagram,
-  Twitter,
-  Linkedin,
+  BarChart3,
+  CalendarClock,
+  CheckCircle2,
   Clock,
+  FileText,
+  Globe2,
+  Lightbulb,
+  Link2,
+  LockKeyhole,
+  Play,
+  ShieldCheck,
+  Sparkles,
   TrendingUp,
+  Workflow,
 } from "lucide-react";
+
+const metrics = [
+  { value: "3", label: "connected platforms" },
+  { value: "10", label: "starter AI credits" },
+  { value: "1", label: "command center" },
+  { value: "24/7", label: "scheduled queue" },
+];
+
+const workflowRows = [
+  {
+    title: "AI and creator economy briefs",
+    platform: "LinkedIn",
+    status: "Scheduled",
+    time: "Today, 4:30 PM",
+    accent: "bg-amber-400",
+  },
+  {
+    title: "Product launch visual thread",
+    platform: "X / Twitter",
+    status: "Draft ready",
+    time: "Needs approval",
+    accent: "bg-sky-400",
+  },
+  {
+    title: "Weekly growth tactics carousel",
+    platform: "Instagram",
+    status: "Published",
+    time: "2 hours ago",
+    accent: "bg-emerald-400",
+  },
+];
+
+const featureCards = [
+  {
+    title: "Connect social accounts",
+    description:
+      "Keep Instagram, X, and LinkedIn destinations organized before creating automations.",
+    icon: Link2,
+  },
+  {
+    title: "Generate content ideas",
+    description:
+      "Turn interests and trending topics into captions, hashtags, and creative angles.",
+    icon: Lightbulb,
+  },
+  {
+    title: "Build reusable workflows",
+    description:
+      "Define the platform, search query, cadence, approval mode, and content style once.",
+    icon: Workflow,
+  },
+  {
+    title: "Schedule or publish",
+    description:
+      "Queue manual posts or let active workflows keep a predictable content calendar.",
+    icon: CalendarClock,
+  },
+  {
+    title: "Track output",
+    description:
+      "Review cached analytics, publishing history, statuses, and generated workflow posts.",
+    icon: BarChart3,
+  },
+  {
+    title: "Control spend",
+    description:
+      "Use lightweight serverless hosting and visible AI credit balances to avoid surprise usage.",
+    icon: ShieldCheck,
+  },
+];
+
+const setupSteps = [
+  {
+    title: "Connect",
+    description: "Add at least one publishing account.",
+    icon: Link2,
+  },
+  {
+    title: "Create",
+    description: "Choose a topic, platform, cadence, and tone.",
+    icon: Sparkles,
+  },
+  {
+    title: "Review",
+    description: "Approve generated ideas or queue manual posts.",
+    icon: FileText,
+  },
+  {
+    title: "Publish",
+    description: "Monitor status, history, and analytics.",
+    icon: Activity,
+  },
+];
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen bg-neutral-50 text-neutral-950">
       <Navbar />
 
-      <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative py-20 lg:py-28 px-4 overflow-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              {/* Left: Text Content */}
-              <div className="text-center lg:text-left">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-blue-200 text-sm font-medium mb-6 backdrop-blur-sm border border-white/10">
-                  <Sparkles className="h-4 w-4" />
-                  AI-Powered Social Media Automation
+      <main>
+        <section className="overflow-hidden border-b bg-white">
+          <div className="mx-auto grid min-h-[calc(100vh-72px)] max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:py-12">
+            <div className="min-w-0 space-y-8">
+              <div className="space-y-5">
+                <div className="inline-flex items-center gap-2 rounded-full border bg-neutral-50 px-3 py-1.5 text-sm font-medium text-neutral-700">
+                  <Sparkles className="h-4 w-4 text-emerald-600" />
+                  AI-assisted social publishing
                 </div>
+                <div>
+                  <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl lg:text-7xl">
+                    FlowPost
+                  </h1>
+                  <p className="mt-5 max-w-xl text-base leading-7 text-neutral-600 sm:text-lg">
+                    A focused command center for finding content ideas,
+                    generating post drafts, scheduling publishing work, and
+                    keeping AI usage visible.
+                  </p>
+                </div>
+              </div>
 
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6 text-white leading-tight">
-                  Automate Your
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">
-                    {" "}
-                    Social Media{" "}
-                  </span>
-                  Presence
-                </h1>
-
-                <p className="text-lg md:text-xl text-slate-300 mb-8 max-w-xl mx-auto lg:mx-0 leading-relaxed">
-                  FlowPost uses AI to discover trending content, generate
-                  stunning visuals, and automatically post to your social
-                  accounts. Set it up once, let it run forever.
-                </p>
-
-                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-8">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  asChild
+                  size="lg"
+                  className="w-full bg-neutral-950 hover:bg-neutral-800 sm:w-auto"
+                >
                   <Link href="/sign-up">
-                    <Button
-                      size="lg"
-                      className="text-base px-8 h-12 bg-white text-slate-900 hover:bg-slate-100 font-semibold w-full sm:w-auto"
-                    >
-                      Start Free Trial
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                    Start with 10 credits
+                    <ArrowRight className="h-4 w-4" />
                   </Link>
-                  <Link href="#how-it-works">
-                    <Button
-                      size="lg"
-                      className="text-base px-8 h-12 bg-blue-600 text-white hover:bg-blue-700 font-semibold w-full sm:w-auto"
-                    >
-                      <Play className="mr-2 h-4 w-4" />
-                      See How It Works
-                    </Button>
+                </Button>
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  <Link href="/dashboard">
+                    <Play className="h-4 w-4" />
+                    Open dashboard
                   </Link>
-                </div>
-
-                <div className="flex flex-wrap justify-center lg:justify-start gap-6 text-sm text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    No credit card required
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    10 free credits
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    Cancel anytime
-                  </div>
-                </div>
+                </Button>
               </div>
 
-              {/* Right: Platform Cards */}
-              <div className="hidden lg:block relative">
-                <div className="relative w-full h-[400px]">
-                  {/* Instagram Card */}
-                  <div className="absolute top-0 left-0 bg-white rounded-2xl shadow-2xl p-5 w-64 transform -rotate-6 hover:rotate-0 transition-transform">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center">
-                        <Instagram className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          Instagram
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          Auto-posted 2h ago
-                        </p>
-                      </div>
-                    </div>
-                    <div className="bg-slate-100 rounded-lg h-32 mb-3 flex items-center justify-center">
-                      <ImageIcon className="h-8 w-8 text-slate-400" />
-                    </div>
-                    <p className="text-sm text-slate-600 line-clamp-2">
-                      🚀 AI is transforming content creation...
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {metrics.map((metric) => (
+                  <div
+                    key={metric.label}
+                    className="rounded-lg border bg-white p-3"
+                  >
+                    <p className="text-2xl font-semibold">{metric.value}</p>
+                    <p className="mt-1 text-xs leading-4 text-neutral-500">
+                      {metric.label}
                     </p>
                   </div>
+                ))}
+              </div>
+            </div>
 
-                  {/* Twitter Card */}
-                  <div className="absolute top-20 right-0 bg-white rounded-2xl shadow-2xl p-5 w-64 transform rotate-3 hover:rotate-0 transition-transform">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center">
-                        <Twitter className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          Twitter/X
+            <div className="min-w-0 overflow-hidden rounded-lg border bg-neutral-950 p-3 shadow-2xl shadow-neutral-950/15">
+              <div className="min-w-0 rounded-md border border-white/10 bg-white/[0.04]">
+                <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-white">
+                      Publishing command center
+                    </p>
+                    <p className="text-xs text-neutral-400">
+                      Live workflow and queue overview
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">
+                    <span className="h-2 w-2 rounded-full bg-emerald-300" />
+                    Ready
+                  </div>
+                </div>
+
+                <div className="grid gap-3 p-4 lg:grid-cols-[0.88fr_1.12fr]">
+                  <div className="min-w-0 space-y-3">
+                    <div className="rounded-lg border border-white/10 bg-white/[0.06] p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-white">
+                          Setup progress
                         </p>
-                        <p className="text-xs text-slate-500">Scheduled 4pm</p>
+                        <span className="text-xl font-semibold text-white">
+                          75%
+                        </span>
+                      </div>
+                      <div className="mt-4 h-2 rounded-full bg-white/10">
+                        <div className="h-2 w-3/4 rounded-full bg-emerald-300" />
+                      </div>
+                      <div className="mt-4 space-y-2 text-sm text-neutral-300">
+                        <PreviewCheck done label="Accounts connected" />
+                        <PreviewCheck done label="Workflow created" />
+                        <PreviewCheck done label="Post scheduled" />
+                        <PreviewCheck label="Analytics reviewed" />
                       </div>
                     </div>
-                    <p className="text-sm text-slate-600 mb-3">
-                      Just discovered how AI workflows can save 10+ hours/week
-                      on content creation 🎯
-                    </p>
-                    <div className="flex gap-4 text-xs text-slate-500">
-                      <span>♥ 128</span>
-                      <span>↺ 45</span>
-                      <span>💬 23</span>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <PreviewMetric label="AI credits" value="10" />
+                      <PreviewMetric label="Active flows" value="4" />
                     </div>
                   </div>
 
-                  {/* LinkedIn Card */}
-                  <div className="absolute bottom-0 left-16 bg-white rounded-2xl shadow-2xl p-5 w-64 transform rotate-2 hover:rotate-0 transition-transform">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center">
-                        <Linkedin className="h-5 w-5 text-white" />
+                  <div className="min-w-0 space-y-3">
+                    {workflowRows.map((row) => (
+                      <div
+                        key={row.title}
+                        className="min-w-0 rounded-lg border border-white/10 bg-white p-3 text-neutral-950"
+                      >
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`h-2.5 w-2.5 rounded-full ${row.accent}`}
+                              />
+                              <p className="truncate text-sm font-semibold">
+                                {row.title}
+                              </p>
+                            </div>
+                            <p className="mt-2 text-xs text-neutral-500">
+                              {row.platform}
+                            </p>
+                          </div>
+                          <span className="shrink-0 rounded-full border bg-neutral-50 px-2.5 py-1 text-xs font-medium">
+                            {row.status}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex items-center gap-2 text-xs text-neutral-500">
+                          <Clock className="h-3.5 w-3.5" />
+                          {row.time}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-slate-900">LinkedIn</p>
-                        <p className="text-xs text-slate-500">
-                          Published today
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      How we automated our entire social media strategy using
-                      AI...
-                    </p>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -163,335 +261,197 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Stats Section */}
-        <section className="py-12 px-4 bg-white border-b">
-          <div className="max-w-5xl mx-auto">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              <div className="text-center">
-                <div className="text-3xl md:text-4xl font-bold text-slate-900 mb-1">
-                  10+
-                </div>
-                <p className="text-sm text-slate-600">Hours saved weekly</p>
+        <section
+          className="border-b bg-neutral-50 px-4 py-14 sm:px-6"
+          id="features"
+        >
+          <div className="mx-auto max-w-7xl">
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wider text-emerald-700">
+                  Product surface
+                </p>
+                <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+                  Everything needed to keep content moving.
+                </h2>
               </div>
-              <div className="text-center">
-                <div className="text-3xl md:text-4xl font-bold text-slate-900 mb-1">
-                  3
-                </div>
-                <p className="text-sm text-slate-600">Platforms supported</p>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl md:text-4xl font-bold text-slate-900 mb-1">
-                  AI
-                </div>
-                <p className="text-sm text-slate-600">Powered by Gemini</p>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl md:text-4xl font-bold text-slate-900 mb-1">
-                  24/7
-                </div>
-                <p className="text-sm text-slate-600">Automated posting</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* How It Works Section */}
-        <section id="how-it-works" className="py-20 px-4 bg-slate-50">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-16">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-medium mb-4">
-                <Workflow className="h-4 w-4" />3 Simple Steps
-              </div>
-              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-                Set Up Once. Run Forever.
-              </h2>
-              <p className="text-lg text-slate-600 max-w-xl mx-auto">
-                From zero to automated in under 5 minutes.
+              <p className="max-w-xl text-sm leading-6 text-neutral-600">
+                FlowPost is organized around daily publishing operations:
+                account setup, workflow creation, manual scheduling, content
+                ideas, analytics, and credit visibility.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8">
-              {/* Step 1 */}
-              <div className="relative">
-                <div className="absolute -top-4 left-0 w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">
-                  1
-                </div>
-                <Card className="pt-8 h-full border-2 hover:border-blue-200 hover:shadow-lg transition-all bg-white">
-                  <CardContent>
-                    <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center mb-5">
-                      <Workflow className="h-7 w-7 text-blue-600" />
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {featureCards.map((feature) => {
+                const Icon = feature.icon;
+                return (
+                  <div
+                    key={feature.title}
+                    className="rounded-lg border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-neutral-100">
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <h3 className="text-xl font-bold mb-3 text-slate-900">
-                      Connect
-                    </h3>
-                    <p className="text-slate-600">
-                      Link your social accounts and define your niche.
+                    <h3 className="mt-5 font-semibold">{feature.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-neutral-600">
+                      {feature.description}
                     </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Step 2 */}
-              <div className="relative">
-                <div className="absolute -top-4 left-0 w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">
-                  2
-                </div>
-                <Card className="pt-8 h-full border-2 hover:border-indigo-200 hover:shadow-lg transition-all bg-white">
-                  <CardContent>
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center mb-5">
-                      <Sparkles className="h-7 w-7 text-indigo-600" />
-                    </div>
-                    <h3 className="text-xl font-bold mb-3 text-slate-900">
-                      AI Creates
-                    </h3>
-                    <p className="text-slate-600">
-                      Trending topics → stunning images → engaging captions.
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Step 3 */}
-              <div className="relative">
-                <div className="absolute -top-4 left-0 w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-lg">
-                  3
-                </div>
-                <Card className="pt-8 h-full border-2 hover:border-emerald-200 hover:shadow-lg transition-all bg-white">
-                  <CardContent>
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center mb-5">
-                      <Zap className="h-7 w-7 text-emerald-600" />
-                    </div>
-                    <h3 className="text-xl font-bold mb-3 text-slate-900">
-                      Auto-Publish
-                    </h3>
-                    <p className="text-slate-600">
-                      Posts go live on schedule. You track results.
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
 
-        {/* Features Section */}
-        <section id="features" className="py-20 px-4 bg-white">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-16">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium mb-4">
-                <Zap className="h-4 w-4" />
-                Features
-              </div>
-              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-                Built for Growth
-              </h2>
-              <p className="text-lg text-slate-600 max-w-xl mx-auto">
-                Everything you need to dominate social media.
+        <section className="bg-white px-4 py-14 sm:px-6" id="how-it-works">
+          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wider text-emerald-700">
+                Workflow
               </p>
+              <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+                From idea to scheduled post without losing control.
+              </h2>
+              <p className="mt-4 text-sm leading-6 text-neutral-600">
+                The app keeps automation explicit. Users can connect accounts,
+                generate ideas, approve work, publish manually, or let active
+                workflows run.
+              </p>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row lg:flex-col">
+                <Button asChild className="bg-neutral-950 hover:bg-neutral-800">
+                  <Link href="/sign-up">
+                    Create account
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/pricing">View pricing</Link>
+                </Button>
+              </div>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="hover:shadow-lg transition-all border-2 hover:border-blue-100 group bg-white">
-                <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Globe className="h-6 w-6 text-blue-600" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              {setupSteps.map((step, index) => {
+                const Icon = step.icon;
+                return (
+                  <div key={step.title} className="rounded-lg border p-5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-md bg-neutral-950 text-white">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <span className="text-sm font-semibold text-neutral-400">
+                        0{index + 1}
+                      </span>
+                    </div>
+                    <h3 className="mt-5 font-semibold">{step.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-neutral-600">
+                      {step.description}
+                    </p>
                   </div>
-                  <h3 className="text-lg font-bold mb-2 text-slate-900">
-                    Multi-Platform
-                  </h3>
-                  <p className="text-slate-600 text-sm">
-                    Instagram, Twitter/X, LinkedIn — one workflow.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-all border-2 hover:border-indigo-100 group bg-white">
-                <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <TrendingUp className="h-6 w-6 text-indigo-600" />
-                  </div>
-                  <h3 className="text-lg font-bold mb-2 text-slate-900">
-                    Trend Discovery
-                  </h3>
-                  <p className="text-slate-600 text-sm">
-                    AI finds what&apos;s hot in your niche. Stay relevant.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-all border-2 hover:border-purple-100 group bg-white">
-                <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <ImageIcon className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <h3 className="text-lg font-bold mb-2 text-slate-900">
-                    Gemini Generated Images
-                  </h3>
-                  <p className="text-slate-600 text-sm">
-                    Stunning AI visuals that match your brand.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-all border-2 hover:border-emerald-100 group bg-white">
-                <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Calendar className="h-6 w-6 text-emerald-600" />
-                  </div>
-                  <h3 className="text-lg font-bold mb-2 text-slate-900">
-                    Smart Scheduling
-                  </h3>
-                  <p className="text-slate-600 text-sm">
-                    Daily, weekly, or custom. Set it and forget it.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-all border-2 hover:border-orange-100 group bg-white">
-                <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <BarChart3 className="h-6 w-6 text-orange-600" />
-                  </div>
-                  <h3 className="text-lg font-bold mb-2 text-slate-900">
-                    Analytics
-                  </h3>
-                  <p className="text-slate-600 text-sm">
-                    Track performance. See what works.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-all border-2 hover:border-pink-100 group bg-white">
-                <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl bg-pink-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Clock className="h-6 w-6 text-pink-600" />
-                  </div>
-                  <h3 className="text-lg font-bold mb-2 text-slate-900">
-                    Save 10+ Hours
-                  </h3>
-                  <p className="text-slate-600 text-sm">
-                    Focus on your business. We handle posting.
-                  </p>
-                </CardContent>
-              </Card>
+                );
+              })}
             </div>
           </div>
         </section>
 
-        {/* CTA Section */}
-        <section className="py-20 px-4 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 text-white">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Stop Posting. Start Growing.
-            </h2>
-            <p className="text-lg text-slate-300 mb-10 max-w-lg mx-auto">
-              10 free credits. No credit card. Cancel anytime.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/sign-up">
-                <Button
-                  size="lg"
-                  className="text-base px-10 h-12 bg-white text-slate-900 hover:bg-slate-100 font-semibold"
-                >
-                  Get Started Free
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/pricing">
-                <Button
-                  size="lg"
-                  className="text-base px-10 h-12 bg-blue-600 text-white hover:bg-blue-700 font-semibold"
-                >
-                  View Pricing
-                </Button>
-              </Link>
+        <section className="border-y bg-neutral-950 px-4 py-14 text-white sm:px-6">
+          <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <p className="text-sm font-semibold uppercase tracking-wider text-emerald-300">
+                Operational guardrails
+              </p>
+              <h2 className="mt-2 text-3xl font-semibold tracking-tight">
+                Built to stay lightweight.
+              </h2>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3 lg:col-span-2">
+              <Guardrail
+                icon={Globe2}
+                title="Vercel hosting"
+                text="Serverless deployment keeps the app simple to run and scale."
+              />
+              <Guardrail
+                icon={LockKeyhole}
+                title="Clerk sign in"
+                text="Authentication stays managed by Clerk instead of custom auth code."
+              />
+              <Guardrail
+                icon={TrendingUp}
+                title="Credit visibility"
+                text="Users can see remaining AI credits before running more generation."
+              />
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="py-12 px-4 bg-slate-900 text-slate-400">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                  <Sparkles className="h-4 w-4 text-white" />
-                </div>
-                <span className="text-white font-bold text-lg">FlowPost</span>
-              </div>
-              <p className="text-sm leading-relaxed">
-                AI-powered social media automation. Create once, post
-                everywhere.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-white font-semibold mb-4">Product</h4>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Link
-                    href="#features"
-                    className="hover:text-white transition"
-                  >
-                    Features
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#how-it-works"
-                    className="hover:text-white transition"
-                  >
-                    How It Works
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/pricing" className="hover:text-white transition">
-                    Pricing
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-white font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Link href="#" className="hover:text-white transition">
-                    About
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="hover:text-white transition">
-                    Blog
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="hover:text-white transition">
-                    Contact
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-white font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Link href="#" className="hover:text-white transition">
-                    Privacy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="hover:text-white transition">
-                    Terms
-                  </Link>
-                </li>
-              </ul>
-            </div>
+      <footer className="border-t bg-white px-4 py-8 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-neutral-500 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-neutral-950">
+            <Sparkles className="h-4 w-4" />
+            <span className="font-semibold">FlowPost</span>
           </div>
-          <div className="border-t border-slate-800 pt-8 text-center text-sm">
-            <p>© 2025 FlowPost. All rights reserved.</p>
+          <div className="flex flex-wrap gap-4">
+            <Link href="/pricing" className="hover:text-neutral-950">
+              Pricing
+            </Link>
+            <Link href="/sign-in" className="hover:text-neutral-950">
+              Sign in
+            </Link>
+            <Link href="/dashboard" className="hover:text-neutral-950">
+              Dashboard
+            </Link>
           </div>
+          <p>2026 FlowPost. All rights reserved.</p>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function PreviewCheck({
+  done = false,
+  label,
+}: {
+  done?: boolean;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {done ? (
+        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+      ) : (
+        <span className="h-4 w-4 rounded-full border border-neutral-500" />
+      )}
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function PreviewMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.06] p-3">
+      <p className="text-2xl font-semibold text-white">{value}</p>
+      <p className="mt-1 text-xs text-neutral-400">{label}</p>
+    </div>
+  );
+}
+
+function Guardrail({
+  icon: Icon,
+  title,
+  text,
+}: {
+  icon: ElementType;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.06] p-5">
+      <Icon className="h-5 w-5 text-emerald-300" />
+      <h3 className="mt-4 font-semibold">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-neutral-400">{text}</p>
     </div>
   );
 }
