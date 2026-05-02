@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LayoutDashboard, Coins } from "lucide-react";
+import { LayoutDashboard, Sparkles } from "lucide-react";
 
 export function Navbar() {
   if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
@@ -41,21 +41,19 @@ function NavbarContent({
   const isPricingPage = pathname === "/pricing";
 
   return (
-    <nav className="border-b bg-white/95 backdrop-blur-md shadow-sm sticky top-0 z-50">
-      <div className="px-6 py-4 flex justify-between items-center max-w-[1600px] mx-auto">
-        {/* Logo */}
+    <nav className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur-md">
+      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md group-hover:shadow-lg transition-all group-hover:scale-105">
-            <Sparkles className="h-6 w-6 text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-950 text-white shadow-sm transition group-hover:bg-neutral-800">
+            <Sparkles className="h-5 w-5" />
           </div>
-          <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all">
+          <span className="text-xl font-semibold tracking-tight text-neutral-950 sm:text-2xl">
             FlowPost
           </span>
         </Link>
 
-        {/* Center Navigation Links */}
         {(isLandingPage || isPricingPage) && (
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden items-center gap-6 md:flex">
             <Link
               href="/#features"
               className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
@@ -81,26 +79,21 @@ function NavbarContent({
           </div>
         )}
 
-        {/* Navigation Items */}
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           {isSignedIn ? (
             <>
-              {/* On landing page, show simple Dashboard link. On dashboard pages, no need to show links since sidebar handles it */}
               {(isLandingPage || isPricingPage) && (
-                <Link href="/dashboard/workflows">
-                  <Button
-                    variant="default"
-                    className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                  >
+                <Button asChild className="bg-neutral-950 hover:bg-neutral-800">
+                  <Link href="/dashboard">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               )}
               {userMenu && (
                 <div
                   className={
-                    isLandingPage || isPricingPage ? "ml-2 pl-2 border-l" : ""
+                    isLandingPage || isPricingPage ? "ml-1 border-l pl-3" : ""
                   }
                 >
                   {userMenu}
@@ -113,14 +106,12 @@ function NavbarContent({
             </Button>
           ) : (
             <div className="flex gap-2">
-              <Link href="/sign-in">
-                <Button variant="outline">Sign In</Button>
-              </Link>
-              <Link href="/sign-up">
-                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
-                  Get Started
-                </Button>
-              </Link>
+              <Button asChild variant="outline">
+                <Link href="/sign-in">Sign in</Link>
+              </Button>
+              <Button asChild className="bg-neutral-950 hover:bg-neutral-800">
+                <Link href="/sign-up">Get started</Link>
+              </Button>
             </div>
           )}
         </div>
