@@ -76,7 +76,7 @@ The frontend runs on `http://localhost:3000`; the local LangGraph API defaults t
 Use the Supabase pooled Postgres URL for hosted Vercel deployments to avoid exhausting direct database connections.
 
 ```bash
-DATABASE_URI=postgresql://postgres.<project-ref>:<password>@<region>.pooler.supabase.com:6543/postgres?sslmode=require
+DATABASE_URI=postgresql://postgres.<project-ref>:<password>@<region>.pooler.supabase.com:6543/postgres
 POSTGRES_POOL_MAX=1
 
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
@@ -94,7 +94,7 @@ Optional provider keys include `OPENAI_API_KEY`, `GEMINI_API_KEY`, `LANGCHAIN_AP
 
 ## Supabase
 
-Create a Supabase project and copy the pooled Postgres connection string from Project Settings → Database → Connection string. Set it as `DATABASE_URI` in local `.env` and in Vercel environment variables.
+Create a Supabase project and copy the pooled Postgres connection string from Project Settings → Database → Connection string. Set it as `DATABASE_URI` in local `.env` and in Vercel environment variables. If you assemble the URL manually, URL-encode special characters in the password.
 
 The migration enables row-level security on app tables. The application uses server-side database access through `DATABASE_URI`, so browser clients do not need direct Supabase table access.
 

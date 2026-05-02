@@ -153,7 +153,7 @@ npx @langchain/langgraph-cli dev --port 54367
 ```bash
 # Required
 OPENAI_API_KEY=sk-...
-DATABASE_URI=postgresql://postgres.project_ref:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require
+DATABASE_URI=postgresql://postgres.project_ref:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 POSTGRES_POOL_MAX=1
 
 # Optional

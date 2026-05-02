@@ -117,7 +117,7 @@ ENV PORT=54367
 
 # PostgreSQL connection for LangGraph state management
 # DATABASE_URI is injected at runtime.
-# Format: postgresql://user:password@host:5432/database?sslmode=require
+# Format: postgresql://user:password@host:5432/database
 # This enables LangGraph to persist:
 # - Graph execution checkpoints
 # - Agent state and memory

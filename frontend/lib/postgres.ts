@@ -1,7 +1,12 @@
 import "server-only";
 import { Pool, QueryResult, QueryResultRow } from "pg";
 
-const DATABASE_URI = process.env.DATABASE_URI;
+const databaseUriSource = process.env.DATABASE_URI
+  ? "DATABASE_URI"
+  : process.env.DATABASE_URL
+    ? "DATABASE_URL"
+    : undefined;
+const rawDatabaseUri = process.env.DATABASE_URI || process.env.DATABASE_URL;
 const DEFAULT_POOL_MAX = 1;
 const parsedPoolMax = Number.parseInt(
   process.env.POSTGRES_POOL_MAX || `${DEFAULT_POOL_MAX}`,
@@ -11,10 +16,56 @@ const poolMax =
   Number.isFinite(parsedPoolMax) && parsedPoolMax > 0
     ? parsedPoolMax
     : DEFAULT_POOL_MAX;
+
+function isSslDisabled(connectionString: string): boolean {
+  return /[?&]sslmode=disable(?:&|$)/i.test(connectionString);
+}
+
+function normalizeConnectionString(connectionString: string): string {
+  if (
+    !connectionString.includes("supabase") ||
+    isSslDisabled(connectionString)
+  ) {
+    return connectionString;
+  }
+
+  try {
+    const url = new URL(connectionString);
+    // node-postgres lets sslmode in the URL override the ssl option below.
+    url.searchParams.delete("sslmode");
+    return url.toString();
+  } catch {
+    return connectionString;
+  }
+}
+
+const DATABASE_URI = rawDatabaseUri
+  ? normalizeConnectionString(rawDatabaseUri)
+  : undefined;
+
+function getDatabaseLogContext() {
+  if (!DATABASE_URI) {
+    return { configured: false, source: databaseUriSource };
+  }
+
+  try {
+    const url = new URL(DATABASE_URI);
+    return {
+      configured: true,
+      source: databaseUriSource,
+      host: url.hostname,
+      port: url.port,
+      user: url.username,
+    };
+  } catch {
+    return { configured: true, source: databaseUriSource, parseable: false };
+  }
+}
+
 const requiresSupabaseSsl =
   !!DATABASE_URI &&
   DATABASE_URI.includes("supabase") &&
-  !/[?&]sslmode=disable(?:&|$)/i.test(DATABASE_URI);
+  !isSslDisabled(DATABASE_URI);
 
 // Create a connection pool for better performance
 const pool = DATABASE_URI
@@ -213,7 +264,17 @@ export async function isHealthy(): Promise<boolean> {
   try {
     await pool.query("SELECT 1");
     return true;
-  } catch {
+  } catch (error) {
+    if (process.env.NODE_ENV !== "test") {
+      console.error("Database health check failed", {
+        ...getDatabaseLogContext(),
+        message: error instanceof Error ? error.message : "Unknown error",
+        code:
+          typeof error === "object" && error && "code" in error
+            ? String(error.code)
+            : undefined,
+      });
+    }
     return false;
   }
 }

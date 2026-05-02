@@ -167,7 +167,7 @@ NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
 
 # Supabase Postgres
-DATABASE_URI=postgresql://postgres.project_ref:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require
+DATABASE_URI=postgresql://postgres.project_ref:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 POSTGRES_POOL_MAX=1
 
 # LangGraph Backend
