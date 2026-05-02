@@ -13,8 +13,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // ClerkProvider is required while Next prerenders protected client routes
+  // that use Clerk hooks. Runtime access remains blocked by middleware until
+  // real Clerk environment variables are configured.
+  const publishableKey =
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+    "pk_test_Zmxvd3Bvc3QtZGV2LmNsZXJrLmFjY291bnRzLmRldiQ=";
+
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={publishableKey}>
       <html lang="en">
         <body className="antialiased">{children}</body>
       </html>

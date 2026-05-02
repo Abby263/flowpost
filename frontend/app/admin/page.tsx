@@ -817,7 +817,8 @@ export default function AdminDashboard() {
                           openai: Brain,
                           anthropic: Brain,
                           firecrawl: Globe,
-                          azure: Server,
+                          supabase: Server,
+                          vercel: Server,
                           "dall-e": Image,
                           flux: Image,
                         };

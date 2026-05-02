@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isHealthy } from "@/lib/postgres";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +10,7 @@ export const dynamic = "force-dynamic";
  *
  * Behavior:
  * - Runs continuously after startup probe succeeds
- * - If fails: Container removed from load balancer (no traffic)
- * - Container is NOT restarted (use liveness for that)
+ * - If fails: deployment should be treated as not ready
  * - Should check if app can serve requests
  *
  * What to check:
@@ -92,12 +92,47 @@ async function checkClerk(): Promise<DependencyCheck> {
   };
 }
 
+async function checkDatabase(): Promise<DependencyCheck> {
+  const startTime = Date.now();
+
+  try {
+    const ok = await isHealthy();
+    const latency = Date.now() - startTime;
+
+    if (ok) {
+      return {
+        name: "database",
+        status: "ok",
+        latency,
+      };
+    }
+
+    return {
+      name: "database",
+      status: "error",
+      latency,
+      error: "DATABASE_URI is not configured or the database is unreachable",
+    };
+  } catch (error) {
+    return {
+      name: "database",
+      status: "error",
+      latency: Date.now() - startTime,
+      error: error instanceof Error ? error.message : "Database check failed",
+    };
+  }
+}
+
 export async function GET() {
   const startTime = Date.now();
 
   try {
     // Run all dependency checks in parallel
-    const checks = await Promise.all([checkLangGraphAPI(), checkClerk()]);
+    const checks = await Promise.all([
+      checkLangGraphAPI(),
+      checkClerk(),
+      checkDatabase(),
+    ]);
 
     const totalLatency = Date.now() - startTime;
     const allReady = checks.every((check) => check.status === "ok");
@@ -138,7 +173,11 @@ export async function GET() {
 
 export async function HEAD() {
   try {
-    const checks = await Promise.all([checkLangGraphAPI(), checkClerk()]);
+    const checks = await Promise.all([
+      checkLangGraphAPI(),
+      checkClerk(),
+      checkDatabase(),
+    ]);
     const allReady = checks.every((check) => check.status === "ok");
 
     if (!allReady) {

@@ -7,7 +7,33 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, LayoutDashboard, Coins } from "lucide-react";
 
 export function Navbar() {
+  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    return <NavbarContent isSignedIn={false} authUnavailable />;
+  }
+
+  return <NavbarWithClerk />;
+}
+
+function NavbarWithClerk() {
   const { isSignedIn } = useUser();
+
+  return (
+    <NavbarContent
+      isSignedIn={isSignedIn}
+      userMenu={<UserButton afterSignOutUrl="/" />}
+    />
+  );
+}
+
+function NavbarContent({
+  isSignedIn,
+  userMenu,
+  authUnavailable = false,
+}: {
+  isSignedIn: boolean | undefined;
+  userMenu?: React.ReactNode;
+  authUnavailable?: boolean;
+}) {
   const pathname = usePathname();
 
   // Check if we're on the landing page (not in dashboard)
@@ -71,14 +97,20 @@ export function Navbar() {
                   </Button>
                 </Link>
               )}
-              <div
-                className={
-                  isLandingPage || isPricingPage ? "ml-2 pl-2 border-l" : ""
-                }
-              >
-                <UserButton afterSignOutUrl="/" />
-              </div>
+              {userMenu && (
+                <div
+                  className={
+                    isLandingPage || isPricingPage ? "ml-2 pl-2 border-l" : ""
+                  }
+                >
+                  {userMenu}
+                </div>
+              )}
             </>
+          ) : authUnavailable ? (
+            <Button variant="outline" disabled>
+              Auth unavailable
+            </Button>
           ) : (
             <div className="flex gap-2">
               <Link href="/sign-in">

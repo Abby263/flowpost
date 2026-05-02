@@ -2,7 +2,7 @@ import pg from "pg";
 const { Pool } = pg;
 
 const DATABASE_URI = process.env.DATABASE_URI;
-const DEFAULT_POOL_MAX = 5;
+const DEFAULT_POOL_MAX = 1;
 const parsedPoolMax = Number.parseInt(
   process.env.POSTGRES_POOL_MAX || `${DEFAULT_POOL_MAX}`,
   10,
@@ -16,7 +16,7 @@ const poolMax =
 const pool = DATABASE_URI
   ? new Pool({
       connectionString: DATABASE_URI,
-      max: poolMax, // Keep the default small for low-cost Azure PostgreSQL tiers
+      max: poolMax, // Keep connection usage low for Supabase pooler.
       idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
       connectionTimeoutMillis: 10000, // Wait max 10 seconds for connection
     })

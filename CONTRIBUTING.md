@@ -71,7 +71,7 @@ cp .env.example .env
 flowpost/
 ├── backend/          # LangGraph AI agents
 ├── frontend/         # Next.js dashboard
-├── terraform/        # Infrastructure as Code
+├── migrations/       # Postgres migrations
 ├── tests/            # All test files
 ├── docs/             # Documentation
 └── scripts/          # Utility scripts

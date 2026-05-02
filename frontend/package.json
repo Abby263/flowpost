@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "FlowPost Web UI - AI-powered social media automation dashboard",
   "private": true,
+  "packageManager": "pnpm@10.26.1",
   "resolutions": {
     "@ungap/structured-clone": "1.2.1"
   },

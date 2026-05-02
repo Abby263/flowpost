@@ -13,7 +13,7 @@ AI-powered social media automation backend built with LangGraph and LangChain.
 | **OpenAI GPT-4** | Content generation and analysis             |
 | **Gemini 2.0**   | Content & Image generation                  |
 | **Playwright**   | Web scraping and screenshots                |
-| **Supabase**     | Database and storage                        |
+| **Supabase**     | Hosted Postgres database                    |
 
 ## Architecture
 
@@ -97,7 +97,7 @@ backend/
 │   └── slack/                # Slack API client
 └── utils/                     # Utility functions
     ├── llm.ts                # LLM configuration
-    ├── supabase.ts           # Database client
+    ├── postgres.ts           # Database client
     ├── image-generation.ts   # Image generation
     ├── screenshot.ts         # Web screenshots
     ├── firecrawl.ts          # Web scraping
@@ -153,8 +153,8 @@ npx @langchain/langgraph-cli dev --port 54367
 ```bash
 # Required
 OPENAI_API_KEY=sk-...
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=...
+DATABASE_URI=postgresql://postgres.project_ref:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require
+POSTGRES_POOL_MAX=1
 
 # Optional
 LANGCHAIN_API_KEY=...          # For LangSmith tracing
@@ -201,4 +201,4 @@ docker build -t flowpost-backend -f backend/Dockerfile .
 
 ## Production Deployment
 
-See [Azure deployment documentation](/azure/README.md) for production deployment instructions.
+See the root README for Vercel, Clerk, and Supabase deployment instructions.

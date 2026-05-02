@@ -395,7 +395,7 @@ export async function uploadBase64ImageToStorage(
   },
 ): Promise<string> {
   // For now, return the data URL directly
-  // In production, you might want to upload to Azure Blob Storage, S3, etc.
+  // In production, you might want to upload to Supabase Storage, S3, etc.
   if (base64Data.startsWith("data:")) {
     return base64Data;
   }

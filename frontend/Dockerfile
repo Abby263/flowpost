@@ -1,5 +1,5 @@
 # Frontend Dockerfile for Next.js Dashboard
-# Optimized for Azure Container Apps with standalone output
+# Optional local container image. Vercel deployments do not use this file.
 
 # Build stage
 FROM node:20-alpine AS builder
@@ -40,8 +40,7 @@ ENV NEXT_PUBLIC_ADMIN_USER_IDS=$NEXT_PUBLIC_ADMIN_USER_IDS
 
 # Build-time only env vars (not exposed in client bundle)
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV SUPABASE_URL=https://build-placeholder.supabase.co
-ENV SUPABASE_SERVICE_ROLE_KEY=build-placeholder-key
+ENV DATABASE_URI=postgresql://build-placeholder
 ENV CLERK_SECRET_KEY=sk_build_placeholder
 ENV LANGGRAPH_API_URL=http://localhost:54367
 
