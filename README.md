@@ -3,6 +3,8 @@
 [![CI](https://github.com/Abby263/flowpost/actions/workflows/ci.yml/badge.svg)](https://github.com/Abby263/flowpost/actions/workflows/ci.yml)
 [![Unit Tests](https://github.com/Abby263/flowpost/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/Abby263/flowpost/actions/workflows/unit-tests.yml)
 
+Live app: [https://flowpost.vercel.app](https://flowpost.vercel.app)
+
 FlowPost is an AI-powered social media automation app. It combines a Next.js dashboard, Clerk authentication, Supabase Postgres, and LangGraph workflows for content discovery, generation, scheduling, and publishing.
 
 ## Stack
@@ -76,7 +78,7 @@ The frontend runs on `http://localhost:3000`; the local LangGraph API defaults t
 Use the Supabase pooled Postgres URL for hosted Vercel deployments to avoid exhausting direct database connections.
 
 ```bash
-DATABASE_URI=postgresql://postgres.<project-ref>:<password>@<region>.pooler.supabase.com:6543/postgres?sslmode=require
+DATABASE_URI=postgresql://postgres.<project-ref>:<password>@<region>.pooler.supabase.com:6543/postgres
 POSTGRES_POOL_MAX=1
 
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
@@ -87,20 +89,22 @@ NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
 
 LANGGRAPH_API_URL=https://your-langgraph-api.example.com
-NEXT_PUBLIC_APP_URL=https://your-vercel-app.vercel.app
+NEXT_PUBLIC_APP_URL=https://flowpost.vercel.app
 ```
 
 Optional provider keys include `OPENAI_API_KEY`, `GEMINI_API_KEY`, `LANGCHAIN_API_KEY`, `SERPER_API_KEY`, `FIRECRAWL_API_KEY`, `PERPLEXITY_API_KEY`, and Stripe keys.
 
 ## Supabase
 
-Create a Supabase project and copy the pooled Postgres connection string from Project Settings → Database → Connection string. Set it as `DATABASE_URI` in local `.env` and in Vercel environment variables.
+Create a Supabase project and copy the pooled Postgres connection string from Project Settings → Database → Connection string. Set it as `DATABASE_URI` in local `.env` and in Vercel environment variables. If you assemble the URL manually, URL-encode special characters in the password.
 
 The migration enables row-level security on app tables. The application uses server-side database access through `DATABASE_URI`, so browser clients do not need direct Supabase table access.
 
 ## Vercel Deployment
 
 Deploy the `frontend/` directory as the Vercel project root. The project includes `frontend/vercel.json` for Vercel builds.
+
+Production URL: [https://flowpost.vercel.app](https://flowpost.vercel.app)
 
 Required Vercel environment variables:
 
