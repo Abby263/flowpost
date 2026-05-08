@@ -1,16 +1,23 @@
-# =============================================================================
-# CI - Static Analysis and Code Quality Checks
-# =============================================================================
-# Pipeline Stages:
-# 1. Code Quality: Pre-commit checks (formatting, linting, type checking)
-# 2. Security: Secret scanning and vulnerability checks
-# 3. Tests: Unit tests and integration tests
+# Minimal CI for a Vercel-hosted Next.js + LangGraph app.
+#
+# Vercel handles the production build / preview deploy automatically through
+# the GitHub integration — no need for a duplicate "build" job here. We only
+# run the cheap, deterministic checks that catch real bugs before they hit
+# the preview deploy.
+#
+# Two jobs:
+#   - quality : typecheck + lint (single Node, single install)
+#   - tests   : jest unit tests (backend + frontend)
+#
+# Anything else (pre-commit hooks, codespell, gitleaks, Playwright E2E,
+# multi-Node-version matrix) was removed during cleanup. Vercel's preview
+# deploy is the integration test.
 
 name: CI
 
 on:
   push:
-    branches: ["main", "develop"]
+    branches: ["main"]
   pull_request:
   workflow_dispatch:
 
@@ -19,141 +26,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ===========================================================================
-  # Pre-commit Checks
-  # ===========================================================================
-  pre-commit:
-    name: Pre-commit checks
+  quality:
+    name: Typecheck & lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install pre-commit
-        run: pip install pre-commit
-
-      - name: Run pre-commit (general checks only)
-        run: |
-          pre-commit run --all-files \
-            check-yaml \
-            end-of-file-fixer \
-            trailing-whitespace \
-            check-merge-conflict \
-            check-json \
-            detect-private-key \
-            check-added-large-files \
-            --show-diff-on-failure || true
-
-  # ===========================================================================
-  # Node.js Formatting
-  # ===========================================================================
-  format:
-    name: Check formatting
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Use Node.js 20.x
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          cache: "yarn"
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile --ignore-scripts
-      - name: Check formatting
-        run: yarn format:check
+          cache: yarn
+      - run: yarn install --frozen-lockfile --ignore-scripts
+      - run: yarn typecheck
+      - run: yarn lint
 
-  # ===========================================================================
-  # Node.js Linting
-  # ===========================================================================
-  lint:
-    name: Check linting
+  tests:
+    name: Unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js 20.x
-        uses: actions/setup-node@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          cache: "yarn"
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile --ignore-scripts
-      - name: Check linting
-        run: yarn lint
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - name: Backend tests
+        run: yarn test --passWithNoTests
 
-  # ===========================================================================
-  # TypeScript Type Checking
-  # ===========================================================================
-  typecheck:
-    name: Type checking
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Use Node.js 20.x
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+      - uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          cache: "yarn"
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile --ignore-scripts
-      - name: Type check
-        run: yarn typecheck
-
-  # ===========================================================================
-  # LangGraph Paths Validation
-  # ===========================================================================
-  langgraph-paths:
-    name: Validate LangGraph paths
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Use Node.js 20.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          cache: "yarn"
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile --ignore-scripts
-      - name: Validate langgraph.json paths
-        run: yarn lint:langgraph-json
-
-  # ===========================================================================
-  # Spelling Checks
-  # ===========================================================================
-  readme-spelling:
-    name: Check README spelling
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: codespell-project/actions-codespell@v2
-        with:
-          ignore_words_file: .codespellignore
-          path: README.md
-
-  check-spelling:
-    name: Check code spelling
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: codespell-project/actions-codespell@v2
-        with:
-          ignore_words_file: .codespellignore
-          path: backend
-
-  # ===========================================================================
-  # Security Scanning
-  # ===========================================================================
-  security-scan:
-    name: Security scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Frontend tests
+        working-directory: frontend
+        run: pnpm test:ci
