@@ -436,7 +436,7 @@ export default function DashboardPage() {
                 <Link
                   key={action.href}
                   href={action.href}
-                  className="group rounded-lg border bg-neutral-50 p-4 transition hover:border-neutral-300 hover:bg-white hover:shadow-sm"
+                  className="group rounded-lg border bg-muted/40 p-4 transition hover:border-border hover:bg-white hover:shadow-sm"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-neutral-900 shadow-sm">
@@ -476,11 +476,11 @@ export default function DashboardPage() {
             {[...data.scheduledPosts, ...data.posts].slice(0, 6).map((post) => (
               <div
                 key={`${post.status}-${post.id}`}
-                className="flex items-start justify-between gap-4 rounded-lg border bg-neutral-50 p-3"
+                className="flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-3"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="bg-white text-xs">
+                    <Badge variant="outline" className="bg-background text-xs">
                       {formatPlatform(post.platform)}
                     </Badge>
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -654,7 +654,7 @@ function PipelineStat({
   value: number;
 }) {
   return (
-    <div className="rounded-lg border bg-neutral-50 p-3">
+    <div className="rounded-lg border bg-muted/40 p-3">
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm text-muted-foreground">{label}</span>
         <Icon className="h-4 w-4 text-muted-foreground" />

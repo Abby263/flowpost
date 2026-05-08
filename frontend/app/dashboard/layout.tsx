@@ -123,7 +123,7 @@ export default function DashboardLayout({
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100 dark:from-neutral-950 dark:to-neutral-900">
       <Navbar />
 
       {/* Mobile Menu Button */}
@@ -150,9 +150,9 @@ export default function DashboardLayout({
 
       {/* Mobile Slide-out Menu */}
       <aside
-        className={`md:hidden fixed inset-y-0 left-0 w-72 bg-white z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`md:hidden fixed inset-y-0 left-0 w-72 bg-background z-50 transform transition-transform duration-300 ease-in-out ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        } overflow-y-auto`}
+        } overflow-y-auto border-r border-border`}
       >
         <div className="p-4 space-y-4">
           {/* Mobile Header */}
@@ -269,7 +269,7 @@ export default function DashboardLayout({
 
       <div className="flex flex-1">
         {/* Desktop Sidebar */}
-        <aside className="w-72 border-r bg-white/80 backdrop-blur-sm p-6 hidden md:block shadow-sm">
+        <aside className="w-72 border-r border-border bg-background/80 backdrop-blur-sm p-6 hidden md:block shadow-sm">
           <div className="space-y-6">
             {/* Brand Section */}
             <div className="px-3">
@@ -431,7 +431,7 @@ export default function DashboardLayout({
             </div>
           </div>
         </aside>
-        <main className="flex-1 bg-white overflow-auto pb-20 md:pb-0">
+        <main className="flex-1 bg-background overflow-auto pb-20 md:pb-0">
           {children}
         </main>
       </div>
