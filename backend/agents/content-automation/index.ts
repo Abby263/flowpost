@@ -1,7 +1,8 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage } from "@langchain/core/messages";
-import { InstagramClient } from "../../clients/instagram/client.js";
+import { InstagramGraphClient } from "../../clients/instagram/graph-client.js";
+import { uploadImageToSupabase } from "../../utils/supabase-storage.js";
 
 // Define the state for our graph
 const ContentAutomationState = Annotation.Root({
@@ -141,20 +142,28 @@ async function publishContent(state: typeof ContentAutomationState.State) {
   console.log(`Publishing to ${state.platform}...`);
 
   if (state.platform === "instagram") {
-    const client = new InstagramClient();
     try {
-      const imageResponse = await fetch(state.imageUrl);
-      const arrayBuffer = await imageResponse.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      await client.uploadPhoto({
-        photo: buffer,
-        caption: state.caption,
-        credentials: state.credentials,
+      const accessToken = state.credentials?.accessToken;
+      const igUserId = state.credentials?.igUserId;
+      const userId = state.credentials?.userId || "unknown";
+      if (!accessToken || !igUserId) {
+        throw new Error(
+          "Instagram credentials missing accessToken or igUserId. Reconnect via Facebook OAuth.",
+        );
+      }
+      const publicImageUrl = await uploadImageToSupabase(state.imageUrl, {
+        userId,
       });
-      console.log("Successfully uploaded to Instagram!");
+      const client = new InstagramGraphClient(accessToken, igUserId);
+      const result = await client.publishImage({
+        imageUrl: publicImageUrl,
+        caption: state.caption,
+      });
+      console.log(
+        `Successfully published to Instagram. Media ${result.mediaId}.`,
+      );
     } catch (error) {
-      console.error("Failed to upload to Instagram:", error);
+      console.error("Failed to publish to Instagram:", error);
     }
   } else {
     console.log(`Platform ${state.platform} not yet implemented.`);

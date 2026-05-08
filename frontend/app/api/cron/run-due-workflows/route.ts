@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query, queryMany, queryOne } from "@/lib/postgres";
+import { decryptToken } from "@/lib/encryption";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,10 @@ interface ConnectionRow {
   id: string;
   platform: string;
   credentials: Record<string, unknown> | null;
+  access_token_encrypted: string | null;
+  ig_business_account_id: string | null;
+  page_id: string | null;
+  connection_status: string | null;
 }
 
 const STALE_RUN_MS = 10 * 60 * 1000;
@@ -92,12 +97,45 @@ export async function GET(request: Request) {
     }
 
     const connection = await queryOne<ConnectionRow>(
-      `SELECT id, platform, credentials FROM connections WHERE id = $1`,
+      `SELECT id, platform, credentials,
+              access_token_encrypted, ig_business_account_id, page_id,
+              connection_status
+         FROM connections WHERE id = $1`,
       [wf.connection_id],
     );
     if (!connection) {
       skipped.push({ id: wf.id, reason: "connection missing" });
       continue;
+    }
+    if (
+      connection.platform === "instagram" &&
+      (connection.connection_status !== "active" ||
+        !connection.access_token_encrypted ||
+        !connection.ig_business_account_id)
+    ) {
+      skipped.push({ id: wf.id, reason: "connection not active (reconnect)" });
+      continue;
+    }
+
+    let agentCredentials: Record<string, unknown> =
+      connection.credentials || {};
+    if (connection.platform === "instagram") {
+      try {
+        agentCredentials = {
+          accessToken: decryptToken(connection.access_token_encrypted!),
+          igUserId: connection.ig_business_account_id,
+          pageId: connection.page_id,
+          userId: wf.user_id,
+        };
+      } catch (err) {
+        skipped.push({
+          id: wf.id,
+          reason: `decrypt failed: ${
+            err instanceof Error ? err.message : "unknown"
+          }`,
+        });
+        continue;
+      }
     }
 
     // Acquire the run lock atomically.
@@ -127,7 +165,7 @@ export async function GET(request: Request) {
             location: wf.location || "",
             stylePrompt: wf.style_prompt || "",
             platform: connection.platform,
-            credentials: connection.credentials,
+            credentials: agentCredentials,
             requiresApproval: wf.requires_approval,
             userId: wf.user_id,
             workflowId: wf.id,

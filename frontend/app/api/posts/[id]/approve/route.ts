@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { insert, query, queryOne } from "@/lib/postgres";
+import { decryptToken } from "@/lib/encryption";
+import { uploadImageToSupabase } from "@/lib/supabase-storage";
+import { InstagramGraphClient } from "@/lib/instagram-graph";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +22,9 @@ interface ConnectionRow {
   id: string;
   platform: string;
   credentials: Record<string, unknown> | null;
+  access_token_encrypted: string | null;
+  ig_business_account_id: string | null;
+  connection_status: string | null;
 }
 
 interface UserCredits {
@@ -79,12 +85,15 @@ export async function POST(
   let connection: ConnectionRow | null = null;
   if (draft.connection_id) {
     connection = await queryOne<ConnectionRow>(
-      `SELECT id, platform, credentials FROM connections WHERE id = $1 AND user_id = $2`,
+      `SELECT id, platform, credentials,
+              access_token_encrypted, ig_business_account_id, connection_status
+         FROM connections WHERE id = $1 AND user_id = $2`,
       [draft.connection_id, userId],
     );
   } else if (draft.workflow_id) {
     connection = await queryOne<ConnectionRow>(
-      `SELECT c.id, c.platform, c.credentials
+      `SELECT c.id, c.platform, c.credentials,
+              c.access_token_encrypted, c.ig_business_account_id, c.connection_status
          FROM connections c
          JOIN workflows w ON w.connection_id = c.id
         WHERE w.id = $1 AND c.user_id = $2`,
@@ -95,6 +104,19 @@ export async function POST(
   if (!connection) {
     return NextResponse.json(
       { error: "No Instagram connection found for this draft" },
+      { status: 400 },
+    );
+  }
+  if (
+    !connection.access_token_encrypted ||
+    !connection.ig_business_account_id ||
+    connection.connection_status !== "active"
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Instagram connection is not active. Reconnect via Facebook OAuth.",
+      },
       { status: 400 },
     );
   }
@@ -125,48 +147,28 @@ export async function POST(
     [userId, draft.id],
   );
 
-  const apiUrl = process.env.LANGGRAPH_API_URL || "http://localhost:54367";
-
   let runOk = false;
   let runError: string | null = null;
+  let permalink: string | null = null;
+  let publicImageUrl = draft.image_url;
   try {
-    const runResponse = await fetch(`${apiUrl}/runs/stream`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        assistant_id: "upload_post",
-        input: {
-          post: draft.content,
-          image: { imageUrl: draft.image_url, mimeType: "image/jpeg" },
-          platform: "instagram",
-          credentials: connection.credentials,
-        },
-        stream_mode: "updates",
-      }),
+    // Always re-host the image so we hand Meta a stable public URL.
+    publicImageUrl = await uploadImageToSupabase(draft.image_url, {
+      userId,
+      postId: draft.id,
     });
 
-    if (!runResponse.ok) {
-      runError = `LangGraph upload returned ${runResponse.status}: ${await runResponse
-        .text()
-        .catch(() => "")}`;
-    } else {
-      // Drain the stream so the run completes.
-      const reader = runResponse.body?.getReader();
-      if (reader) {
-        const decoder = new TextDecoder();
-        let buffer = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          if (/"event":\s*"error"/.test(buffer)) {
-            runError = buffer;
-            break;
-          }
-        }
-      }
-      runOk = !runError;
-    }
+    const accessToken = decryptToken(connection.access_token_encrypted);
+    const client = new InstagramGraphClient(
+      accessToken,
+      connection.ig_business_account_id,
+    );
+    const result = await client.publishImage({
+      imageUrl: publicImageUrl,
+      caption: draft.content,
+    });
+    permalink = result.permalink;
+    runOk = true;
   } catch (err) {
     runError = err instanceof Error ? err.message : String(err);
   }
@@ -219,9 +221,11 @@ export async function POST(
   await query(
     `UPDATE posts
         SET status = 'published',
-            posted_at = NOW()
+            posted_at = NOW(),
+            published_url = $2,
+            image_url = $3
       WHERE id = $1`,
-    [draft.id],
+    [draft.id, permalink, publicImageUrl],
   );
 
   // Optional positive learning: an approval without edits is a weak positive

@@ -7,7 +7,8 @@ import {
 } from "@langchain/langgraph";
 import { TwitterClient } from "../../clients/twitter/client.js";
 import { TwitterApi } from "twitter-api-v2";
-import { InstagramClient } from "../../clients/instagram/client.js";
+import { InstagramGraphClient } from "../../clients/instagram/graph-client.js";
+import { uploadImageToSupabase } from "../../utils/supabase-storage.js";
 import {
   imageUrlToBuffer,
   isTextOnly,
@@ -153,34 +154,47 @@ export async function uploadPost(
   const postToLinkedInOrg = shouldPostToLinkedInOrg(config);
 
   if (state.platform === "instagram") {
-    console.log("Uploading to Instagram...");
-    const client = new InstagramClient();
+    console.log("Uploading to Instagram (Meta Graph API)...");
     try {
       if (!state.image) {
         throw new Error("Image is required for Instagram posts");
       }
+      const accessToken = state.credentials?.accessToken;
+      const igUserId = state.credentials?.igUserId;
+      const userId =
+        state.credentials?.userId || config.configurable?.user_id || "unknown";
+      if (!accessToken || !igUserId) {
+        throw new Error(
+          "Instagram credentials missing accessToken or igUserId. Reconnect via Facebook OAuth.",
+        );
+      }
 
-      const imageResponse = await fetch(state.image.imageUrl);
-      const arrayBuffer = await imageResponse.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      await client.uploadPhoto({
-        photo: buffer,
-        caption: state.post,
-        credentials: state.credentials,
+      // Always re-host through Supabase Storage so the URL is stable and
+      // public for Meta's servers to fetch.
+      const publicImageUrl = await uploadImageToSupabase(state.image.imageUrl, {
+        userId,
       });
-      console.log("✅ Successfully uploaded to Instagram ✅");
+
+      const client = new InstagramGraphClient(accessToken, igUserId);
+      const result = await client.publishImage({
+        imageUrl: publicImageUrl,
+        caption: state.post,
+      });
+      console.log(
+        `✅ Published to Instagram. Media ID ${result.mediaId}${
+          result.permalink ? ` · ${result.permalink}` : ""
+        }`,
+      );
       return {};
     } catch (error: any) {
       console.error("Failed to upload to Instagram:", error);
       await postUploadFailureToSlack({
-        uploadDestination: "instagram" as any,
+        uploadDestination: "instagram" as never,
         error: error.message || error,
         threadId: config.configurable?.thread_id || "unknown",
         postContent: state.post,
         image: state.image,
       });
-      // Re-throw the error so the run fails properly
       throw error;
     }
   } else if (state.platform === "twitter") {

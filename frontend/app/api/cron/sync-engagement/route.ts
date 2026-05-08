@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { insert, query, queryMany } from "@/lib/postgres";
 import { InstagramGraphClient } from "@/lib/instagram-graph";
+import { decryptToken } from "@/lib/encryption";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -8,7 +9,7 @@ export const maxDuration = 60;
 interface ConnectionWithToken {
   id: string;
   user_id: string;
-  graph_access_token: string;
+  access_token_encrypted: string;
   ig_business_account_id: string;
 }
 
@@ -58,11 +59,12 @@ export async function GET(request: Request) {
   }
 
   const connections = await queryMany<ConnectionWithToken>(
-    `SELECT id, user_id, graph_access_token, ig_business_account_id
+    `SELECT id, user_id, access_token_encrypted, ig_business_account_id
        FROM connections
       WHERE platform = 'instagram'
-        AND graph_access_token IS NOT NULL
-        AND ig_business_account_id IS NOT NULL`,
+        AND access_token_encrypted IS NOT NULL
+        AND ig_business_account_id IS NOT NULL
+        AND connection_status = 'active'`,
   );
 
   let totalSynced = 0;
@@ -70,8 +72,9 @@ export async function GET(request: Request) {
 
   for (const conn of connections) {
     try {
+      const accessToken = decryptToken(conn.access_token_encrypted);
       const client = new InstagramGraphClient(
-        conn.graph_access_token,
+        accessToken,
         conn.ig_business_account_id,
       );
       const media = await client.listRecentMedia(25);

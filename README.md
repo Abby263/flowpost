@@ -15,8 +15,9 @@ FlowPost is an AI-powered social media automation app. It combines a Next.js das
 - Reusable publishing workflows with platform, topic, cadence, approval, and run-status controls.
 - Manual post scheduling, AI image generation entry points, content idea generation, analytics cache, billing, and admin views.
 - Human-in-the-loop approval inbox: workflows with "Require Approval" enabled save drafts (caption + image) for review at `/dashboard/approvals`. Reject reasons are persisted as negative learnings the agent uses on the next generation.
-- Self-improving content loop: a Vercel Cron job pulls Instagram engagement (Meta Graph API, opt-in) and feeds top/bottom performers back into the prompt for future posts.
+- Self-improving content loop: a Vercel Cron job pulls Instagram engagement (Meta Graph API) and feeds top/bottom performers back into the prompt for future posts.
 - Daily auto-trigger: a second Vercel Cron sweeps active workflows whose cadence is due and starts a run on LangGraph.
+- Instagram connect flow uses **Meta Graph API OAuth** (Connect with Facebook) — no username/password is ever stored. Tokens are encrypted at rest with AES-GCM and refreshed automatically before they expire.
 
 ## Stack
 
@@ -68,6 +69,7 @@ pnpm install --frozen-lockfile
 ./scripts/run-migration.sh migrations/001_initial_schema.sql
 ./scripts/run-migration.sh migrations/002_analytics_cache.sql
 ./scripts/run-migration.sh migrations/003_approvals_learnings_engagement.sql
+./scripts/run-migration.sh migrations/004_instagram_oauth.sql
 ```
 
 5. Start the LangGraph API locally:
@@ -106,13 +108,31 @@ NEXT_PUBLIC_APP_URL=https://flowpost.vercel.app
 
 Optional provider keys include `OPENAI_API_KEY`, `GEMINI_API_KEY`, `LANGCHAIN_API_KEY`, `SERPER_API_KEY`, `FIRECRAWL_API_KEY`, `PERPLEXITY_API_KEY`, and Stripe keys.
 
+Instagram OAuth (required for the IG connection flow):
+
+```bash
+META_APP_ID=<your meta app id>
+META_APP_SECRET=<your meta app secret>
+TOKEN_ENCRYPTION_KEY=<random 32+ char string>     # Used for AES-GCM at-rest encryption of tokens
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role key>      # Server-side only; never expose
+SUPABASE_STORAGE_BUCKET=post-media                # Public bucket for IG image hosting
+```
+
+The Meta App must:
+
+- Have the Instagram Graph API product enabled
+- Whitelist `${NEXT_PUBLIC_APP_URL}/api/auth/instagram/callback` as an OAuth redirect URI
+- Request scopes: `instagram_basic`, `instagram_content_publish`, `instagram_manage_insights`, `pages_show_list`, `pages_read_engagement`, `business_management`
+- Pass App Review for those scopes if you want any non-test user to connect
+
+Each connecting user must have an Instagram **Business or Creator** account linked to a Facebook Page they admin. The `post-media` Supabase Storage bucket must exist with **Public access ON** so Meta's servers can fetch image URLs.
+
 Cron-related (production):
 
 ```bash
 CRON_SECRET=<random-string>          # Vercel Cron auth (also accepts x-vercel-cron header)
 ```
-
-Per-connection Meta Graph API access for the engagement-sync cron is configured from the Connections UI; no env vars required.
 
 ## Supabase
 

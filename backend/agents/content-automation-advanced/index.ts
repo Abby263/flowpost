@@ -2,7 +2,8 @@ import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage } from "@langchain/core/messages";
 import { generatePostGraph } from "../generate-post/generate-post-graph.js";
-import { InstagramClient } from "../../clients/instagram/client.js";
+import { InstagramGraphClient } from "../../clients/instagram/graph-client.js";
+import { uploadImageToSupabase } from "../../utils/supabase-storage.js";
 import {
   formatLearningPrompt,
   loadLearningContext,
@@ -536,76 +537,46 @@ async function publishToInstagram(
   }
 
   try {
-    const client = new InstagramClient();
+    const accessToken = state.credentials?.accessToken;
+    const igUserId = state.credentials?.igUserId;
+    if (!accessToken || !igUserId) {
+      throw new Error(
+        "Instagram credentials missing accessToken or igUserId. The connection may need to be reconnected via Facebook OAuth.",
+      );
+    }
 
-    // Download the generated image
-    const imageUrl = state.imageUrl || state.image?.imageUrl;
-    if (!imageUrl) {
+    const sourceImageUrl = state.imageUrl || state.image?.imageUrl;
+    if (!sourceImageUrl) {
       throw new Error("No image URL available for Instagram post");
     }
 
-    // Only log URL preview, not full base64 data
-    if (imageUrl && imageUrl.startsWith("data:")) {
-      console.log("📥 Downloading image from: [Base64 data URL]");
-    } else {
-      console.log("📥 Downloading image from:", imageUrl);
-    }
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to download image: ${imageResponse.statusText}`);
-    }
+    console.log("📤 Uploading image to Supabase Storage for Graph API...");
+    const publicImageUrl = await uploadImageToSupabase(sourceImageUrl, {
+      userId: state.userId,
+    });
+    console.log(`   Public URL: ${publicImageUrl}`);
 
-    const arrayBuffer = await imageResponse.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    console.log("📤 Uploading to Instagram...");
-    const result = await client.uploadPhoto({
-      photo: buffer,
+    console.log("📤 Publishing via Meta Graph API...");
+    const client = new InstagramGraphClient(accessToken, igUserId);
+    const result = await client.publishImage({
+      imageUrl: publicImageUrl,
       caption: state.post,
-      credentials: state.credentials,
     });
 
-    console.log("✅ Successfully uploaded to Instagram!");
-    console.log(`   Media ID: ${result.media?.id || "N/A"}`);
-    console.log(
-      `   Published URL: https://www.instagram.com/p/${result.media?.code || "N/A"}/`,
-    );
+    console.log("✅ Successfully published to Instagram!");
+    console.log(`   Media ID: ${result.mediaId}`);
+    if (result.permalink) console.log(`   Permalink: ${result.permalink}`);
+
     return {
       publishStatus: "success",
-      publishedUrl: `https://www.instagram.com/p/${result.media?.code}/`,
+      publishedUrl: result.permalink || undefined,
+      imageUrl: publicImageUrl,
     };
   } catch (error: any) {
-    console.error("❌ Failed to upload to Instagram:", error);
-    console.error("   Error details:", error.message || String(error));
-
-    let userFriendlyError = error.message || String(error);
-
-    // Add helpful context based on error type
-    if (
-      error.message?.includes("login_required") ||
-      error.message?.includes("IgLoginRequiredError")
-    ) {
-      userFriendlyError =
-        `Instagram login failed. This could be due to:\n` +
-        `1. Incorrect username or password\n` +
-        `2. Instagram security measures detected automated behavior\n` +
-        `3. Account requires verification\n\n` +
-        `Please:\n` +
-        `- Verify your Instagram credentials in Connections\n` +
-        `- Try logging in manually through Instagram app first\n` +
-        `- Wait 10-15 minutes before trying again`;
-    } else if (
-      error.message?.includes("verification") ||
-      error.message?.includes("challenge")
-    ) {
-      userFriendlyError =
-        `Instagram requires account verification. ` +
-        `Please log in through the Instagram app or website to complete the security challenge, then try again.`;
-    }
-
+    console.error("❌ Failed to publish to Instagram:", error);
     return {
       publishStatus: "failed",
-      publishError: userFriendlyError,
+      publishError: error?.message || String(error),
     };
   }
 }
