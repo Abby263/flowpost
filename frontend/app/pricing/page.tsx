@@ -134,7 +134,7 @@ export default function PricingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-muted/40">
       <Navbar />
 
       <main className="flex-1">
@@ -154,7 +154,7 @@ export default function PricingPage() {
                 onClick={() => setBillingCycle("monthly")}
                 className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
                   billingCycle === "monthly"
-                    ? "bg-white text-slate-900"
+                    ? "bg-card text-foreground"
                     : "text-white hover:bg-white/10"
                 }`}
               >
@@ -164,7 +164,7 @@ export default function PricingPage() {
                 onClick={() => setBillingCycle("yearly")}
                 className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center gap-1 sm:gap-2 ${
                   billingCycle === "yearly"
-                    ? "bg-white text-slate-900"
+                    ? "bg-card text-foreground"
                     : "text-white hover:bg-white/10"
                 }`}
               >
@@ -195,10 +195,10 @@ export default function PricingPage() {
                 return (
                   <Card
                     key={plan.slug}
-                    className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-white ${
+                    className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-card ${
                       plan.popular
                         ? "border-2 border-blue-500 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500/20 order-first sm:order-none"
-                        : "border border-slate-200"
+                        : "border border-border"
                     }`}
                   >
                     {plan.popular && (
@@ -216,7 +216,7 @@ export default function PricingPage() {
                         <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                       </div>
 
-                      <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                      <h3 className="text-base sm:text-lg font-bold text-foreground">
                         {plan.name}
                       </h3>
                       <p className="text-xs sm:text-sm text-slate-500">
@@ -225,7 +225,7 @@ export default function PricingPage() {
 
                       <div className="mt-2 sm:mt-3">
                         <div className="flex items-baseline gap-1">
-                          <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+                          <span className="text-2xl sm:text-3xl font-extrabold text-foreground">
                             ${perMonth}
                           </span>
                           <span className="text-slate-500 text-xs sm:text-sm">
@@ -239,10 +239,12 @@ export default function PricingPage() {
                         )}
                       </div>
 
-                      <div className="mt-2 sm:mt-3 py-2 px-2.5 sm:px-3 bg-slate-50 rounded-lg">
+                      <div className="mt-2 sm:mt-3 py-2 px-2.5 sm:px-3 bg-muted/40 rounded-lg">
                         <div className="flex items-center justify-between text-xs sm:text-sm">
-                          <span className="text-slate-600">AI Credits</span>
-                          <span className="font-bold text-slate-900">
+                          <span className="text-muted-foreground">
+                            AI Credits
+                          </span>
+                          <span className="font-bold text-foreground">
                             {plan.credits}/mo
                           </span>
                         </div>
@@ -277,7 +279,7 @@ export default function PricingPage() {
                             className="flex items-start gap-1.5 sm:gap-2"
                           >
                             <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-500 shrink-0 mt-0.5" />
-                            <span className="text-xs sm:text-sm text-slate-600">
+                            <span className="text-xs sm:text-sm text-muted-foreground">
                               {feature}
                             </span>
                           </li>
@@ -303,14 +305,14 @@ export default function PricingPage() {
         </section>
 
         {/* FAQ Section */}
-        <section className="py-10 sm:py-16 px-4 bg-white">
+        <section className="py-10 sm:py-16 px-4 bg-card">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-6 sm:mb-10">
               <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs sm:text-sm font-medium mb-2 sm:mb-3">
                 <HelpCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 FAQ
               </div>
-              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
                 Common Questions
               </h2>
             </div>
@@ -319,13 +321,13 @@ export default function PricingPage() {
               {faqs.map((faq, i) => (
                 <div
                   key={i}
-                  className="border border-slate-200 rounded-lg overflow-hidden"
+                  className="border border-border rounded-lg overflow-hidden"
                 >
                   <button
                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                    className="w-full px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors gap-3"
+                    className="w-full px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-muted/40 transition-colors gap-3"
                   >
-                    <span className="font-medium text-slate-900 text-xs sm:text-sm">
+                    <span className="font-medium text-foreground text-xs sm:text-sm">
                       {faq.question}
                     </span>
                     <ChevronDown
@@ -335,7 +337,7 @@ export default function PricingPage() {
                     />
                   </button>
                   {openFaq === i && (
-                    <div className="px-4 sm:px-5 pb-3 sm:pb-4 text-xs sm:text-sm text-slate-600">
+                    <div className="px-4 sm:px-5 pb-3 sm:pb-4 text-xs sm:text-sm text-muted-foreground">
                       {faq.answer}
                     </div>
                   )}
@@ -357,7 +359,7 @@ export default function PricingPage() {
             <Link href="/sign-up">
               <Button
                 size="lg"
-                className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-6 sm:px-8 h-10 sm:h-11 text-sm sm:text-base"
+                className="bg-card text-foreground hover:bg-muted font-semibold px-6 sm:px-8 h-10 sm:h-11 text-sm sm:text-base"
               >
                 Get Started Free
                 <ArrowRight className="ml-1.5 sm:ml-2 h-4 w-4" />

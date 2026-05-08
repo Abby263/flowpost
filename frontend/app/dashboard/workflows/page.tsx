@@ -497,10 +497,10 @@ export default function WorkflowsPage() {
           <div
             className={`flex items-center space-x-2 sm:space-x-3 rounded-lg border-2 px-3 sm:px-4 py-2.5 sm:py-3 shadow-lg backdrop-blur-sm ${
               notification.type === "success"
-                ? "bg-green-50 border-green-300 text-green-800"
+                ? "bg-green-50 dark:bg-green-950/40 border-green-300 dark:border-green-700 dark:border-green-700 text-green-800 dark:text-green-200"
                 : notification.type === "error"
-                  ? "bg-red-50 border-red-300 text-red-800"
-                  : "bg-blue-50 border-blue-300 text-blue-800"
+                  ? "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-700 dark:border-red-700 text-red-800 dark:text-red-200"
+                  : "bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-700 dark:border-blue-700 text-blue-800 dark:text-blue-200"
             }`}
           >
             {notification.type === "success" ? (

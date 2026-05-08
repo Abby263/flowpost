@@ -124,7 +124,7 @@ export default function Home() {
           <div className="mx-auto grid min-h-[calc(100vh-72px)] max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:py-12">
             <div className="min-w-0 space-y-8">
               <div className="space-y-5">
-                <div className="inline-flex items-center gap-2 rounded-full border bg-neutral-50 px-3 py-1.5 text-sm font-medium text-neutral-700">
+                <div className="inline-flex items-center gap-2 rounded-full border bg-muted/40 px-3 py-1.5 text-sm font-medium text-neutral-700">
                   <Sparkles className="h-4 w-4 text-emerald-600" />
                   AI-assisted social publishing
                 </div>
@@ -168,7 +168,7 @@ export default function Home() {
                 {metrics.map((metric) => (
                   <div
                     key={metric.label}
-                    className="rounded-lg border bg-white p-3"
+                    className="rounded-lg border bg-card p-3"
                   >
                     <p className="text-2xl font-semibold">{metric.value}</p>
                     <p className="mt-1 text-xs leading-4 text-neutral-500">
@@ -228,7 +228,7 @@ export default function Home() {
                     {workflowRows.map((row) => (
                       <div
                         key={row.title}
-                        className="min-w-0 rounded-lg border border-white/10 bg-white p-3 text-neutral-950"
+                        className="min-w-0 rounded-lg border border-white/10 bg-card p-3 text-foreground"
                       >
                         <div className="flex min-w-0 items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -244,7 +244,7 @@ export default function Home() {
                               {row.platform}
                             </p>
                           </div>
-                          <span className="shrink-0 rounded-full border bg-neutral-50 px-2.5 py-1 text-xs font-medium">
+                          <span className="shrink-0 rounded-full border bg-muted/40 px-2.5 py-1 text-xs font-medium">
                             {row.status}
                           </span>
                         </div>
@@ -262,7 +262,7 @@ export default function Home() {
         </section>
 
         <section
-          className="border-b bg-neutral-50 px-4 py-14 sm:px-6"
+          className="border-b bg-muted/40 px-4 py-14 sm:px-6"
           id="features"
         >
           <div className="mx-auto max-w-7xl">
@@ -288,9 +288,9 @@ export default function Home() {
                 return (
                   <div
                     key={feature.title}
-                    className="rounded-lg border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    className="rounded-lg border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-neutral-100">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
                       <Icon className="h-5 w-5" />
                     </div>
                     <h3 className="mt-5 font-semibold">{feature.title}</h3>
@@ -386,20 +386,20 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t bg-white px-4 py-8 sm:px-6">
+      <footer className="border-t bg-card px-4 py-8 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-neutral-500 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-neutral-950">
+          <div className="flex items-center gap-2 text-foreground">
             <Sparkles className="h-4 w-4" />
             <span className="font-semibold">FlowPost</span>
           </div>
           <div className="flex flex-wrap gap-4">
-            <Link href="/pricing" className="hover:text-neutral-950">
+            <Link href="/pricing" className="hover:text-foreground">
               Pricing
             </Link>
-            <Link href="/sign-up" className="hover:text-neutral-950">
+            <Link href="/sign-up" className="hover:text-foreground">
               Get started
             </Link>
-            <Link href="/dashboard" className="hover:text-neutral-950">
+            <Link href="/dashboard" className="hover:text-foreground">
               Dashboard
             </Link>
           </div>

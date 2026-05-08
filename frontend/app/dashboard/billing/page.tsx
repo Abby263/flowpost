@@ -177,7 +177,7 @@ export default function BillingPage() {
 
       {/* Header */}
       <div className="mb-6 sm:mb-8">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">
           Billing
         </h1>
         <p className="text-slate-500 text-xs sm:text-sm mt-1">
@@ -196,7 +196,7 @@ export default function BillingPage() {
                   <PlanIcon className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <p className="font-bold text-slate-900">
+                  <p className="font-bold text-foreground">
                     {currentPlan?.name || "Free"} Plan
                   </p>
                   <p className="text-xs text-slate-500">
@@ -225,7 +225,7 @@ export default function BillingPage() {
                 <p className="text-[10px] sm:text-xs text-slate-500 mb-1">
                   Credits/mo
                 </p>
-                <p className="font-semibold text-sm sm:text-base text-slate-900">
+                <p className="font-semibold text-sm sm:text-base text-foreground">
                   {currentPlan?.credits_per_month || 10}
                 </p>
               </div>
@@ -233,7 +233,7 @@ export default function BillingPage() {
                 <p className="text-[10px] sm:text-xs text-slate-500 mb-1">
                   Workflows
                 </p>
-                <p className="font-semibold text-sm sm:text-base text-slate-900">
+                <p className="font-semibold text-sm sm:text-base text-foreground">
                   {currentPlan?.max_workflows === 999
                     ? "∞"
                     : currentPlan?.max_workflows || 1}
@@ -243,7 +243,7 @@ export default function BillingPage() {
                 <p className="text-[10px] sm:text-xs text-slate-500 mb-1">
                   Connections
                 </p>
-                <p className="font-semibold text-sm sm:text-base text-slate-900">
+                <p className="font-semibold text-sm sm:text-base text-foreground">
                   {currentPlan?.max_connections === 999
                     ? "∞"
                     : currentPlan?.max_connections || 1}
@@ -302,7 +302,7 @@ export default function BillingPage() {
       {/* Upgrade Plans - Compact */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900">
+          <h2 className="text-base sm:text-lg font-bold text-foreground">
             All Plans
           </h2>
         </div>
@@ -318,28 +318,28 @@ export default function BillingPage() {
                 className={`p-3 sm:p-4 rounded-xl border-2 transition-all ${
                   isCurrentPlan
                     ? "border-blue-500 bg-blue-50"
-                    : "border-slate-200 hover:border-slate-300"
+                    : "border-border hover:border-slate-300"
                 }`}
               >
                 <div className="flex items-center gap-1.5 sm:gap-2 mb-2">
                   <div
                     className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center ${
-                      isCurrentPlan ? "bg-blue-600" : "bg-slate-100"
+                      isCurrentPlan ? "bg-blue-600" : "bg-muted"
                     }`}
                   >
                     <Icon
                       className={`h-3 w-3 sm:h-4 sm:w-4 ${
-                        isCurrentPlan ? "text-white" : "text-slate-600"
+                        isCurrentPlan ? "text-white" : "text-muted-foreground"
                       }`}
                     />
                   </div>
-                  <span className="font-semibold text-xs sm:text-sm text-slate-900 truncate">
+                  <span className="font-semibold text-xs sm:text-sm text-foreground truncate">
                     {plan.name}
                   </span>
                 </div>
 
                 <div className="flex items-baseline gap-0.5 sm:gap-1 mb-1 sm:mb-2">
-                  <span className="text-lg sm:text-xl font-bold text-slate-900">
+                  <span className="text-lg sm:text-xl font-bold text-foreground">
                     ${plan.price_monthly}
                   </span>
                   <span className="text-[10px] sm:text-xs text-slate-500">

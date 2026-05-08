@@ -204,10 +204,23 @@ flowpost/
 ├── backend/              # LangGraph agents, integrations, utility code
 ├── frontend/             # Next.js dashboard and API routes
 ├── migrations/           # Supabase/Postgres SQL migrations
-├── scripts/              # LangGraph and database helper scripts
+├── scripts/              # Operator scripts (migrations, QStash setup, dev launcher)
 ├── tests/                # Unit and E2E tests
-├── docker-compose.yml    # Optional local Postgres + LangGraph + frontend stack
-└── langgraph.json        # LangGraph graph registry
+├── docker/               # Optional local Postgres + LangGraph + frontend stack
+├── docs/                 # Long-form docs
+└── langgraph.json        # LangGraph graph registry (root for the LangGraph CLI)
+```
+
+Local dev launcher:
+
+```bash
+./scripts/run-local.sh
+```
+
+Docker stack (optional, for an all-in-one local environment):
+
+```bash
+docker compose -f docker/docker-compose.yml --project-directory . up --build
 ```
 
 ## Notes

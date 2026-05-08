@@ -286,7 +286,7 @@ export default function WorkflowDetailPage() {
 
       {/* Workflow Configuration */}
       <Card className="shadow-md">
-        <CardHeader className="border-b bg-slate-50">
+        <CardHeader className="border-b bg-muted/40">
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-blue-600" />
             Workflow Configuration
@@ -367,7 +367,7 @@ export default function WorkflowDetailPage() {
 
       {/* Run History */}
       <Card className="shadow-md">
-        <CardHeader className="border-b bg-slate-50">
+        <CardHeader className="border-b bg-muted/40">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-blue-600" />
@@ -381,7 +381,7 @@ export default function WorkflowDetailPage() {
         <CardContent className="pt-6">
           {posts.length === 0 ? (
             <div className="text-center py-16">
-              <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
                 <Activity className="h-8 w-8 text-muted-foreground" />
               </div>
               <p className="text-lg font-medium text-muted-foreground">

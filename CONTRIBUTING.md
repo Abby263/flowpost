@@ -62,7 +62,7 @@ cp .env.example .env
 # Edit .env with your API keys
 
 # 5. Start development servers
-./run.sh
+./scripts/run-local.sh
 ```
 
 ### Project Structure

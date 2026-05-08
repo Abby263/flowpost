@@ -1,5 +1,6 @@
-# Docker Compose override for development
-# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Docker Compose override for hot-reload local development.
+# Run from the repo root:
+#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml --project-directory . up
 
 services:
   backend:
