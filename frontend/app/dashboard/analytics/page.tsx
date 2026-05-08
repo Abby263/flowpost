@@ -670,14 +670,14 @@ export default function AnalyticsPage() {
               </span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="border-2 border-slate-200 bg-gradient-to-br from-slate-50 to-white">
+              <Card className="border-2 border-border bg-gradient-to-br from-slate-50 to-white">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-slate-700">
+                  <CardTitle className="text-sm font-medium text-foreground">
                     Impressions
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-slate-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {formatCompactNumber(engagementTotals.impressions)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -1123,7 +1123,7 @@ export default function AnalyticsPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Performance Insight */}
-                  <div className="p-4 rounded-lg bg-white border border-indigo-100">
+                  <div className="p-4 rounded-lg bg-card border border-indigo-100">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
                         <TrendingUp className="h-4 w-4 text-green-600" />
@@ -1145,7 +1145,7 @@ export default function AnalyticsPage() {
                   </div>
 
                   {/* Automation Insight */}
-                  <div className="p-4 rounded-lg bg-white border border-indigo-100">
+                  <div className="p-4 rounded-lg bg-card border border-indigo-100">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
                         <Sparkles className="h-4 w-4 text-purple-600" />
@@ -1166,7 +1166,7 @@ export default function AnalyticsPage() {
                   </div>
 
                   {/* Content Mix Insight */}
-                  <div className="p-4 rounded-lg bg-white border border-indigo-100">
+                  <div className="p-4 rounded-lg bg-card border border-indigo-100">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
                         <Lightbulb className="h-4 w-4 text-amber-600" />
@@ -1187,7 +1187,7 @@ export default function AnalyticsPage() {
                   </div>
 
                   {/* Platform Strategy */}
-                  <div className="p-4 rounded-lg bg-white border border-indigo-100">
+                  <div className="p-4 rounded-lg bg-card border border-indigo-100">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
                         <ImageIcon className="h-4 w-4 text-blue-600" />

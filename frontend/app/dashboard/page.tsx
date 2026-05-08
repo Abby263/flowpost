@@ -300,7 +300,7 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button
                 asChild
-                className="bg-white text-neutral-950 hover:bg-neutral-100"
+                className="bg-card text-foreground hover:bg-muted"
               >
                 <Link href="/dashboard/workflows">
                   <Workflow className="h-4 w-4" />
@@ -360,7 +360,7 @@ export default function DashboardPage() {
       </section>
 
       {errors.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:text-amber-200">
           <div className="flex gap-3">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
@@ -406,7 +406,7 @@ export default function DashboardPage() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-5">
+        <div className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="font-semibold tracking-tight">Quick actions</h2>
@@ -436,13 +436,13 @@ export default function DashboardPage() {
                 <Link
                   key={action.href}
                   href={action.href}
-                  className="group rounded-lg border bg-muted/40 p-4 transition hover:border-border hover:bg-white hover:shadow-sm"
+                  className="group rounded-lg border bg-muted/40 p-4 transition hover:border-border hover:bg-card hover:shadow-sm"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-neutral-900 shadow-sm">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-card text-foreground shadow-sm">
                       <Icon className="h-4 w-4" />
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-neutral-900" />
+                    <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
                   </div>
                   <h3 className="mt-3 text-sm font-semibold">{action.title}</h3>
                   <p className="mt-1 text-sm leading-5 text-muted-foreground">
@@ -454,7 +454,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-5">
+        <div className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="font-semibold tracking-tight">
@@ -512,7 +512,7 @@ export default function DashboardPage() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-3">
-        <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-5 xl:col-span-2">
+        <div className="rounded-lg border bg-card p-4 shadow-sm sm:p-5 xl:col-span-2">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="font-semibold tracking-tight">
@@ -631,9 +631,9 @@ function MetricCard({
   detail: string;
 }) {
   return (
-    <div className="rounded-lg border bg-white p-4 shadow-sm">
+    <div className="rounded-lg border bg-card p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-neutral-100 text-neutral-900">
+        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-foreground">
           <Icon className="h-4 w-4" />
         </div>
         <span className="text-2xl font-semibold">{value}</span>
@@ -673,10 +673,10 @@ function StatusBadge({ status }: { status: string }) {
     normalized,
   );
   const className = isGood
-    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300"
     : isWarning
-      ? "border-amber-200 bg-amber-50 text-amber-700"
-      : "border-red-200 bg-red-50 text-red-700";
+      ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300"
+      : "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300";
 
   return (
     <Badge variant="outline" className={`shrink-0 capitalize ${className}`}>

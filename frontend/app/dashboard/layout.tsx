@@ -190,12 +190,12 @@ export default function DashboardLayout({
                     className={`w-full justify-start h-auto py-2.5 px-3 ${
                       isActive
                         ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                        : "hover:bg-slate-100"
+                        : "hover:bg-muted"
                     }`}
                   >
                     <div className="flex items-center gap-3 w-full">
                       <Icon
-                        className={`h-5 w-5 shrink-0 ${isActive ? "" : "text-slate-600"}`}
+                        className={`h-5 w-5 shrink-0 ${isActive ? "" : "text-muted-foreground"}`}
                       />
                       <span className="font-medium text-sm">{item.label}</span>
                     </div>
@@ -207,14 +207,14 @@ export default function DashboardLayout({
             {/* Admin Link - Mobile */}
             {isAdmin && (
               <>
-                <div className="my-2 border-t border-slate-200" />
+                <div className="my-2 border-t border-border" />
                 <Link href="/admin">
                   <Button
                     variant={pathname === "/admin" ? "default" : "ghost"}
                     className={`w-full justify-start h-auto py-2.5 px-3 ${
                       pathname === "/admin"
                         ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
-                        : "hover:bg-slate-100"
+                        : "hover:bg-muted"
                     }`}
                   >
                     <div className="flex items-center gap-3 w-full">
@@ -233,11 +233,11 @@ export default function DashboardLayout({
 
           {/* Mobile Credits */}
           <div className="pt-2">
-            <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg p-3 border border-violet-100">
+            <div className="bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/40 dark:to-purple-950/40 rounded-lg p-3 border border-violet-100 dark:border-violet-900/40">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Coins className="h-4 w-4 text-violet-600" />
-                  <span className="text-sm font-semibold text-violet-900">
+                  <Coins className="h-4 w-4 text-violet-600 dark:text-violet-300" />
+                  <span className="text-sm font-semibold text-violet-900 dark:text-violet-200">
                     Credits
                   </span>
                 </div>
@@ -245,12 +245,14 @@ export default function DashboardLayout({
               {credits ? (
                 <>
                   <div className="flex items-baseline gap-1 mb-2">
-                    <span className="text-xl font-bold text-violet-900">
+                    <span className="text-xl font-bold text-violet-900 dark:text-violet-200">
                       {credits.total_credits}
                     </span>
-                    <span className="text-xs text-violet-600">remaining</span>
+                    <span className="text-xs text-violet-600 dark:text-violet-300">
+                      remaining
+                    </span>
                   </div>
-                  <div className="w-full bg-violet-200 rounded-full h-1.5">
+                  <div className="w-full bg-violet-200 dark:bg-violet-900/50 rounded-full h-1.5">
                     <div
                       className="bg-gradient-to-r from-violet-500 to-purple-500 h-1.5 rounded-full transition-all"
                       style={{
@@ -260,7 +262,7 @@ export default function DashboardLayout({
                   </div>
                 </>
               ) : (
-                <div className="animate-pulse h-6 bg-violet-200 rounded w-16"></div>
+                <div className="animate-pulse h-6 bg-violet-200 dark:bg-violet-900/50 rounded w-16"></div>
               )}
             </div>
           </div>
@@ -304,12 +306,12 @@ export default function DashboardLayout({
                       className={`w-full justify-start h-auto py-3 px-3 ${
                         isActive
                           ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                          : "hover:bg-slate-100"
+                          : "hover:bg-muted"
                       }`}
                     >
                       <div className="flex items-center gap-3 w-full">
                         <Icon
-                          className={`h-5 w-5 shrink-0 ${isActive ? "" : "text-slate-600"}`}
+                          className={`h-5 w-5 shrink-0 ${isActive ? "" : "text-muted-foreground"}`}
                         />
                         <div className="flex flex-col items-start text-left">
                           <span className="font-medium">{item.label}</span>
@@ -328,7 +330,7 @@ export default function DashboardLayout({
               {/* Admin Link - Only visible to admins */}
               {isAdmin && (
                 <>
-                  <div className="my-2 border-t border-slate-200" />
+                  <div className="my-2 border-t border-border" />
                   <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                     Admin
                   </p>
@@ -338,7 +340,7 @@ export default function DashboardLayout({
                       className={`w-full justify-start h-auto py-3 px-3 ${
                         pathname === "/admin"
                           ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
-                          : "hover:bg-slate-100"
+                          : "hover:bg-muted"
                       }`}
                     >
                       <div className="flex items-center gap-3 w-full">
@@ -362,11 +364,11 @@ export default function DashboardLayout({
 
             {/* Credits Section */}
             <div className="px-3 pt-4 border-t">
-              <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg p-4 border border-violet-100">
+              <div className="bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/40 dark:to-purple-950/40 rounded-lg p-4 border border-violet-100 dark:border-violet-900/40">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Coins className="h-4 w-4 text-violet-600" />
-                    <span className="text-sm font-semibold text-violet-900">
+                    <Coins className="h-4 w-4 text-violet-600 dark:text-violet-300" />
+                    <span className="text-sm font-semibold text-violet-900 dark:text-violet-200">
                       AI Credits
                     </span>
                   </div>
@@ -374,7 +376,7 @@ export default function DashboardLayout({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 px-2 text-xs text-violet-600 hover:text-violet-700 hover:bg-violet-100"
+                      className="h-6 px-2 text-xs text-violet-600 dark:text-violet-300 hover:text-violet-700 hover:bg-violet-100"
                     >
                       <Zap className="h-3 w-3 mr-1" />
                       Get More
@@ -383,18 +385,20 @@ export default function DashboardLayout({
                 </div>
                 {isLoadingCredits ? (
                   <div className="animate-pulse">
-                    <div className="h-8 bg-violet-200 rounded w-20 mb-2"></div>
-                    <div className="h-2 bg-violet-200 rounded w-full"></div>
+                    <div className="h-8 bg-violet-200 dark:bg-violet-900/50 rounded w-20 mb-2"></div>
+                    <div className="h-2 bg-violet-200 dark:bg-violet-900/50 rounded w-full"></div>
                   </div>
                 ) : credits ? (
                   <>
                     <div className="flex items-baseline gap-1 mb-2">
-                      <span className="text-2xl font-bold text-violet-900">
+                      <span className="text-2xl font-bold text-violet-900 dark:text-violet-200">
                         {credits.total_credits}
                       </span>
-                      <span className="text-xs text-violet-600">remaining</span>
+                      <span className="text-xs text-violet-600 dark:text-violet-300">
+                        remaining
+                      </span>
                     </div>
-                    <div className="w-full bg-violet-200 rounded-full h-2 mb-2">
+                    <div className="w-full bg-violet-200 dark:bg-violet-900/50 rounded-full h-2 mb-2">
                       <div
                         className="bg-gradient-to-r from-violet-500 to-purple-500 h-2 rounded-full transition-all"
                         style={{
@@ -402,12 +406,12 @@ export default function DashboardLayout({
                         }}
                       ></div>
                     </div>
-                    <p className="text-xs text-violet-600">
+                    <p className="text-xs text-violet-600 dark:text-violet-300">
                       {credits.credits_used_this_month} used this month
                     </p>
                   </>
                 ) : (
-                  <p className="text-xs text-violet-600">
+                  <p className="text-xs text-violet-600 dark:text-violet-300">
                     Unable to load credits
                   </p>
                 )}
@@ -416,14 +420,14 @@ export default function DashboardLayout({
 
             {/* Pro Tip Section */}
             <div className="px-3 pt-3">
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 rounded-lg p-4 border border-blue-100 dark:border-blue-900/40">
                 <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-semibold text-blue-900">
+                  <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+                  <span className="text-sm font-semibold text-blue-900 dark:text-blue-200">
                     Pro Tip
                   </span>
                 </div>
-                <p className="text-xs text-blue-800 leading-relaxed">
+                <p className="text-xs text-blue-800 dark:text-blue-200 leading-relaxed">
                   Schedule workflows to run automatically at specific times for
                   consistent posting.
                 </p>

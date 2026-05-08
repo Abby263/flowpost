@@ -889,7 +889,7 @@ export default function AdminDashboard() {
                 </>
               ) : (
                 <div className="text-center py-8">
-                  <Server className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+                  <Server className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-slate-400">No cost data available</p>
                   <p className="text-xs text-slate-500 mt-1">
                     Costs will appear when using AI services
@@ -1485,7 +1485,7 @@ export default function AdminDashboard() {
               </div>
             ) : filteredUsers.length === 0 ? (
               <div className="text-center py-8">
-                <Users className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                 <p className="text-slate-400">
                   {userSearch ? "No users match your search" : "No users found"}
                 </p>
