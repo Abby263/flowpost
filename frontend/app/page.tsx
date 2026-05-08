@@ -116,11 +116,11 @@ const setupSteps = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-950">
+    <div className="min-h-screen bg-background text-foreground">
       <Navbar />
 
       <main>
-        <section className="overflow-hidden border-b bg-white">
+        <section className="overflow-hidden border-b bg-card">
           <div className="mx-auto grid min-h-[calc(100vh-72px)] max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:py-12">
             <div className="min-w-0 space-y-8">
               <div className="space-y-5">
@@ -304,7 +304,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="bg-white px-4 py-14 sm:px-6" id="how-it-works">
+        <section className="bg-card px-4 py-14 sm:px-6" id="how-it-works">
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wider text-emerald-700">

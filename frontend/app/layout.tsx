@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "FlowPost - AI Social Publishing Command Center",
@@ -22,8 +23,10 @@ export default function RootLayout({
 
   return (
     <ClerkProvider publishableKey={publishableKey}>
-      <html lang="en">
-        <body className="antialiased">{children}</body>
+      <html lang="en" suppressHydrationWarning>
+        <body className="antialiased">
+          <ThemeProvider>{children}</ThemeProvider>
+        </body>
       </html>
     </ClerkProvider>
   );

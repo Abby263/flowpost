@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { LayoutDashboard, Sparkles } from "lucide-react";
 
 export function Navbar() {
@@ -41,13 +42,13 @@ function NavbarContent({
   const isPricingPage = pathname === "/pricing";
 
   return (
-    <nav className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur-md">
+    <nav className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-950 text-white shadow-sm transition group-hover:bg-neutral-800">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground text-background shadow-sm transition group-hover:opacity-80">
             <Sparkles className="h-5 w-5" />
           </div>
-          <span className="text-xl font-semibold tracking-tight text-neutral-950 sm:text-2xl">
+          <span className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
             FlowPost
           </span>
         </Link>
@@ -56,13 +57,13 @@ function NavbarContent({
           <div className="hidden items-center gap-6 md:flex">
             <Link
               href="/#features"
-              className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               Features
             </Link>
             <Link
               href="/#how-it-works"
-              className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               How It Works
             </Link>
@@ -70,8 +71,8 @@ function NavbarContent({
               href="/pricing"
               className={`text-sm font-medium transition-colors ${
                 isPricingPage
-                  ? "text-violet-600"
-                  : "text-slate-600 hover:text-slate-900"
+                  ? "text-violet-600 dark:text-violet-400"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Pricing
@@ -80,10 +81,14 @@ function NavbarContent({
         )}
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <ThemeToggle />
           {isSignedIn ? (
             <>
               {(isLandingPage || isPricingPage) && (
-                <Button asChild className="bg-neutral-950 hover:bg-neutral-800">
+                <Button
+                  asChild
+                  className="bg-foreground text-background hover:opacity-90"
+                >
                   <Link href="/dashboard">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
@@ -93,7 +98,9 @@ function NavbarContent({
               {userMenu && (
                 <div
                   className={
-                    isLandingPage || isPricingPage ? "ml-1 border-l pl-3" : ""
+                    isLandingPage || isPricingPage
+                      ? "ml-1 border-l border-border pl-3"
+                      : ""
                   }
                 >
                   {userMenu}
@@ -109,7 +116,10 @@ function NavbarContent({
               <Button asChild variant="outline">
                 <Link href="/sign-in">Sign in</Link>
               </Button>
-              <Button asChild className="bg-neutral-950 hover:bg-neutral-800">
+              <Button
+                asChild
+                className="bg-foreground text-background hover:opacity-90"
+              >
                 <Link href="/sign-up">Get started</Link>
               </Button>
             </div>
