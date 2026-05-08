@@ -1,7 +1,6 @@
 # FlowPost
 
 [![CI](https://github.com/Abby263/flowpost/actions/workflows/ci.yml/badge.svg)](https://github.com/Abby263/flowpost/actions/workflows/ci.yml)
-[![Unit Tests](https://github.com/Abby263/flowpost/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/Abby263/flowpost/actions/workflows/unit-tests.yml)
 
 Live app: [https://flowpost.vercel.app](https://flowpost.vercel.app)
 
@@ -178,24 +177,17 @@ npx vercel deploy --prod
 
 ## Quality Checks
 
-Root backend checks:
+CI runs `yarn typecheck`, `yarn lint`, and unit tests on every PR. Vercel runs the production build separately as a deploy preview. Run the same locally before pushing:
 
 ```bash
-yarn lint
-yarn typecheck
-yarn test --passWithNoTests
-yarn lint:langgraph-json
-yarn format:check
+# Backend (typecheck + lint + jest)
+yarn typecheck && yarn lint && yarn test --passWithNoTests
+
+# Frontend (jest + Next.js build)
+cd frontend && pnpm test:ci && pnpm build
 ```
 
-Frontend checks:
-
-```bash
-cd frontend
-pnpm lint
-pnpm test:ci
-pnpm build
-```
+Optional pre-commit hooks (`pre-commit install`) handle prettier + linting locally; not enforced in CI.
 
 ## Repository Layout
 
