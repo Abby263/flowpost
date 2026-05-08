@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query, queryMany } from "@/lib/postgres";
 import { decryptToken, encryptToken } from "@/lib/encryption";
 import { exchangeForLongLivedToken } from "@/lib/meta-oauth";
+import { refreshAccessToken as refreshTwitterToken } from "@/lib/twitter-oauth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -9,7 +10,9 @@ export const maxDuration = 60;
 interface RefreshableConnection {
   id: string;
   user_id: string;
+  platform: string;
   access_token_encrypted: string;
+  refresh_token_encrypted: string | null;
   token_expires_at: string | null;
 }
 
@@ -24,29 +27,41 @@ function isCronAuthorized(request: Request): boolean {
 
 // GET /api/cron/refresh-tokens
 //
-// Meta long-lived tokens last 60 days. To avoid surprise expiries we re-issue
-// them when they're within 14 days of expiring. Tokens already expired are
-// flipped to connection_status='expired' so the UI prompts a reconnect (we
-// can't refresh after the fact — the user must redo the OAuth flow).
+// Per-platform refresh strategy:
+//
+//   Instagram (Meta long-lived Page tokens, 60-day lifetime):
+//     - Re-exchange when within 14 days of expiry.
+//     - Mark expired rows status='expired' so the UI surfaces a Reconnect.
+//
+//   Twitter (OAuth 2.0 access tokens, 2-hour lifetime + refresh tokens):
+//     - The trigger-workflow + queue-worker paths already auto-refresh
+//       inline (see lib/agent-credentials.ts) when running a workflow. This
+//       cron is the safety net: if a connection hasn't been used in a while
+//       and the *refresh token* has expired, we mark the row expired so the
+//       user sees the Reconnect badge before clicking Run.
+//
+//   LinkedIn (OAuth 2.0, 60-day access token, no refresh):
+//     - Same as Meta but with no refresh path — only mark expired.
 export async function GET(request: Request) {
   if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mark expired tokens as such.
+  // Mark expired tokens. Same query covers all platforms.
   const expired = await query(
     `UPDATE connections
         SET connection_status = 'expired'
-      WHERE platform = 'instagram'
+      WHERE platform IN ('instagram', 'twitter', 'linkedin')
         AND access_token_encrypted IS NOT NULL
         AND token_expires_at IS NOT NULL
         AND token_expires_at < NOW()
         AND connection_status != 'expired'`,
   );
 
-  // Find tokens that will expire in the next 14 days and re-exchange them.
-  const candidates = await queryMany<RefreshableConnection>(
-    `SELECT id, user_id, access_token_encrypted, token_expires_at
+  // Refresh Meta long-lived tokens within 14 days of expiry.
+  const igCandidates = await queryMany<RefreshableConnection>(
+    `SELECT id, user_id, platform, access_token_encrypted,
+            refresh_token_encrypted, token_expires_at
        FROM connections
       WHERE platform = 'instagram'
         AND connection_status = 'active'
@@ -56,10 +71,26 @@ export async function GET(request: Request) {
         AND token_expires_at > NOW()`,
   );
 
-  let refreshed = 0;
-  const errors: { connection_id: string; error: string }[] = [];
+  // Refresh Twitter tokens within 1 day of expiry that haven't been used
+  // recently. (Inline refresh in agent-credentials handles in-use cases.)
+  const twCandidates = await queryMany<RefreshableConnection>(
+    `SELECT id, user_id, platform, access_token_encrypted,
+            refresh_token_encrypted, token_expires_at
+       FROM connections
+      WHERE platform = 'twitter'
+        AND connection_status = 'active'
+        AND access_token_encrypted IS NOT NULL
+        AND refresh_token_encrypted IS NOT NULL
+        AND token_expires_at IS NOT NULL
+        AND token_expires_at < NOW() + INTERVAL '1 day'
+        AND token_expires_at > NOW()`,
+  );
 
-  for (const c of candidates) {
+  let refreshed = 0;
+  const errors: { connection_id: string; platform: string; error: string }[] =
+    [];
+
+  for (const c of igCandidates) {
     try {
       const current = decryptToken(c.access_token_encrypted);
       const longLived = await exchangeForLongLivedToken(current);
@@ -68,18 +99,48 @@ export async function GET(request: Request) {
       ).toISOString();
       await query(
         `UPDATE connections
-            SET access_token_encrypted = $1,
-                token_expires_at = $2,
+            SET access_token_encrypted = $1, token_expires_at = $2,
                 connection_status = 'active'
           WHERE id = $3`,
         [encryptToken(longLived.access_token), newExpiresAt, c.id],
       );
       refreshed += 1;
     } catch (err) {
-      // Refresh failed — leave the token as-is for now; the next run will
-      // either retry or (if it expires) flip it to expired.
       errors.push({
         connection_id: c.id,
+        platform: c.platform,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  for (const c of twCandidates) {
+    if (!c.refresh_token_encrypted) continue;
+    try {
+      const refreshToken = decryptToken(c.refresh_token_encrypted);
+      const fresh = await refreshTwitterToken(refreshToken);
+      const newExpiresAt = new Date(
+        Date.now() + (fresh.expires_in || 7200) * 1000,
+      ).toISOString();
+      await query(
+        `UPDATE connections
+            SET access_token_encrypted = $1,
+                refresh_token_encrypted = COALESCE($2, refresh_token_encrypted),
+                token_expires_at = $3,
+                connection_status = 'active'
+          WHERE id = $4`,
+        [
+          encryptToken(fresh.access_token),
+          fresh.refresh_token ? encryptToken(fresh.refresh_token) : null,
+          newExpiresAt,
+          c.id,
+        ],
+      );
+      refreshed += 1;
+    } catch (err) {
+      errors.push({
+        connection_id: c.id,
+        platform: c.platform,
         error: err instanceof Error ? err.message : String(err),
       });
     }

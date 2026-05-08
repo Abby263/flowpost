@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { queryOne, query, insert, upsert } from "@/lib/postgres";
 import { CREDITS_CONFIG } from "@/config";
-import { decryptToken } from "@/lib/encryption";
 import { isAdmin } from "@/lib/admin";
+import {
+  buildAgentCredentials,
+  CONNECTION_COLUMNS,
+  type ConnectionRow,
+} from "@/lib/agent-credentials";
 
 export const dynamic = "force-dynamic";
 
@@ -32,15 +36,7 @@ interface Workflow {
   current_run_id: string | null;
 }
 
-interface Connection {
-  id: string;
-  platform: string;
-  credentials: Record<string, unknown>;
-  access_token_encrypted: string | null;
-  ig_business_account_id: string | null;
-  page_id: string | null;
-  connection_status: string | null;
-}
+type Connection = ConnectionRow;
 
 interface Plan {
   id: string;
@@ -207,12 +203,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Fetch connection credentials (including OAuth fields for Instagram)
+    // 4. Fetch connection credentials.
     const connection = await queryOne<Connection>(
-      `SELECT id, platform, credentials,
-              access_token_encrypted, ig_business_account_id, page_id,
-              connection_status
-         FROM connections
+      `SELECT ${CONNECTION_COLUMNS} FROM connections
         WHERE id = $1 AND user_id = $2`,
       [workflow.connection_id, userId],
     );
@@ -232,62 +225,25 @@ export async function POST(request: Request) {
       );
     }
 
-    // 5. Prepare credentials for the agent.
-    //    Instagram now uses Meta Graph API: decrypt the access token and pass
-    //    the bits the agent's publish nodes expect.
-    let agentCredentials: Record<string, unknown> =
-      connection.credentials || {};
-    if (connection.platform === "instagram") {
-      if (
-        !connection.access_token_encrypted ||
-        !connection.ig_business_account_id ||
-        connection.connection_status !== "active"
-      ) {
-        await query(
-          `UPDATE workflows
-              SET run_status = 'failed',
-                  run_completed_at = NOW(),
-                  last_error = $1
-            WHERE id = $2`,
-          [
-            "Instagram connection is not active. Reconnect via Facebook OAuth.",
-            workflowId,
-          ],
-        );
-        return NextResponse.json(
-          {
-            error:
-              "Instagram connection is not active. Reconnect via Facebook OAuth on the Connections page.",
-          },
-          { status: 400 },
-        );
-      }
-
-      let accessToken: string;
-      try {
-        accessToken = decryptToken(connection.access_token_encrypted);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "decrypt failed";
-        await query(
-          `UPDATE workflows
-              SET run_status = 'failed',
-                  run_completed_at = NOW(),
-                  last_error = $1
-            WHERE id = $2`,
-          [`Token decrypt failed: ${msg}`, workflowId],
-        );
-        return NextResponse.json(
-          { error: `Token decrypt failed: ${msg}` },
-          { status: 500 },
-        );
-      }
-
-      agentCredentials = {
-        accessToken,
-        igUserId: connection.ig_business_account_id,
-        pageId: connection.page_id,
-        userId: workflow.user_id,
-      };
+    // 5. Prepare credentials for the agent. Centralized in lib/agent-credentials
+    //    so trigger-workflow + queue-worker stay consistent.
+    let agentCredentials;
+    try {
+      agentCredentials = await buildAgentCredentials(
+        connection,
+        workflow.user_id,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "credentials failed";
+      await query(
+        `UPDATE workflows
+            SET run_status = 'failed',
+                run_completed_at = NOW(),
+                last_error = $1
+          WHERE id = $2`,
+        [msg, workflowId],
+      );
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
 
     const input = {

@@ -5,58 +5,35 @@ import {
   START,
   StateGraph,
 } from "@langchain/langgraph";
-import { TwitterClient } from "../../clients/twitter/client.js";
-import { TwitterApi } from "twitter-api-v2";
+import { TwitterOAuthClient } from "../../clients/twitter/oauth-client.js";
 import { InstagramGraphClient } from "../../clients/instagram/graph-client.js";
+import { LinkedInOAuthClient } from "../../clients/linkedin-oauth-client.js";
 import { uploadImageToSupabase } from "../../utils/supabase-storage.js";
+import { isTextOnly } from "../utils.js";
 import {
-  imageUrlToBuffer,
-  isTextOnly,
-  shouldPostToLinkedInOrg,
-  useArcadeAuth,
-  useTwitterApiOnly,
-} from "../utils.js";
-import { CreateMediaRequest } from "../../clients/twitter/types.js";
-import { LinkedInClient } from "../../clients/linkedin.js";
-import {
-  LINKEDIN_ACCESS_TOKEN,
-  LINKEDIN_ORGANIZATION_ID,
-  LINKEDIN_PERSON_URN,
   POST_TO_LINKEDIN_ORGANIZATION,
   TEXT_ONLY_MODE,
 } from "../generate-post/constants.js";
 import { SlackClient } from "../../clients/slack/client.js";
 import { ComplexPost } from "../shared/nodes/generate-post/types.js";
 
-async function getMediaFromImage(image?: {
-  imageUrl: string;
-  mimeType: string;
-}): Promise<CreateMediaRequest | undefined> {
-  if (!image) return undefined;
-  const { buffer, contentType } = await imageUrlToBuffer(image.imageUrl);
-  return {
-    media: buffer,
-    mimeType: contentType,
-  };
-}
-
-function ensureSignature(text: string): string {
-  const signature = "Made by the LangChain Community";
-  if (text.toLowerCase().includes(signature.toLowerCase())) {
-    return text;
-  }
-  return `${text}\n${signature}`;
-}
+/**
+ * Upload-post graph.
+ *
+ * Receives a generated post + (optionally) an image URL and a `credentials`
+ * object containing the OAuth tokens / IDs the API layer decrypted before
+ * triggering this run. Routes to one of three platform clients:
+ *
+ *   - instagram → InstagramGraphClient.publishImage (Meta Graph API)
+ *   - twitter   → TwitterOAuthClient.tweet          (X v2 OAuth 2.0)
+ *   - linkedin  → LinkedInOAuthClient.post          (UGC Posts)
+ *
+ * In every case the image is re-hosted on Supabase Storage first so the
+ * platform's servers can fetch it from a stable public URL.
+ */
 
 const UploadPostAnnotation = Annotation.Root({
   post: Annotation<string>,
-  /**
-   * The complex post, if the user decides to split the URL from the main body.
-   *
-   * TODO: Refactor the post/complexPost state interfaces to use a single shared interface
-   * which includes images too.
-   * Tracking issue: https://github.com/langchain-ai/social-media-agent/issues/144
-   */
   complexPost: Annotation<ComplexPost | undefined>,
   image: Annotation<
     | {
@@ -71,76 +48,41 @@ const UploadPostAnnotation = Annotation.Root({
 
 const UploadPostGraphConfiguration = Annotation.Root({
   [POST_TO_LINKEDIN_ORGANIZATION]: Annotation<boolean | undefined>,
-  /**
-   * Whether or not to use text only mode throughout the graph.
-   * If true, it will not try to extract, validate, or upload images.
-   * Additionally, it will not be able to handle validating YouTube videos.
-   * @default false
-   */
   [TEXT_ONLY_MODE]: Annotation<boolean | undefined>({
     reducer: (_state, update) => update,
     default: () => false,
   }),
 });
 
-interface PostUploadFailureToSlackArgs {
-  uploadDestination: "twitter" | "linkedin";
+interface FailureArgs {
+  uploadDestination: "instagram" | "twitter" | "linkedin";
   error: any;
   threadId: string;
   postContent: string | ComplexPost;
-  image?: {
-    imageUrl: string;
-    mimeType: string;
-  };
+  imageUrl?: string;
 }
 
-async function postUploadFailureToSlack({
+async function notifySlackOnFailure({
   uploadDestination,
   error,
   threadId,
   postContent,
-  image,
-}: PostUploadFailureToSlackArgs) {
-  if (!process.env.SLACK_CHANNEL_ID) {
-    console.warn(
-      "No SLACK_CHANNEL_ID found in environment variables. Can not send error message to Slack.",
-    );
-    return;
-  }
-  const slackClient = new SlackClient();
-
+  imageUrl,
+}: FailureArgs) {
+  if (!process.env.SLACK_CHANNEL_ID) return;
+  const slack = new SlackClient();
   const postStr =
     typeof postContent === "string"
-      ? `Post:
-\`\`\`
-${postContent}
-\`\`\``
-      : `Main post:
-\`\`\`
-${postContent.main_post}
-\`\`\`
-Reply post:
-\`\`\`
-${postContent.reply_post}
-\`\`\``;
-
-  const slackMessageContent = `❌ FAILED TO UPLOAD POST TO ${uploadDestination.toUpperCase()} ❌
-
-Error message:
-\`\`\`
-${error}
-\`\`\`
-
-Thread ID: *${threadId}*
-
-${postStr}
-
-${image ? `Image:\nURL: ${image.imageUrl}\nMIME type: ${image.mimeType}` : ""}
-`;
-  await slackClient.sendMessage(
-    process.env.SLACK_CHANNEL_ID,
-    slackMessageContent,
-  );
+      ? postContent
+      : `Main: ${postContent.main_post}\nReply: ${postContent.reply_post}`;
+  const message = `❌ ${uploadDestination.toUpperCase()} upload failed
+Thread: *${threadId}*
+Error: \`\`\`${error}\`\`\`
+Post: \`\`\`${postStr.slice(0, 800)}\`\`\`
+${imageUrl ? `Image: ${imageUrl}` : ""}`;
+  await slack
+    .sendMessage(process.env.SLACK_CHANNEL_ID, message)
+    .catch(() => null);
 }
 
 export async function uploadPost(
@@ -148,183 +90,117 @@ export async function uploadPost(
   config: LangGraphRunnableConfig,
 ): Promise<Partial<typeof UploadPostAnnotation.State>> {
   if (!state.post) {
-    throw new Error("No post text found");
+    throw new Error("No post text provided to upload-post graph");
   }
   const isTextOnlyMode = isTextOnly(config);
-  const postToLinkedInOrg = shouldPostToLinkedInOrg(config);
+  const userId =
+    state.credentials?.userId || config.configurable?.user_id || "unknown";
+  const threadId = config.configurable?.thread_id || "unknown";
+
+  // Re-host the image on Supabase Storage before calling the platforms — they
+  // require a public URL (Meta + LinkedIn explicitly; X works fine with a
+  // public URL too and we keep the path consistent across platforms).
+  let publicImageUrl: string | undefined;
+  if (!isTextOnlyMode && state.image) {
+    publicImageUrl = await uploadImageToSupabase(state.image.imageUrl, {
+      userId,
+    });
+  }
 
   if (state.platform === "instagram") {
-    console.log("Uploading to Instagram (Meta Graph API)...");
     try {
-      if (!state.image) {
-        throw new Error("Image is required for Instagram posts");
-      }
       const accessToken = state.credentials?.accessToken;
       const igUserId = state.credentials?.igUserId;
-      const userId =
-        state.credentials?.userId || config.configurable?.user_id || "unknown";
       if (!accessToken || !igUserId) {
         throw new Error(
-          "Instagram credentials missing accessToken or igUserId. Reconnect via Facebook OAuth.",
+          "Instagram credentials missing accessToken/igUserId — reconnect via Facebook OAuth",
         );
       }
-
-      // Always re-host through Supabase Storage so the URL is stable and
-      // public for Meta's servers to fetch.
-      const publicImageUrl = await uploadImageToSupabase(state.image.imageUrl, {
-        userId,
-      });
-
+      if (!publicImageUrl) {
+        throw new Error("Instagram requires an image");
+      }
       const client = new InstagramGraphClient(accessToken, igUserId);
       const result = await client.publishImage({
         imageUrl: publicImageUrl,
         caption: state.post,
       });
       console.log(
-        `✅ Published to Instagram. Media ID ${result.mediaId}${
+        `✅ Instagram published. Media ${result.mediaId}${
           result.permalink ? ` · ${result.permalink}` : ""
         }`,
       );
       return {};
-    } catch (error: any) {
-      console.error("Failed to upload to Instagram:", error);
-      await postUploadFailureToSlack({
-        uploadDestination: "instagram" as never,
-        error: error.message || error,
-        threadId: config.configurable?.thread_id || "unknown",
-        postContent: state.post,
-        image: state.image,
-      });
-      throw error;
-    }
-  } else if (state.platform === "twitter") {
-    try {
-      console.log("Uploading to Twitter...");
-      let twitterClient: TwitterClient;
-
-      if (state.credentials) {
-        const { apiKey, apiKeySecret, accessToken, accessTokenSecret } =
-          state.credentials;
-        const client = new TwitterApi({
-          appKey: apiKey,
-          appSecret: apiKeySecret,
-          accessToken: accessToken,
-          accessSecret: accessTokenSecret,
-        });
-        twitterClient = new TwitterClient({ twitterClient: client });
-      } else if (useTwitterApiOnly() || !useArcadeAuth()) {
-        twitterClient = TwitterClient.fromBasicTwitterAuth();
-      } else {
-        // Arcade fallback (existing logic)
-        const twitterUserId = process.env.TWITTER_USER_ID;
-        if (!twitterUserId) throw new Error("Twitter user ID not found");
-        twitterClient = await TwitterClient.fromArcade(
-          twitterUserId,
-          {
-            twitterToken: process.env.TWITTER_USER_TOKEN,
-            twitterTokenSecret: process.env.TWITTER_USER_TOKEN_SECRET,
-          },
-          { textOnlyMode: isTextOnlyMode },
-        );
-      }
-
-      let mediaBuffer: CreateMediaRequest | undefined = undefined;
-      if (!isTextOnlyMode) {
-        mediaBuffer = await getMediaFromImage(state.image);
-      }
-
-      if (state.complexPost) {
-        await twitterClient.uploadThread([
-          {
-            text: ensureSignature(state.complexPost.main_post),
-            ...(mediaBuffer && { media: mediaBuffer }),
-          },
-          {
-            text: state.complexPost.reply_post,
-          },
-        ]);
-      } else {
-        await twitterClient.uploadTweet({
-          text: ensureSignature(state.post),
-          ...(mediaBuffer && { media: mediaBuffer }),
-        });
-      }
-      console.log("✅ Successfully uploaded Tweet ✅");
     } catch (e: any) {
-      console.error("Failed to upload to Twitter:", e);
-      await postUploadFailureToSlack({
-        uploadDestination: "twitter",
-        error: e.message || e,
-        threadId: config.configurable?.thread_id || "unknown",
+      await notifySlackOnFailure({
+        uploadDestination: "instagram",
+        error: e?.message || e,
+        threadId,
         postContent: state.complexPost || state.post,
-        image: state.image,
+        imageUrl: publicImageUrl,
       });
-      // Re-throw the error so the run fails properly
-      throw e;
-    }
-  } else if (state.platform === "linkedin") {
-    try {
-      console.log("Uploading to LinkedIn...");
-      let linkedInClient: LinkedInClient;
-
-      if (state.credentials) {
-        linkedInClient = new LinkedInClient({
-          accessToken: state.credentials.accessToken,
-          personUrn: state.credentials.personUrn,
-          organizationId: state.credentials.organizationId,
-        });
-      } else if (useArcadeAuth()) {
-        // Arcade fallback
-        const linkedInUserId = process.env.LINKEDIN_USER_ID;
-        if (!linkedInUserId) throw new Error("LinkedIn user ID not found");
-        linkedInClient = await LinkedInClient.fromArcade(linkedInUserId, {
-          postToOrganization: postToLinkedInOrg,
-        });
-      } else {
-        // Env fallback
-        const accessToken =
-          process.env.LINKEDIN_ACCESS_TOKEN ||
-          config.configurable?.[LINKEDIN_ACCESS_TOKEN];
-        if (!accessToken) throw new Error("LinkedIn access token not found");
-        linkedInClient = new LinkedInClient({
-          accessToken,
-          personUrn:
-            process.env.LINKEDIN_PERSON_URN ||
-            config.configurable?.[LINKEDIN_PERSON_URN],
-          organizationId:
-            process.env.LINKEDIN_ORGANIZATION_ID ||
-            config.configurable?.[LINKEDIN_ORGANIZATION_ID],
-        });
-      }
-
-      if (!isTextOnlyMode && state.image) {
-        await linkedInClient.createImagePost(
-          {
-            text: ensureSignature(state.post),
-            imageUrl: state.image.imageUrl,
-          },
-          { postToOrganization: postToLinkedInOrg },
-        );
-      } else {
-        await linkedInClient.createTextPost(ensureSignature(state.post), {
-          postToOrganization: postToLinkedInOrg,
-        });
-      }
-      console.log("✅ Successfully uploaded post to LinkedIn ✅");
-    } catch (e: any) {
-      console.error("Failed to upload to LinkedIn:", e);
-      await postUploadFailureToSlack({
-        uploadDestination: "linkedin",
-        error: e.message || e,
-        threadId: config.configurable?.thread_id || "unknown",
-        postContent: state.complexPost || state.post,
-        image: state.image,
-      });
-      // Re-throw the error so the run fails properly
       throw e;
     }
   }
 
+  if (state.platform === "twitter") {
+    try {
+      const accessToken = state.credentials?.accessToken;
+      const username = state.credentials?.username || "i";
+      if (!accessToken) {
+        throw new Error(
+          "Twitter credentials missing accessToken — reconnect via X OAuth",
+        );
+      }
+      const client = new TwitterOAuthClient(accessToken, username);
+
+      const main = state.complexPost?.main_post || state.post;
+      const result = await client.tweet(main, publicImageUrl);
+      console.log(`✅ X published. ${result.url}`);
+
+      // Threads: the upstream client used to allow a follow-up reply. The X
+      // v2 endpoint accepts `reply.in_reply_to_tweet_id` which we'd add when
+      // we want threads. Skipping for now — the agent rarely produces them
+      // for the FlowPost flow.
+      return {};
+    } catch (e: any) {
+      await notifySlackOnFailure({
+        uploadDestination: "twitter",
+        error: e?.message || e,
+        threadId,
+        postContent: state.complexPost || state.post,
+        imageUrl: publicImageUrl,
+      });
+      throw e;
+    }
+  }
+
+  if (state.platform === "linkedin") {
+    try {
+      const accessToken = state.credentials?.accessToken;
+      const memberSub =
+        state.credentials?.memberSub || state.credentials?.oauthProviderUserId;
+      if (!accessToken || !memberSub) {
+        throw new Error(
+          "LinkedIn credentials missing accessToken/memberSub — reconnect via LinkedIn OAuth",
+        );
+      }
+      const client = new LinkedInOAuthClient(accessToken, memberSub);
+      const result = await client.post(state.post, publicImageUrl);
+      console.log(`✅ LinkedIn published. ${result.url}`);
+      return {};
+    } catch (e: any) {
+      await notifySlackOnFailure({
+        uploadDestination: "linkedin",
+        error: e?.message || e,
+        threadId,
+        postContent: state.complexPost || state.post,
+        imageUrl: publicImageUrl,
+      });
+      throw e;
+    }
+  }
+
+  console.warn(`Platform "${state.platform}" not supported by upload-post`);
   return {};
 }
 

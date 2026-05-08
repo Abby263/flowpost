@@ -58,6 +58,7 @@ Plus at least one LLM and image provider:
    ./scripts/run-migration.sh migrations/003_approvals_learnings_engagement.sql
    ./scripts/run-migration.sh migrations/004_instagram_oauth.sql
    ./scripts/run-migration.sh migrations/005_cron_scheduling.sql
+   ./scripts/run-migration.sh migrations/006_twitter_linkedin_oauth.sql
    ```
 
 Env vars to record now:
@@ -152,6 +153,47 @@ TOKEN_ENCRYPTION_KEY=<output of openssl rand -base64 32>
 
 ---
 
+## Step 3.5 — X (Twitter) Developer App (optional, for X publishing)
+
+1. Go to [developer.x.com](https://developer.x.com) → **Projects & Apps** → create a new App in your project.
+2. **App settings → User authentication settings**:
+   - App permissions: **Read and write**
+   - Type of App: **Web App, Automated App or Bot** (confidential client)
+   - Callback URI: `https://<your-vercel-domain>/api/auth/twitter/callback`
+   - Website URL: your domain
+3. **Keys and tokens** → **OAuth 2.0 Client ID and Secret** → copy both.
+4. The app's required scopes are encoded in code: `tweet.read`, `tweet.write`, `users.read`, `offline.access`.
+
+Free tier limits: posting capped at ~1500 tweets/month per app, total. Sufficient for one or two test users; for general availability, upgrade to Basic ($100/mo).
+
+```
+TWITTER_CLIENT_ID=...
+TWITTER_CLIENT_SECRET=...
+```
+
+---
+
+## Step 3.6 — LinkedIn Developer App (optional, for LinkedIn publishing)
+
+1. [linkedin.com/developers](https://www.linkedin.com/developers) → **Create app** → choose a Page for the app to be associated with.
+2. **Products → Add product**:
+   - **Sign In with LinkedIn using OpenID Connect** (required for OAuth — auto-approved)
+   - **Share on LinkedIn** (required to post — auto-approved for personal feed)
+3. **Auth → OAuth 2.0 settings → Authorized redirect URLs**: `https://<your-vercel-domain>/api/auth/linkedin/callback`
+4. **Auth tab → Application credentials** → copy **Client ID** + **Client Secret**.
+5. Required scopes (encoded in code): `openid`, `profile`, `w_member_social`.
+
+LinkedIn tokens last 60 days and have no refresh — when they expire users see a Reconnect button.
+
+```
+LINKEDIN_CLIENT_ID=...
+LINKEDIN_CLIENT_SECRET=...
+```
+
+> Posting to a **Company Page** (vs a personal feed) requires the **Marketing Developer Platform** product, which has heavier review. The current implementation only posts to the connecting user's personal feed.
+
+---
+
 ## Step 4 — Upstash: QStash + Redis
 
 1. Sign up at [upstash.com](https://upstash.com) (single account covers both products).
@@ -223,18 +265,20 @@ The Next.js app calls a LangGraph runtime at `LANGGRAPH_API_URL` to execute the 
 2. **Root directory**: `frontend/`. Vercel autodetects Next.js.
 3. **Environment Variables**: add everything you collected above. Full list:
 
-   | Group             | Vars                                                                                                                                                                                                    |
-   | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | Database          | `DATABASE_URI`, `POSTGRES_POOL_MAX`                                                                                                                                                                     |
-   | Clerk             | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_SIGN_IN_URL`, `NEXT_PUBLIC_CLERK_SIGN_UP_URL`, `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL`, `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL` |
-   | Meta OAuth        | `META_APP_ID`, `META_APP_SECRET`, `TOKEN_ENCRYPTION_KEY`                                                                                                                                                |
-   | Supabase Storage  | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`                                                                                                                                  |
-   | Upstash           | `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `WORKFLOW_PUBLISH_RATE_PER_HOUR`                                         |
-   | Crons             | `CRON_SECRET`                                                                                                                                                                                           |
-   | App               | `NEXT_PUBLIC_APP_URL=https://<your-domain>`, `LANGGRAPH_API_URL`                                                                                                                                        |
-   | LLM/Image         | `OPENAI_API_KEY` and/or `GEMINI_API_KEY`, `LLM_MODEL`, `IMAGE_MODEL`, `AI_PROVIDER`, `SERPER_API_KEY`                                                                                                   |
-   | Admin             | `ADMIN_USER_IDS`, `NEXT_PUBLIC_ADMIN_USER_IDS` (see Step 9)                                                                                                                                             |
-   | Stripe (optional) | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`                                                                                                                      |
+   | Group                | Vars                                                                                                                                                                                                    |
+   | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Database             | `DATABASE_URI`, `POSTGRES_POOL_MAX`                                                                                                                                                                     |
+   | Clerk                | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_SIGN_IN_URL`, `NEXT_PUBLIC_CLERK_SIGN_UP_URL`, `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL`, `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL` |
+   | Meta OAuth (IG)      | `META_APP_ID`, `META_APP_SECRET`, `TOKEN_ENCRYPTION_KEY`                                                                                                                                                |
+   | X OAuth (opt)        | `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET`                                                                                                                                                            |
+   | LinkedIn OAuth (opt) | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`                                                                                                                                                          |
+   | Supabase Storage     | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`                                                                                                                                  |
+   | Upstash              | `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `WORKFLOW_PUBLISH_RATE_PER_HOUR`                                         |
+   | Crons                | `CRON_SECRET`                                                                                                                                                                                           |
+   | App                  | `NEXT_PUBLIC_APP_URL=https://<your-domain>`, `LANGGRAPH_API_URL`                                                                                                                                        |
+   | LLM/Image            | `OPENAI_API_KEY` and/or `GEMINI_API_KEY`, `LLM_MODEL`, `IMAGE_MODEL`, `AI_PROVIDER`, `SERPER_API_KEY`                                                                                                   |
+   | Admin                | `ADMIN_USER_IDS`, `NEXT_PUBLIC_ADMIN_USER_IDS` (see Step 9)                                                                                                                                             |
+   | Stripe (optional)    | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`                                                                                                                      |
 
 4. **Deploy**. The project ships `frontend/vercel.json` which configures:
    - Build command (`pnpm build`)
