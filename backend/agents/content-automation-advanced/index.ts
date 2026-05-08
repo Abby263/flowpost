@@ -3,6 +3,8 @@ import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage } from "@langchain/core/messages";
 import { generatePostGraph } from "../generate-post/generate-post-graph.js";
 import { InstagramGraphClient } from "../../clients/instagram/graph-client.js";
+import { TwitterOAuthClient } from "../../clients/twitter/oauth-client.js";
+import { LinkedInOAuthClient } from "../../clients/linkedin-oauth-client.js";
 import { uploadImageToSupabase } from "../../utils/supabase-storage.js";
 import {
   formatLearningPrompt,
@@ -507,73 +509,101 @@ function routeContentQuality(
   return "generateVisuals";
 }
 
-// Node to publish content to Instagram
-async function publishToInstagram(
+// Node to publish to whichever platform the workflow is wired for.
+// Routes by state.platform — Instagram via Meta Graph, X via OAuth 2.0,
+// LinkedIn via UGC Posts. The trigger-workflow API decrypts tokens before
+// the run, so credentials arrive in plaintext on `state.credentials`.
+async function publishToPlatform(
   state: typeof ContentAutomationAdvancedState.State,
 ) {
   console.log(`--- PUBLISHING TO ${state.platform?.toUpperCase()} ---`);
 
-  // Check if there was a previous failure
   if (state.publishStatus === "failed") {
     console.error(
       `❌ Skipping publish - previous error: ${state.publishError}`,
     );
     return { publishStatus: "failed", publishError: state.publishError };
   }
-
   if (!state.post) {
-    console.error("❌ No post content to publish.");
     return { publishStatus: "failed", publishError: "No post content" };
   }
 
-  if (state.platform !== "instagram") {
-    console.log(
-      `⚠️  Platform ${state.platform} not yet implemented in this workflow.`,
-    );
-    return {
-      publishStatus: "skipped",
-      publishError: `Platform ${state.platform} not supported`,
-    };
+  const sourceImageUrl = state.imageUrl || state.image?.imageUrl;
+
+  // Re-host the generated image on Supabase Storage so the destination
+  // platform can fetch it. Required for Instagram + LinkedIn (no base64);
+  // X works with public URLs too and we keep the path uniform.
+  let publicImageUrl: string | undefined;
+  if (sourceImageUrl) {
+    try {
+      publicImageUrl = await uploadImageToSupabase(sourceImageUrl, {
+        userId: state.userId,
+      });
+    } catch (err: any) {
+      return {
+        publishStatus: "failed",
+        publishError: `Image hosting failed: ${err?.message || err}`,
+      };
+    }
   }
 
   try {
-    const accessToken = state.credentials?.accessToken;
-    const igUserId = state.credentials?.igUserId;
-    if (!accessToken || !igUserId) {
-      throw new Error(
-        "Instagram credentials missing accessToken or igUserId. The connection may need to be reconnected via Facebook OAuth.",
-      );
+    if (state.platform === "instagram") {
+      const { accessToken, igUserId } = state.credentials || {};
+      if (!accessToken || !igUserId) {
+        throw new Error(
+          "Instagram credentials missing — reconnect via Facebook OAuth",
+        );
+      }
+      if (!publicImageUrl) throw new Error("Instagram requires an image");
+      const client = new InstagramGraphClient(accessToken, igUserId);
+      const result = await client.publishImage({
+        imageUrl: publicImageUrl,
+        caption: state.post,
+      });
+      return {
+        publishStatus: "success",
+        publishedUrl: result.permalink || undefined,
+        imageUrl: publicImageUrl,
+      };
     }
 
-    const sourceImageUrl = state.imageUrl || state.image?.imageUrl;
-    if (!sourceImageUrl) {
-      throw new Error("No image URL available for Instagram post");
+    if (state.platform === "twitter") {
+      const { accessToken, username } = state.credentials || {};
+      if (!accessToken) {
+        throw new Error("X credentials missing — reconnect via X OAuth");
+      }
+      const client = new TwitterOAuthClient(accessToken, username || "i");
+      const result = await client.tweet(state.post, publicImageUrl);
+      return {
+        publishStatus: "success",
+        publishedUrl: result.url,
+        imageUrl: publicImageUrl,
+      };
     }
 
-    console.log("📤 Uploading image to Supabase Storage for Graph API...");
-    const publicImageUrl = await uploadImageToSupabase(sourceImageUrl, {
-      userId: state.userId,
-    });
-    console.log(`   Public URL: ${publicImageUrl}`);
-
-    console.log("📤 Publishing via Meta Graph API...");
-    const client = new InstagramGraphClient(accessToken, igUserId);
-    const result = await client.publishImage({
-      imageUrl: publicImageUrl,
-      caption: state.post,
-    });
-
-    console.log("✅ Successfully published to Instagram!");
-    console.log(`   Media ID: ${result.mediaId}`);
-    if (result.permalink) console.log(`   Permalink: ${result.permalink}`);
+    if (state.platform === "linkedin") {
+      const { accessToken, memberSub } = state.credentials || {};
+      if (!accessToken || !memberSub) {
+        throw new Error(
+          "LinkedIn credentials missing — reconnect via LinkedIn OAuth",
+        );
+      }
+      const client = new LinkedInOAuthClient(accessToken, memberSub);
+      const result = await client.post(state.post, publicImageUrl);
+      return {
+        publishStatus: "success",
+        publishedUrl: result.url,
+        imageUrl: publicImageUrl,
+      };
+    }
 
     return {
-      publishStatus: "success",
-      publishedUrl: result.permalink || undefined,
-      imageUrl: publicImageUrl,
+      publishStatus: "skipped",
+      publishError: `Platform ${state.platform} is not supported`,
     };
   } catch (error: any) {
-    console.error("❌ Failed to publish to Instagram:", error);
+    console.error(`❌ Failed to publish to ${state.platform}:`, error);
     return {
       publishStatus: "failed",
       publishError: error?.message || String(error),
@@ -896,10 +926,10 @@ ${state.post}`;
   return { post: caption };
 }
 
-// Router to decide whether to skip Instagram publishing
+// Router: pause for human approval, or hand off to publishToPlatform.
 function routePublishing(
   state: typeof ContentAutomationAdvancedState.State,
-): "publishToInstagram" | "saveDraftForApproval" {
+): "publishToPlatform" | "saveDraftForApproval" {
   if (state.requiresApproval) {
     console.log(
       "[ROUTE] requiresApproval=true → saving draft for human review",
@@ -907,7 +937,7 @@ function routePublishing(
     return "saveDraftForApproval";
   }
   console.log("[ROUTE] requiresApproval=false → auto-publishing");
-  return "publishToInstagram";
+  return "publishToPlatform";
 }
 
 // Node: persist the generated draft for human review.
@@ -987,7 +1017,7 @@ export const contentAutomationAdvancedGraph = new StateGraph(
   .addNode("generateVisuals", generateVisuals)
   .addNode("generatePostSubgraph", generatePostGraph)
   .addNode("prepareCaption", prepareCaption)
-  .addNode("publishToInstagram", publishToInstagram)
+  .addNode("publishToPlatform", publishToPlatform)
   .addNode("savePostToDb", savePostToDb)
   .addNode("saveDraftForApproval", saveDraftForApproval)
 
@@ -1002,10 +1032,10 @@ export const contentAutomationAdvancedGraph = new StateGraph(
   .addEdge("generateVisuals", "generatePostSubgraph")
   .addEdge("generatePostSubgraph", "prepareCaption")
   .addConditionalEdges("prepareCaption", routePublishing, {
-    publishToInstagram: "publishToInstagram",
+    publishToPlatform: "publishToPlatform",
     saveDraftForApproval: "saveDraftForApproval",
   })
-  .addEdge("publishToInstagram", "savePostToDb")
+  .addEdge("publishToPlatform", "savePostToDb")
   .addEdge("savePostToDb", END)
   .addEdge("saveDraftForApproval", END)
   .compile();

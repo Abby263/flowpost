@@ -73,6 +73,24 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (platform === "twitter") {
+    return NextResponse.json(
+      {
+        error:
+          "X (Twitter) now connects via OAuth. Use the Connect with X button.",
+      },
+      { status: 400 },
+    );
+  }
+  if (platform === "linkedin") {
+    return NextResponse.json(
+      {
+        error:
+          "LinkedIn now connects via OAuth. Use the Connect with LinkedIn button.",
+      },
+      { status: 400 },
+    );
+  }
 
   try {
     const connection = await insert<Connection>("connections", {

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { insert, query, queryOne, upsert } from "@/lib/postgres";
-import { decryptToken } from "@/lib/encryption";
 import { verifyAndParseQueueRequest } from "@/lib/queue";
 import {
   acquireConnectionLease,
@@ -9,6 +8,11 @@ import {
 } from "@/lib/redis";
 import { CREDITS_CONFIG } from "@/config";
 import { isAdmin } from "@/lib/admin";
+import {
+  buildAgentCredentials,
+  CONNECTION_COLUMNS,
+  type ConnectionRow,
+} from "@/lib/agent-credentials";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -29,16 +33,7 @@ interface Workflow {
   is_active: boolean;
 }
 
-interface Connection {
-  id: string;
-  user_id: string;
-  platform: string;
-  credentials: Record<string, unknown> | null;
-  access_token_encrypted: string | null;
-  ig_business_account_id: string | null;
-  page_id: string | null;
-  connection_status: string | null;
-}
+type Connection = ConnectionRow;
 
 interface UserCredits {
   credits_balance: number;
@@ -98,10 +93,7 @@ export async function POST(request: Request) {
   }
 
   const connection = await queryOne<Connection>(
-    `SELECT id, user_id, platform, credentials,
-            access_token_encrypted, ig_business_account_id, page_id,
-            connection_status
-       FROM connections WHERE id = $1`,
+    `SELECT ${CONNECTION_COLUMNS} FROM connections WHERE id = $1`,
     [workflow.connection_id],
   );
   if (!connection) {
@@ -110,18 +102,6 @@ export async function POST(request: Request) {
       ["connection missing", workflow.id],
     );
     return NextResponse.json({ skipped: "connection missing" });
-  }
-  if (
-    connection.platform === "instagram" &&
-    (connection.connection_status !== "active" ||
-      !connection.access_token_encrypted ||
-      !connection.ig_business_account_id)
-  ) {
-    await query(
-      `UPDATE workflows SET run_status='failed', last_error=$1, run_completed_at=NOW() WHERE id=$2`,
-      ["IG connection not active (reconnect)", workflow.id],
-    );
-    return NextResponse.json({ skipped: "connection not active" });
   }
 
   // Per-account publish rate limit. If we're over budget, ask QStash to
@@ -201,26 +181,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ skipped: "lock contended" });
     }
 
-    let agentCredentials: Record<string, unknown> =
-      connection.credentials || {};
-    if (connection.platform === "instagram") {
-      try {
-        agentCredentials = {
-          accessToken: decryptToken(connection.access_token_encrypted!),
-          igUserId: connection.ig_business_account_id,
-          pageId: connection.page_id,
-          userId: workflow.user_id,
-        };
-      } catch (err) {
-        await query(
-          `UPDATE workflows SET run_status='failed', last_error=$1, run_completed_at=NOW() WHERE id=$2`,
-          [
-            `decrypt failed: ${err instanceof Error ? err.message : "unknown"}`,
-            workflow.id,
-          ],
-        );
-        return NextResponse.json({ error: "decrypt failed" }, { status: 500 });
-      }
+    let agentCredentials;
+    try {
+      agentCredentials = await buildAgentCredentials(
+        connection,
+        workflow.user_id,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "credentials failed";
+      await query(
+        `UPDATE workflows SET run_status='failed', last_error=$1, run_completed_at=NOW() WHERE id=$2`,
+        [msg, workflow.id],
+      );
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
 
     const apiUrl = process.env.LANGGRAPH_API_URL || "http://localhost:54367";

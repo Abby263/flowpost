@@ -4,7 +4,6 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -69,7 +68,6 @@ function ConnectionsPageInner() {
   const [platform, setPlatform] = useState<
     "instagram" | "twitter" | "linkedin"
   >("instagram");
-  const [formData, setFormData] = useState<Record<string, string>>({});
   const [pageCandidates, setPageCandidates] = useState<PageCandidate[]>([]);
   const [pickingPage, setPickingPage] = useState(false);
   const [notification, setNotification] = useState<{
@@ -118,28 +116,50 @@ function ConnectionsPageInner() {
 
   // Surface OAuth callback results from query params.
   useEffect(() => {
-    const connected = searchParams.get("ig_connected");
-    const error = searchParams.get("ig_error");
-    const pick = searchParams.get("ig_pick");
+    const igConnected = searchParams.get("ig_connected");
+    const igError = searchParams.get("ig_error");
+    const igPick = searchParams.get("ig_pick");
+    const twConnected = searchParams.get("tw_connected");
+    const twError = searchParams.get("tw_error");
+    const liConnected = searchParams.get("li_connected");
+    const liError = searchParams.get("li_error");
 
-    if (connected) {
-      showNote("success", `Instagram connected as @${connected}`);
+    if (igConnected) {
+      showNote("success", `Instagram connected as @${igConnected}`);
       router.replace("/dashboard/connections");
       void fetchConnections();
-    } else if (error) {
-      showNote("error", `Instagram connection failed: ${error}`);
+    } else if (igError) {
+      showNote("error", `Instagram connection failed: ${igError}`);
       router.replace("/dashboard/connections");
-    } else if (pick) {
+    } else if (igPick) {
       void fetchPageCandidates();
+    } else if (twConnected) {
+      showNote("success", `X connected as @${twConnected}`);
+      router.replace("/dashboard/connections");
+      void fetchConnections();
+    } else if (twError) {
+      showNote("error", `X connection failed: ${twError}`);
+      router.replace("/dashboard/connections");
+    } else if (liConnected) {
+      showNote("success", `LinkedIn connected as ${liConnected}`);
+      router.replace("/dashboard/connections");
+      void fetchConnections();
+    } else if (liError) {
+      showNote("error", `LinkedIn connection failed: ${liError}`);
+      router.replace("/dashboard/connections");
     }
   }, [searchParams, router, showNote, fetchConnections, fetchPageCandidates]);
 
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  }
-
   function startInstagramOAuth() {
     window.location.href = "/api/auth/instagram/start";
+  }
+
+  function startTwitterOAuth() {
+    window.location.href = "/api/auth/twitter/start";
+  }
+
+  function startLinkedInOAuth() {
+    window.location.href = "/api/auth/linkedin/start";
   }
 
   async function selectPage(pageId: string) {
@@ -162,72 +182,6 @@ function ConnectionsPageInner() {
       );
     } finally {
       setPickingPage(false);
-    }
-  }
-
-  async function addNonInstagramConnection() {
-    if (!user) return;
-    let credentials: Record<string, string> = {};
-    let profileName = "";
-
-    if (platform === "twitter") {
-      if (
-        !formData.apiKey ||
-        !formData.apiKeySecret ||
-        !formData.accessToken ||
-        !formData.accessTokenSecret
-      ) {
-        showNote("error", "Please fill in all fields");
-        return;
-      }
-      credentials = {
-        apiKey: formData.apiKey,
-        apiKeySecret: formData.apiKeySecret,
-        accessToken: formData.accessToken,
-        accessTokenSecret: formData.accessTokenSecret,
-      };
-      profileName = "Twitter API";
-    } else if (platform === "linkedin") {
-      if (!formData.accessToken || !formData.personUrn) {
-        showNote("error", "Please fill in all fields");
-        return;
-      }
-      credentials = {
-        accessToken: formData.accessToken,
-        personUrn: formData.personUrn,
-        organizationId: formData.organizationId || "",
-      };
-      profileName = formData.personUrn;
-    }
-
-    const isDuplicate = connections.some(
-      (c) => c.platform === platform && c.profile_name === profileName,
-    );
-    if (isDuplicate) {
-      showNote("info", "This connection already exists.");
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/connections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          platform,
-          profile_name: profileName,
-          credentials,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to add connection");
-      setConnections([data.connection as Connection, ...connections]);
-      setFormData({});
-      showNote("success", `${platform} connected`);
-    } catch (err) {
-      showNote(
-        "error",
-        err instanceof Error ? err.message : "Failed to add connection",
-      );
     }
   }
 
@@ -391,7 +345,6 @@ function ConnectionsPageInner() {
                   value: "instagram" | "twitter" | "linkedin",
                 ) => {
                   setPlatform(value);
-                  setFormData({});
                 }}
               >
                 <SelectTrigger id="platform">
@@ -446,72 +399,51 @@ function ConnectionsPageInner() {
             )}
 
             {platform === "twitter" && (
-              <>
-                <Input
-                  name="apiKey"
-                  placeholder="API Key"
-                  value={formData.apiKey || ""}
-                  onChange={handleInputChange}
-                />
-                <Input
-                  name="apiKeySecret"
-                  type="password"
-                  placeholder="API Key Secret"
-                  value={formData.apiKeySecret || ""}
-                  onChange={handleInputChange}
-                />
-                <Input
-                  name="accessToken"
-                  placeholder="Access Token"
-                  value={formData.accessToken || ""}
-                  onChange={handleInputChange}
-                />
-                <Input
-                  name="accessTokenSecret"
-                  type="password"
-                  placeholder="Access Token Secret"
-                  value={formData.accessTokenSecret || ""}
-                  onChange={handleInputChange}
-                />
+              <div className="space-y-3">
+                <div className="rounded-md border bg-muted/40 p-3 text-xs space-y-1">
+                  <p className="font-medium">Requirements</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                    <li>An X (Twitter) account</li>
+                    <li>Free-tier OAuth grants ≈1500 posts/month per app</li>
+                  </ul>
+                </div>
                 <Button
-                  onClick={addNonInstagramConnection}
-                  className="w-full h-9 sm:h-10 text-sm"
+                  onClick={startTwitterOAuth}
+                  className="w-full bg-black text-white hover:opacity-90 dark:bg-white dark:text-black"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Connect Account
+                  <Twitter className="mr-2 h-4 w-4" />
+                  Connect with X
                 </Button>
-              </>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  No password is shared. X issues an OAuth token scoped to
+                  reading your profile and posting tweets.
+                </p>
+              </div>
             )}
 
             {platform === "linkedin" && (
-              <>
-                <Input
-                  name="accessToken"
-                  type="password"
-                  placeholder="Access Token"
-                  value={formData.accessToken || ""}
-                  onChange={handleInputChange}
-                />
-                <Input
-                  name="personUrn"
-                  placeholder="Person URN"
-                  value={formData.personUrn || ""}
-                  onChange={handleInputChange}
-                />
-                <Input
-                  name="organizationId"
-                  placeholder="Organization ID (Optional)"
-                  value={formData.organizationId || ""}
-                  onChange={handleInputChange}
-                />
+              <div className="space-y-3">
+                <div className="rounded-md border bg-muted/40 p-3 text-xs space-y-1">
+                  <p className="font-medium">Requirements</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                    <li>A personal LinkedIn account</li>
+                    <li>
+                      You&apos;ll grant openid + profile + w_member_social
+                    </li>
+                  </ul>
+                </div>
                 <Button
-                  onClick={addNonInstagramConnection}
-                  className="w-full h-9 sm:h-10 text-sm"
+                  onClick={startLinkedInOAuth}
+                  className="w-full bg-[#0A66C2] hover:bg-[#0959ab] text-white"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Connect Account
+                  <Linkedin className="mr-2 h-4 w-4" />
+                  Connect with LinkedIn
                 </Button>
-              </>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Posts to your personal feed only. Company Page posting needs
+                  Marketing Developer Platform approval.
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
