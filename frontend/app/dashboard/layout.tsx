@@ -68,16 +68,16 @@ export default function DashboardLayout({
 
   const navItems = [
     {
-      href: "/dashboard/workflows",
-      label: "Workflows",
-      icon: Workflow,
-      description: "Run, schedule, approve",
-    },
-    {
       href: "/dashboard/connections",
       label: "Connections",
       icon: Shield,
       description: "Linked social accounts",
+    },
+    {
+      href: "/dashboard/workflows",
+      label: "Workflows",
+      icon: Workflow,
+      description: "Run, schedule, approve",
     },
     {
       href: "/dashboard/billing",
