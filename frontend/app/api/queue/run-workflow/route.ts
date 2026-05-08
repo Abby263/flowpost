@@ -8,6 +8,7 @@ import {
   releaseConnectionLease,
 } from "@/lib/redis";
 import { CREDITS_CONFIG } from "@/config";
+import { isAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -174,8 +175,9 @@ export async function POST(request: Request) {
       };
     }
     if (
+      !isAdmin(workflow.user_id) &&
       (credits.credits_balance || 0) + (credits.bonus_credits || 0) <
-      CREDITS_PER_RUN
+        CREDITS_PER_RUN
     ) {
       await query(
         `UPDATE workflows SET run_status='failed', last_error=$1, run_completed_at=NOW() WHERE id=$2`,

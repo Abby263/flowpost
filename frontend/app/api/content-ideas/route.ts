@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { queryOne, query, insert } from "@/lib/postgres";
+import { isAdmin } from "@/lib/admin";
 import {
   isGeminiConfigured,
   generateTextWithGrounding,
@@ -561,6 +562,11 @@ async function checkAndDeductCredits(
   amount: number,
   description: string,
 ): Promise<{ success: boolean; error?: string; balance?: number }> {
+  // Admins skip credit deduction entirely (treated as a free tier).
+  if (isAdmin(userId)) {
+    return { success: true, balance: Number.POSITIVE_INFINITY };
+  }
+
   // Check current credits
   let credits = await queryOne<UserCredits>(
     `SELECT credits_balance, bonus_credits FROM user_credits WHERE user_id = $1`,

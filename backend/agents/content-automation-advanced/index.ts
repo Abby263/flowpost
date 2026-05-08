@@ -686,8 +686,16 @@ async function savePostToDb(
       );
       console.log(`✅ Workflow status updated to: ${finalStatus}`);
 
-      // Deduct credits ONLY on successful completion
-      if (finalStatus === "completed" && workflow?.user_id) {
+      // Deduct credits ONLY on successful completion. Admin user IDs from
+      // ADMIN_USER_IDS bypass deduction so internal/test runs don't drain
+      // their balance.
+      const adminIds = (process.env.ADMIN_USER_IDS || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const isAdminUser =
+        !!workflow?.user_id && adminIds.includes(workflow.user_id);
+      if (finalStatus === "completed" && workflow?.user_id && !isAdminUser) {
         try {
           const CREDITS_PER_WORKFLOW = 1;
 

@@ -4,6 +4,7 @@ import { insert, query, queryOne } from "@/lib/postgres";
 import { decryptToken } from "@/lib/encryption";
 import { uploadImageToSupabase } from "@/lib/supabase-storage";
 import { InstagramGraphClient } from "@/lib/instagram-graph";
+import { isAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -121,13 +122,14 @@ export async function POST(
     );
   }
 
-  // Charge a credit before publishing (refunded on failure).
+  // Charge a credit before publishing (refunded on failure). Admins bypass.
+  const adminUser = isAdmin(userId);
   const credits = await queryOne<UserCredits>(
     `SELECT credits_balance, bonus_credits FROM user_credits WHERE user_id = $1`,
     [userId],
   );
   const total = (credits?.credits_balance || 0) + (credits?.bonus_credits || 0);
-  if (total < CREDITS_PER_PUBLISH) {
+  if (!adminUser && total < CREDITS_PER_PUBLISH) {
     return NextResponse.json(
       {
         error: "Insufficient credits to publish",
@@ -191,8 +193,8 @@ export async function POST(
     );
   }
 
-  // Deduct credits and finalize the post.
-  if (credits) {
+  // Deduct credits and finalize the post. Admins are not charged.
+  if (credits && !adminUser) {
     let bonus = credits.bonus_credits;
     let balance = credits.credits_balance;
     if (bonus >= CREDITS_PER_PUBLISH) {
