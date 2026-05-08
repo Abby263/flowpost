@@ -74,6 +74,7 @@ export default function ConnectionsPage() {
     let credentials = {};
     let profileName = "";
 
+    let extraFields: Record<string, string> = {};
     if (platform === "instagram") {
       if (!formData.username || !formData.password) {
         alert("Please fill in all fields");
@@ -84,6 +85,13 @@ export default function ConnectionsPage() {
         password: formData.password,
       };
       profileName = formData.username;
+      // Optional Meta Graph API access for engagement insights.
+      if (formData.graph_access_token) {
+        extraFields.graph_access_token = formData.graph_access_token;
+      }
+      if (formData.ig_business_account_id) {
+        extraFields.ig_business_account_id = formData.ig_business_account_id;
+      }
     } else if (platform === "twitter") {
       if (
         !formData.apiKey ||
@@ -132,6 +140,7 @@ export default function ConnectionsPage() {
           platform,
           profile_name: profileName,
           credentials,
+          ...extraFields,
         }),
       });
       const data = await res.json();
@@ -281,6 +290,42 @@ export default function ConnectionsPage() {
                     value={formData.password || ""}
                     onChange={handleInputChange}
                   />
+                </div>
+
+                <div className="border-t pt-3 mt-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Meta Graph API (optional, for engagement insights)
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mb-3">
+                    Requires a Business or Creator IG account linked to a
+                    Facebook Page. Without these the agent can still post, but
+                    cannot auto-fetch likes/comments for the learning loop.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="ig_business_account_id" className="text-xs">
+                      Instagram Business Account ID
+                    </Label>
+                    <Input
+                      id="ig_business_account_id"
+                      name="ig_business_account_id"
+                      placeholder="17841... (numeric)"
+                      value={formData.ig_business_account_id || ""}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="space-y-2 mt-2">
+                    <Label htmlFor="graph_access_token" className="text-xs">
+                      Long-lived Access Token
+                    </Label>
+                    <Input
+                      id="graph_access_token"
+                      name="graph_access_token"
+                      type="password"
+                      placeholder="EAAB... (long-lived token)"
+                      value={formData.graph_access_token || ""}
+                      onChange={handleInputChange}
+                    />
+                  </div>
                 </div>
               </>
             )}

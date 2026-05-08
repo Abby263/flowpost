@@ -14,6 +14,9 @@ FlowPost is an AI-powered social media automation app. It combines a Next.js das
 - Social account connection management for Instagram, X/Twitter, and LinkedIn.
 - Reusable publishing workflows with platform, topic, cadence, approval, and run-status controls.
 - Manual post scheduling, AI image generation entry points, content idea generation, analytics cache, billing, and admin views.
+- Human-in-the-loop approval inbox: workflows with "Require Approval" enabled save drafts (caption + image) for review at `/dashboard/approvals`. Reject reasons are persisted as negative learnings the agent uses on the next generation.
+- Self-improving content loop: a Vercel Cron job pulls Instagram engagement (Meta Graph API, opt-in) and feeds top/bottom performers back into the prompt for future posts.
+- Daily auto-trigger: a second Vercel Cron sweeps active workflows whose cadence is due and starts a run on LangGraph.
 
 ## Stack
 
@@ -64,6 +67,7 @@ pnpm install --frozen-lockfile
 ```bash
 ./scripts/run-migration.sh migrations/001_initial_schema.sql
 ./scripts/run-migration.sh migrations/002_analytics_cache.sql
+./scripts/run-migration.sh migrations/003_approvals_learnings_engagement.sql
 ```
 
 5. Start the LangGraph API locally:
@@ -101,6 +105,14 @@ NEXT_PUBLIC_APP_URL=https://flowpost.vercel.app
 ```
 
 Optional provider keys include `OPENAI_API_KEY`, `GEMINI_API_KEY`, `LANGCHAIN_API_KEY`, `SERPER_API_KEY`, `FIRECRAWL_API_KEY`, `PERPLEXITY_API_KEY`, and Stripe keys.
+
+Cron-related (production):
+
+```bash
+CRON_SECRET=<random-string>          # Vercel Cron auth (also accepts x-vercel-cron header)
+```
+
+Per-connection Meta Graph API access for the engagement-sync cron is configured from the Connections UI; no env vars required.
 
 ## Supabase
 
