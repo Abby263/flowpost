@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { queryMany, queryOne, insert, update, remove } from "@/lib/postgres";
+import {
+  computeNextRunAt,
+  isValidCronExpression,
+  isValidTimezone,
+  type Frequency,
+  type SchedulingMode,
+} from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +24,11 @@ interface Workflow {
   style_prompt: string | null;
   schedule: string | null;
   frequency: string | null;
+  scheduling_mode: SchedulingMode;
+  cron_expression: string | null;
+  timezone: string;
+  next_run_at: string | null;
+  last_run_at: string | null;
   is_active: boolean;
   requires_approval: boolean;
   created_at: string;
@@ -44,6 +56,10 @@ const ALLOWED_UPDATE_FIELDS = new Set([
   "connection_id",
   "location",
   "style_prompt",
+  "scheduling_mode",
+  "cron_expression",
+  "timezone",
+  "next_run_at",
   // Run tracking fields (internal use)
   "run_status",
   "current_run_id",
@@ -51,6 +67,31 @@ const ALLOWED_UPDATE_FIELDS = new Set([
   "run_completed_at",
   "last_error",
 ]);
+
+function validateScheduleFields(
+  fields: Record<string, unknown>,
+): { ok: true } | { ok: false; error: string } {
+  const mode = fields.scheduling_mode as SchedulingMode | undefined;
+  const tz =
+    typeof fields.timezone === "string" ? (fields.timezone as string) : "UTC";
+  if (mode && mode !== "cron" && mode !== "frequency") {
+    return { ok: false, error: "scheduling_mode must be cron or frequency" };
+  }
+  if (typeof fields.timezone === "string" && !isValidTimezone(tz)) {
+    return { ok: false, error: `invalid timezone: ${tz}` };
+  }
+  if (
+    typeof fields.cron_expression === "string" &&
+    fields.cron_expression.trim().length > 0 &&
+    !isValidCronExpression(String(fields.cron_expression), tz)
+  ) {
+    return {
+      ok: false,
+      error: `invalid cron expression: ${String(fields.cron_expression)}`,
+    };
+  }
+  return { ok: true };
+}
 
 export async function GET(request: Request) {
   const { userId } = auth();
@@ -122,6 +163,9 @@ export async function POST(request: Request) {
     schedule,
     frequency,
     requires_approval,
+    scheduling_mode,
+    cron_expression,
+    timezone,
   } = body || {};
 
   if (!name || !platform || !connection_id || !search_query) {
@@ -130,6 +174,31 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  const tz = typeof timezone === "string" && timezone ? timezone : "UTC";
+  const mode: SchedulingMode =
+    scheduling_mode === "cron" ? "cron" : "frequency";
+  const cronExpr =
+    typeof cron_expression === "string" && cron_expression.trim().length > 0
+      ? cron_expression.trim()
+      : null;
+  const freq = (frequency || "daily") as Frequency;
+
+  const valid = validateScheduleFields({
+    scheduling_mode: mode,
+    cron_expression: cronExpr || undefined,
+    timezone: tz,
+  });
+  if (!valid.ok) {
+    return NextResponse.json({ error: valid.error }, { status: 400 });
+  }
+
+  const nextRunAt = computeNextRunAt({
+    mode,
+    cronExpression: cronExpr,
+    timezone: tz,
+    frequency: freq,
+  });
 
   try {
     // Verify connection belongs to user
@@ -154,11 +223,15 @@ export async function POST(request: Request) {
       location: location || null,
       style_prompt: style_prompt || null,
       schedule: schedule || null,
-      frequency: frequency || "daily",
+      frequency: freq,
       requires_approval: !!requires_approval,
       type: "content_automation_advanced",
       config: JSON.stringify({}),
       is_active: true,
+      scheduling_mode: mode,
+      cron_expression: cronExpr,
+      timezone: tz,
+      next_run_at: nextRunAt.toISOString(),
     });
 
     if (!workflow) {
@@ -200,6 +273,43 @@ export async function PATCH(request: Request) {
       { error: "No valid fields to update" },
       { status: 400 },
     );
+  }
+
+  // If any schedule field is being changed, validate and recompute next_run_at
+  // so the sweep cron picks up the new cadence immediately.
+  if (
+    "scheduling_mode" in filteredUpdates ||
+    "cron_expression" in filteredUpdates ||
+    "timezone" in filteredUpdates ||
+    "frequency" in filteredUpdates
+  ) {
+    const valid = validateScheduleFields(filteredUpdates);
+    if (!valid.ok) {
+      return NextResponse.json({ error: valid.error }, { status: 400 });
+    }
+
+    // Read the current row so we can fill in fields the request omitted.
+    const current = await queryOne<Workflow>(
+      `SELECT scheduling_mode, cron_expression, timezone, frequency
+         FROM workflows WHERE id = $1 AND user_id = $2`,
+      [id, userId],
+    );
+    const merged = {
+      mode: ((filteredUpdates.scheduling_mode as SchedulingMode) ||
+        current?.scheduling_mode ||
+        "frequency") as SchedulingMode,
+      cronExpression: (filteredUpdates.cron_expression as string | undefined)
+        ? String(filteredUpdates.cron_expression).trim() || null
+        : current?.cron_expression || null,
+      timezone:
+        (filteredUpdates.timezone as string | undefined) ||
+        current?.timezone ||
+        "UTC",
+      frequency: ((filteredUpdates.frequency as Frequency) ||
+        current?.frequency ||
+        "daily") as Frequency,
+    };
+    filteredUpdates.next_run_at = computeNextRunAt(merged).toISOString();
   }
 
   try {

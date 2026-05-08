@@ -6,7 +6,7 @@
   "crons": [
     {
       "path": "/api/cron/run-due-workflows",
-      "schedule": "0 14 * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/sync-engagement",

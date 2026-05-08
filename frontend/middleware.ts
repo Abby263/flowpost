@@ -10,6 +10,7 @@ const publicRoutePatterns = [
   /^\/api\/stripe\/webhooks(?:\/.*)?$/,
   /^\/api\/webhooks(?:\/.*)?$/,
   /^\/api\/cron(?:\/.*)?$/,
+  /^\/api\/queue(?:\/.*)?$/,
 ];
 
 const hasClerkConfig =
@@ -43,6 +44,7 @@ const middleware = hasClerkConfig
         "/api/stripe/webhooks(.*)",
         "/api/webhooks(.*)",
         "/api/cron(.*)",
+        "/api/queue(.*)",
       ],
       // Routes that can be accessed by anyone, but auth state is still available
       ignoredRoutes: ["/api/health(.*)"],
