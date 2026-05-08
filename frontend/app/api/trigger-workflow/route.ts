@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { queryOne, query, insert, upsert } from "@/lib/postgres";
 import { CREDITS_CONFIG } from "@/config";
 import { decryptToken } from "@/lib/encryption";
+import { isAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -107,7 +108,7 @@ export async function POST(request: Request) {
     const totalCredits =
       (credits.credits_balance || 0) + (credits.bonus_credits || 0);
 
-    if (totalCredits < CREDITS_PER_RUN) {
+    if (!isAdmin(userId) && totalCredits < CREDITS_PER_RUN) {
       return NextResponse.json(
         {
           error: "Insufficient credits",
