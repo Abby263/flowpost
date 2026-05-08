@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ApprovalsBell } from "@/components/approvals-bell";
 import { LayoutDashboard, Sparkles } from "lucide-react";
 
 export function Navbar() {
@@ -81,6 +82,7 @@ function NavbarContent({
         )}
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <ApprovalsBell />
           <ThemeToggle />
           {isSignedIn ? (
             <>

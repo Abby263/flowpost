@@ -110,14 +110,15 @@ export async function GET(request: Request) {
     );
 
     if (includePosts && workflows.length > 0) {
-      // Fetch posts for all workflows
       const workflowIds = workflows.map((w) => w.id);
-      const posts = await queryMany<Post & { workflow_id: string }>(
-        `SELECT id, posted_at, workflow_id FROM posts WHERE workflow_id = ANY($1)`,
+      const posts = await queryMany<
+        Post & { workflow_id: string; status: string }
+      >(
+        `SELECT id, posted_at, status, workflow_id
+           FROM posts WHERE workflow_id = ANY($1)`,
         [workflowIds],
       );
 
-      // Group posts by workflow_id
       const postsByWorkflow = posts.reduce(
         (acc, post) => {
           if (!acc[post.workflow_id]) {
@@ -132,9 +133,23 @@ export async function GET(request: Request) {
         {} as Record<string, { id: string; posted_at: string }[]>,
       );
 
-      // Attach posts to workflows
+      // Attach posts and a pending_approval_count so the workflow card can
+      // show a badge without a second round-trip.
+      const pendingByWorkflow = posts.reduce(
+        (acc, post) => {
+          if (post.status === "pending_approval") {
+            acc[post.workflow_id] = (acc[post.workflow_id] || 0) + 1;
+          }
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+
       workflows.forEach((workflow) => {
         workflow.posts = postsByWorkflow[workflow.id] || [];
+        (
+          workflow as Workflow & { pending_approval_count?: number }
+        ).pending_approval_count = pendingByWorkflow[workflow.id] || 0;
       });
     }
 

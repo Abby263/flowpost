@@ -13,6 +13,7 @@ import {
   Loader2,
   Calendar,
   RotateCcw,
+  Inbox,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -122,13 +123,25 @@ export function WorkflowCard({
             {getPlatformIcon()}
           </span>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <h3 className="text-lg font-semibold truncate">
                 {workflow.name}
               </h3>
               <Badge variant="outline" className="text-xs capitalize shrink-0">
                 {workflow.platform}
               </Badge>
+              {workflow.pending_approval_count > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 text-xs shrink-0"
+                  title="Drafts awaiting your review"
+                >
+                  <Inbox className="mr-1 h-3 w-3" />
+                  {
+                    workflow.pending_approval_count
+                  } pending review
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-3.5 w-3.5 shrink-0" />
