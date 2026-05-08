@@ -3,7 +3,7 @@ import { SignIn } from "@clerk/nextjs";
 export default function Page() {
   if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 px-6">
+      <div className="flex items-center justify-center min-h-screen bg-background px-6">
         <div className="max-w-md text-center space-y-3">
           <h1 className="text-2xl font-semibold text-foreground">
             Authentication is not configured
@@ -17,7 +17,7 @@ export default function Page() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className="flex items-center justify-center min-h-screen bg-background">
       <SignIn />
     </div>
   );

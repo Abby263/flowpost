@@ -93,7 +93,29 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
   }
 
   const start = Date.now();
-  const result = await pool.query<T>(text, params);
+  let result: QueryResult<T>;
+  try {
+    result = await pool.query<T>(text, params);
+  } catch (err) {
+    // Common Postgres / Supabase auth failures are easy to misdiagnose
+    // ("password authentication failed for user 'postgres'"). Decorate the
+    // error with what to check on Vercel so the operator doesn't have to
+    // guess.
+    if (err instanceof Error) {
+      const msg = err.message.toLowerCase();
+      const ctx = getDatabaseLogContext();
+      if (
+        msg.includes("password authentication failed") ||
+        msg.includes("no pg_hba.conf entry")
+      ) {
+        const hint = ctx.host ? ` (DATABASE_URI host: ${ctx.host})` : "";
+        throw new Error(
+          `${err.message}. Verify DATABASE_URI on Vercel matches the current Supabase pooled connection string${hint}. Re-copy it from Supabase → Project Settings → Database → Connection string and URL-encode the password.`,
+        );
+      }
+    }
+    throw err;
+  }
   const duration = Date.now() - start;
 
   // Log slow queries in development.

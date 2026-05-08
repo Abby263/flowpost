@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,14 @@ interface PageCandidate {
 }
 
 export default function ConnectionsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ConnectionsPageInner />
+    </Suspense>
+  );
+}
+
+function ConnectionsPageInner() {
   const { user } = useUser();
   const searchParams = useSearchParams();
   const router = useRouter();

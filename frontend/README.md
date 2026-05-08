@@ -26,16 +26,13 @@ Modern dashboard for managing AI-powered social media automation workflows.
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │                    App Router Pages                       │   │
 │  │                                                           │   │
-│  │  /                    Landing page                        │   │
-│  │  /sign-in             Clerk authentication                │   │
-│  │  /sign-up             User registration                   │   │
-│  │  /dashboard           Main dashboard                      │   │
-│  │  /dashboard/workflows Workflow management                 │   │
-│  │  /dashboard/workflows/[id]  Workflow details              │   │
-│  │  /dashboard/connections     Social account connections    │   │
-│  │  /dashboard/analytics       Performance analytics         │   │
-│  │  /dashboard/content-ideas   AI content suggestions        │   │
-│  │  /dashboard/schedule-post   Manual post scheduling        │   │
+│  │  /                          Landing page                  │   │
+│  │  /sign-in                   Clerk authentication          │   │
+│  │  /sign-up                   User registration             │   │
+│  │  /dashboard                 Redirects to /workflows       │   │
+│  │  /dashboard/workflows       Run, approve, schedule        │   │
+│  │  /dashboard/workflows/[id]  Detail + pending drafts       │   │
+│  │  /dashboard/connections     Linked social accounts        │   │
 │  │  /dashboard/billing         Subscription management       │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                  │

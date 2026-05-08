@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "FlowPost - AI Social Publishing Command Center",
   description:
-    "Find content ideas, generate social drafts, schedule posts, and monitor publishing workflows from one Vercel-hosted dashboard.",
+    "Generate social drafts, schedule posts, and monitor publishing workflows from one Vercel-hosted dashboard.",
 };
 
 export default function RootLayout({
@@ -14,20 +13,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // ClerkProvider is required while Next prerenders protected client routes
-  // that use Clerk hooks. Runtime access remains blocked by middleware until
-  // real Clerk environment variables are configured.
-  const publishableKey =
-    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
-    "pk_test_Zmxvd3Bvc3QtZGV2LmNsZXJrLmFjY291bnRzLmRldiQ=";
-
+  // ClerkProvider lives inside ThemeProvider so it can pick up the resolved
+  // light/dark theme and apply Clerk's matching `<SignIn>` / `<SignUp>`
+  // appearance — without that, Clerk widgets show a white background even
+  // in dark mode.
   return (
-    <ClerkProvider publishableKey={publishableKey}>
-      <html lang="en" suppressHydrationWarning>
-        <body className="antialiased">
-          <ThemeProvider>{children}</ThemeProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className="antialiased">
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
+    </html>
   );
 }

@@ -141,11 +141,7 @@ export default function Home() {
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button
-                  asChild
-                  size="lg"
-                  className="w-full bg-neutral-950 hover:bg-neutral-800 sm:w-auto"
-                >
+                <Button asChild size="lg" className="w-full sm:w-auto">
                   <Link href="/sign-up">
                     Start with 10 credits
                     <ArrowRight className="h-4 w-4" />
@@ -319,7 +315,7 @@ export default function Home() {
                 workflows run.
               </p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row lg:flex-col">
-                <Button asChild className="bg-neutral-950 hover:bg-neutral-800">
+                <Button asChild>
                   <Link href="/sign-up">
                     Create account
                     <ArrowRight className="h-4 w-4" />

@@ -8,20 +8,15 @@ import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import {
   Shield,
-  LayoutDashboard,
   Workflow,
   Sparkles,
-  Activity,
   TrendingUp,
-  Lightbulb,
-  CalendarPlus,
   CreditCard,
   Coins,
   Zap,
   Menu,
   X,
   ShieldCheck,
-  Inbox,
 } from "lucide-react";
 
 interface CreditsData {
@@ -73,46 +68,16 @@ export default function DashboardLayout({
 
   const navItems = [
     {
-      href: "/dashboard",
-      label: "Overview",
-      icon: LayoutDashboard,
-      description: "Command center",
+      href: "/dashboard/workflows",
+      label: "Workflows",
+      icon: Workflow,
+      description: "Run, schedule, approve",
     },
     {
       href: "/dashboard/connections",
       label: "Connections",
       icon: Shield,
-      description: "Manage accounts",
-    },
-    {
-      href: "/dashboard/analytics",
-      label: "Analytics",
-      icon: Activity,
-      description: "Track & insights",
-    },
-    {
-      href: "/dashboard/workflows",
-      label: "Workflows",
-      icon: Workflow,
-      description: "Automation flows",
-    },
-    {
-      href: "/dashboard/approvals",
-      label: "Approvals",
-      icon: Inbox,
-      description: "Review AI drafts",
-    },
-    {
-      href: "/dashboard/content-ideas",
-      label: "Content Ideas",
-      icon: Lightbulb,
-      description: "Trending inspiration",
-    },
-    {
-      href: "/dashboard/schedule-post",
-      label: "Schedule Post",
-      icon: CalendarPlus,
-      description: "Manual scheduling",
+      description: "Linked social accounts",
     },
     {
       href: "/dashboard/billing",

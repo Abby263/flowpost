@@ -17,8 +17,10 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Inbox,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
+import { PendingDraftCard } from "@/components/pending-draft-card";
 
 interface Post {
   id: string;
@@ -365,6 +367,46 @@ export default function WorkflowDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Pending review (drafts awaiting human approval) */}
+      {posts.filter((p) => p.status === "pending_approval").length > 0 && (
+        <Card className="shadow-md border-amber-300 dark:border-amber-900/50">
+          <CardHeader className="border-b bg-amber-50/40 dark:bg-amber-950/20">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Inbox className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                Pending review
+              </CardTitle>
+              <Badge
+                variant="secondary"
+                className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 text-sm px-3 py-1"
+              >
+                {posts.filter((p) => p.status === "pending_approval").length}{" "}
+                drafts
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            {posts
+              .filter((p) => p.status === "pending_approval")
+              .map((p) => (
+                <PendingDraftCard
+                  key={p.id}
+                  draft={{
+                    id: p.id,
+                    workflow_id: workflow?.id || null,
+                    workflow_name: workflow?.name,
+                    content: p.content,
+                    image_url: p.image_url || null,
+                    platform: p.platform,
+                    created_at: p.created_at || new Date().toISOString(),
+                  }}
+                  onChange={fetchWorkflowDetails}
+                />
+              ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Run History */}
       <Card className="shadow-md">
         <CardHeader className="border-b bg-muted/40">
@@ -374,12 +416,15 @@ export default function WorkflowDetailPage() {
               Run History
             </CardTitle>
             <Badge variant="secondary" className="text-sm px-3 py-1">
-              {posts.length} {posts.length === 1 ? "run" : "runs"}
+              {posts.filter((p) => p.status !== "pending_approval").length}{" "}
+              {posts.filter((p) => p.status !== "pending_approval").length === 1
+                ? "run"
+                : "runs"}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="pt-6">
-          {posts.length === 0 ? (
+          {posts.filter((p) => p.status !== "pending_approval").length === 0 ? (
             <div className="text-center py-16">
               <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
                 <Activity className="h-8 w-8 text-muted-foreground" />
@@ -393,161 +438,163 @@ export default function WorkflowDetailPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {posts.map((post) => (
-                <div
-                  key={post.id}
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center space-x-3 flex-wrap">
-                      <Badge
-                        className={`border-2 ${getStatusColor(post.status)}`}
-                      >
-                        {post.status === "published" ? (
-                          <CheckCircle2 className="mr-1 h-3 w-3" />
-                        ) : (
-                          <XCircle className="mr-1 h-3 w-3" />
-                        )}
-                        {post.status === "published" ? "Published" : "Failed"}
-                      </Badge>
-                      {post.posted_at ? (
-                        <>
-                          <span className="text-sm text-muted-foreground">
-                            {format(
-                              new Date(post.posted_at),
-                              "MMM d, yyyy 'at' h:mm a",
-                            )}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            (
-                            {formatDistanceToNow(new Date(post.posted_at), {
-                              addSuffix: true,
-                            })}
-                            )
-                          </span>
-                        </>
-                      ) : post.created_at ? (
-                        <>
-                          <span className="text-sm text-muted-foreground">
-                            Created:{" "}
-                            {format(
-                              new Date(post.created_at),
-                              "MMM d, yyyy 'at' h:mm a",
-                            )}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            (Not yet posted)
-                          </span>
-                        </>
-                      ) : null}
+              {posts
+                .filter((p) => p.status !== "pending_approval")
+                .map((post) => (
+                  <div
+                    key={post.id}
+                    className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center space-x-3 flex-wrap">
+                        <Badge
+                          className={`border-2 ${getStatusColor(post.status)}`}
+                        >
+                          {post.status === "published" ? (
+                            <CheckCircle2 className="mr-1 h-3 w-3" />
+                          ) : (
+                            <XCircle className="mr-1 h-3 w-3" />
+                          )}
+                          {post.status === "published" ? "Published" : "Failed"}
+                        </Badge>
+                        {post.posted_at ? (
+                          <>
+                            <span className="text-sm text-muted-foreground">
+                              {format(
+                                new Date(post.posted_at),
+                                "MMM d, yyyy 'at' h:mm a",
+                              )}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              (
+                              {formatDistanceToNow(new Date(post.posted_at), {
+                                addSuffix: true,
+                              })}
+                              )
+                            </span>
+                          </>
+                        ) : post.created_at ? (
+                          <>
+                            <span className="text-sm text-muted-foreground">
+                              Created:{" "}
+                              {format(
+                                new Date(post.created_at),
+                                "MMM d, yyyy 'at' h:mm a",
+                              )}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              (Not yet posted)
+                            </span>
+                          </>
+                        ) : null}
+                      </div>
+                      {post.published_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            window.open(post.published_url!, "_blank")
+                          }
+                        >
+                          <ExternalLink className="mr-2 h-3 w-3" />
+                          View on Instagram
+                        </Button>
+                      )}
                     </div>
-                    {post.published_url && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          window.open(post.published_url!, "_blank")
-                        }
-                      >
-                        <ExternalLink className="mr-2 h-3 w-3" />
-                        View on Instagram
-                      </Button>
-                    )}
-                  </div>
 
-                  <div className="grid gap-6 md:grid-cols-5">
-                    {post.image_url && (
-                      <div className="md:col-span-2">
-                        <p className="text-sm font-semibold mb-3 flex items-center">
-                          <ImageIcon className="mr-2 h-4 w-4" />
-                          Generated Image
-                        </p>
-                        <div className="relative aspect-square rounded-xl overflow-hidden border-2 shadow-sm bg-muted/30">
-                          <img
-                            src={post.image_url}
-                            alt="Post image"
-                            className="object-cover w-full h-full"
-                            onError={(e) => {
-                              // Show placeholder when image fails to load (e.g., expired DALL-E URL)
-                              const target = e.target as HTMLImageElement;
-                              target.onerror = null;
-                              target.src = "";
-                              target.style.display = "none";
-                              const parent = target.parentElement;
-                              if (
-                                parent &&
-                                !parent.querySelector(
-                                  ".image-error-placeholder",
-                                )
-                              ) {
-                                const placeholder =
-                                  document.createElement("div");
-                                placeholder.className =
-                                  "image-error-placeholder flex flex-col items-center justify-center w-full h-full text-muted-foreground";
-                                placeholder.innerHTML = `
+                    <div className="grid gap-6 md:grid-cols-5">
+                      {post.image_url && (
+                        <div className="md:col-span-2">
+                          <p className="text-sm font-semibold mb-3 flex items-center">
+                            <ImageIcon className="mr-2 h-4 w-4" />
+                            Generated Image
+                          </p>
+                          <div className="relative aspect-square rounded-xl overflow-hidden border-2 shadow-sm bg-muted/30">
+                            <img
+                              src={post.image_url}
+                              alt="Post image"
+                              className="object-cover w-full h-full"
+                              onError={(e) => {
+                                // Show placeholder when image fails to load (e.g., expired DALL-E URL)
+                                const target = e.target as HTMLImageElement;
+                                target.onerror = null;
+                                target.src = "";
+                                target.style.display = "none";
+                                const parent = target.parentElement;
+                                if (
+                                  parent &&
+                                  !parent.querySelector(
+                                    ".image-error-placeholder",
+                                  )
+                                ) {
+                                  const placeholder =
+                                    document.createElement("div");
+                                  placeholder.className =
+                                    "image-error-placeholder flex flex-col items-center justify-center w-full h-full text-muted-foreground";
+                                  placeholder.innerHTML = `
                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-2 opacity-50"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
                                                                     <span class="text-xs">Image expired</span>
                                                                 `;
-                                parent.appendChild(placeholder);
+                                  parent.appendChild(placeholder);
+                                }
+                              }}
+                            />
+                          </div>
+                          {post.published_url && (
+                            <p className="text-xs text-muted-foreground mt-2 text-center">
+                              Posted to {workflow?.platform}
+                            </p>
+                          )}
+                          {post.image_url && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full mt-2"
+                              onClick={() =>
+                                window.open(post.image_url!, "_blank")
                               }
-                            }}
-                          />
-                        </div>
-                        {post.published_url && (
-                          <p className="text-xs text-muted-foreground mt-2 text-center">
-                            Posted to {workflow?.platform}
-                          </p>
-                        )}
-                        {post.image_url && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full mt-2"
-                            onClick={() =>
-                              window.open(post.image_url!, "_blank")
-                            }
-                          >
-                            <ExternalLink className="mr-2 h-3 w-3" />
-                            Open Image
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                    <div
-                      className={
-                        post.image_url ? "md:col-span-3" : "md:col-span-5"
-                      }
-                    >
-                      <p className="text-sm font-semibold mb-3">
-                        Posted Content:
-                      </p>
-                      <div className="bg-muted/30 p-4 rounded-xl border">
-                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                          {post.content}
-                        </p>
-                      </div>
-                      {post.content && (
-                        <div className="mt-3 flex items-center space-x-4 text-xs text-muted-foreground">
-                          <span>{post.content.length} characters</span>
-                          <span>•</span>
-                          <span>
-                            {
-                              post.content.split("\n").filter((l) => l.trim())
-                                .length
-                            }{" "}
-                            lines
-                          </span>
-                          <span>•</span>
-                          <span>
-                            {(post.content.match(/#\w+/g) || []).length}{" "}
-                            hashtags
-                          </span>
+                            >
+                              <ExternalLink className="mr-2 h-3 w-3" />
+                              Open Image
+                            </Button>
+                          )}
                         </div>
                       )}
+                      <div
+                        className={
+                          post.image_url ? "md:col-span-3" : "md:col-span-5"
+                        }
+                      >
+                        <p className="text-sm font-semibold mb-3">
+                          Posted Content:
+                        </p>
+                        <div className="bg-muted/30 p-4 rounded-xl border">
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                            {post.content}
+                          </p>
+                        </div>
+                        {post.content && (
+                          <div className="mt-3 flex items-center space-x-4 text-xs text-muted-foreground">
+                            <span>{post.content.length} characters</span>
+                            <span>•</span>
+                            <span>
+                              {
+                                post.content.split("\n").filter((l) => l.trim())
+                                  .length
+                              }{" "}
+                              lines
+                            </span>
+                            <span>•</span>
+                            <span>
+                              {(post.content.match(/#\w+/g) || []).length}{" "}
+                              hashtags
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
           )}
         </CardContent>
