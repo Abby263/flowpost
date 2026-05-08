@@ -10,14 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  ScheduleEditor,
+  type ScheduleValue,
+} from "@/components/schedule-editor";
 
 interface EditWorkflowModalProps {
   workflow: any;
@@ -35,9 +32,13 @@ export function EditWorkflowModal({
   const [formData, setFormData] = useState({
     name: workflow.name,
     search_query: workflow.search_query,
-    schedule: workflow.schedule,
-    frequency: workflow.frequency,
     requires_approval: workflow.requires_approval,
+  });
+  const [schedule, setSchedule] = useState<ScheduleValue>({
+    scheduling_mode: workflow.scheduling_mode === "cron" ? "cron" : "frequency",
+    frequency: (workflow.frequency || "daily") as ScheduleValue["frequency"],
+    cron_expression: workflow.cron_expression || "",
+    timezone: workflow.timezone || "UTC",
   });
   const [loading, setLoading] = useState(false);
 
@@ -45,7 +46,14 @@ export function EditWorkflowModal({
     e.preventDefault();
     setLoading(true);
     try {
-      await onSave({ ...workflow, ...formData });
+      await onSave({
+        ...workflow,
+        ...formData,
+        scheduling_mode: schedule.scheduling_mode,
+        frequency: schedule.frequency,
+        cron_expression: schedule.cron_expression || null,
+        timezone: schedule.timezone,
+      });
       onClose();
     } catch (error) {
       console.error("Failed to update workflow", error);
@@ -56,7 +64,7 @@ export function EditWorkflowModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Workflow</DialogTitle>
         </DialogHeader>
@@ -81,36 +89,12 @@ export function EditWorkflowModal({
               }
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="frequency">Frequency</Label>
-              <Select
-                value={formData.frequency}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, frequency: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select frequency" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="schedule">Time (Cron/Text)</Label>
-              <Input
-                id="schedule"
-                value={formData.schedule}
-                onChange={(e) =>
-                  setFormData({ ...formData, schedule: e.target.value })
-                }
-              />
-            </div>
+
+          <div className="rounded-lg border p-3 space-y-2">
+            <p className="text-sm font-medium">Schedule</p>
+            <ScheduleEditor value={schedule} onChange={setSchedule} />
           </div>
+
           <div className="flex items-center space-x-2">
             <Switch
               id="requires_approval"

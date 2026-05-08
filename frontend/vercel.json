@@ -5,10 +5,6 @@
   "framework": "nextjs",
   "crons": [
     {
-      "path": "/api/cron/run-due-workflows",
-      "schedule": "0 14 * * *"
-    },
-    {
       "path": "/api/cron/sync-engagement",
       "schedule": "0 6 * * *"
     },

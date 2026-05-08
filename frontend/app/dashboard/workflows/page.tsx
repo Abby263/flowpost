@@ -15,6 +15,10 @@ import {
 } from "@/components/ui/select";
 import { WorkflowCard } from "@/components/workflow-card";
 import { EditWorkflowModal } from "@/components/edit-workflow-modal";
+import {
+  ScheduleEditor,
+  type ScheduleValue,
+} from "@/components/schedule-editor";
 import { Switch } from "@/components/ui/switch";
 import {
   Plus,
@@ -52,9 +56,13 @@ export default function WorkflowsPage() {
     search_query: "",
     location: "",
     style_prompt: "",
-    schedule: "",
-    frequency: "daily",
     requires_approval: false,
+  });
+  const [newSchedule, setNewSchedule] = useState<ScheduleValue>({
+    scheduling_mode: "frequency",
+    frequency: "daily",
+    cron_expression: "",
+    timezone: "UTC",
   });
 
   // Status polling state - track which workflows are being polled
@@ -221,7 +229,13 @@ export default function WorkflowsPage() {
       const res = await fetch("/api/workflows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newWorkflow),
+        body: JSON.stringify({
+          ...newWorkflow,
+          scheduling_mode: newSchedule.scheduling_mode,
+          frequency: newSchedule.frequency,
+          cron_expression: newSchedule.cron_expression || null,
+          timezone: newSchedule.timezone,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -240,9 +254,13 @@ export default function WorkflowsPage() {
         search_query: "",
         location: "",
         style_prompt: "",
-        schedule: "",
-        frequency: "daily",
         requires_approval: false,
+      });
+      setNewSchedule({
+        scheduling_mode: "frequency",
+        frequency: "daily",
+        cron_expression: "",
+        timezone: "UTC",
       });
     } catch (error: any) {
       showNotification(
@@ -633,39 +651,9 @@ export default function WorkflowsPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="frequency">Frequency</Label>
-                  <Select
-                    value={newWorkflow.frequency}
-                    onValueChange={(value) =>
-                      setNewWorkflow({ ...newWorkflow, frequency: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="schedule">Time (Cron/Text)</Label>
-                  <Input
-                    id="schedule"
-                    value={newWorkflow.schedule}
-                    onChange={(e) =>
-                      setNewWorkflow({
-                        ...newWorkflow,
-                        schedule: e.target.value,
-                      })
-                    }
-                    placeholder="e.g., 9:00 AM or 0 9 * * *"
-                  />
-                </div>
+              <div className="rounded-lg border p-3 space-y-2">
+                <Label className="text-sm font-medium">Schedule</Label>
+                <ScheduleEditor value={newSchedule} onChange={setNewSchedule} />
               </div>
               <div className="flex items-center space-x-2">
                 <Switch
