@@ -3,6 +3,11 @@ import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage } from "@langchain/core/messages";
 import { generatePostGraph } from "../generate-post/generate-post-graph.js";
 import { InstagramClient } from "../../clients/instagram/client.js";
+import {
+  formatLearningPrompt,
+  loadLearningContext,
+  LearningContext,
+} from "../../utils/learnings.js";
 
 // Define the state for our graph
 const ContentAutomationAdvancedState = Annotation.Root({
@@ -15,6 +20,12 @@ const ContentAutomationAdvancedState = Annotation.Root({
   requiresApproval: Annotation<boolean>,
   userId: Annotation<string>,
   workflowId: Annotation<string>,
+
+  // Learning context loaded at the start of each run, injected into prompts.
+  learningContext: Annotation<LearningContext | undefined>({
+    reducer: (_x, y) => y,
+    default: () => undefined,
+  }),
 
   // Cost tracking
   apiCosts: Annotation<{
@@ -93,6 +104,19 @@ const ContentAutomationAdvancedState = Annotation.Root({
     default: () => undefined,
   }),
 });
+
+// Node: load past learnings and engagement context for this user/workflow.
+// Best-effort — failures don't block generation.
+async function loadLearnings(
+  state: typeof ContentAutomationAdvancedState.State,
+) {
+  console.log(`\n📚 [LOAD LEARNINGS] Pulling past learnings...`);
+  const ctx = await loadLearningContext(state.userId, state.workflowId || null);
+  console.log(
+    `   Found: ${ctx.rules.length} rules, ${ctx.topPerformers.length} top performers, ${ctx.lowPerformers.length} low performers`,
+  );
+  return { learningContext: ctx };
+}
 
 // Node to find content
 async function fetchContent(
@@ -197,15 +221,20 @@ async function curateContent(
     };
   }
 
+  const learningBlock = state.learningContext
+    ? formatLearningPrompt(state.learningContext)
+    : "";
+
   const prompt = `
     You are a content curator for social media posts.
     Style/Tone: ${state.stylePrompt || "Professional and engaging"}
     Platform: ${state.platform || "instagram"}
-    
+    ${learningBlock}
     Review the following search results:
     ${JSON.stringify(state.events)}
 
     Select the top 3-5 most relevant and engaging items that would make great social media content.
+    If the LEARNINGS section is present, prefer items that align with the top-performer style and avoid topics/styles called out as low-performing or to-avoid.
     Return ONLY a JSON array of objects with 'title', 'snippet', and 'link' fields.
     Do not include any markdown formatting, just the raw JSON array.
   `;
@@ -778,8 +807,62 @@ async function prepareCaption(
     `   Current state.report: "${(state.report || "").substring(0, 50)}..." (${state.report?.length || 0} chars)`,
   );
 
-  // If we already have a post from generatePostSubgraph, use it
+  // If we already have a post from generatePostSubgraph, optionally rewrite it
+  // through the learning lens before publishing.
   if (state.post && state.post.length > 10) {
+    const learningBlock = state.learningContext
+      ? formatLearningPrompt(state.learningContext)
+      : "";
+
+    if (
+      learningBlock &&
+      (process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY)
+    ) {
+      try {
+        const rewritePrompt = `You are an Instagram caption editor. Apply the LEARNINGS to refine the draft caption while keeping its core meaning. Keep the result under 2200 chars. Return ONLY the final caption, no commentary.
+${learningBlock}
+DRAFT CAPTION:
+${state.post}`;
+
+        const aiProvider = process.env.AI_PROVIDER || "openai";
+        const useGemini =
+          aiProvider === "gemini" ||
+          (process.env.LLM_MODEL || "").toLowerCase().includes("gemini");
+
+        let rewritten: string;
+        if (useGemini && process.env.GEMINI_API_KEY) {
+          const { generateTextWithGemini } = await import(
+            "../../utils/gemini.js"
+          );
+          rewritten = await generateTextWithGemini(rewritePrompt, undefined, {
+            temperature: 0.4,
+          });
+        } else if (process.env.OPENAI_API_KEY) {
+          const llm = new ChatOpenAI({
+            modelName: process.env.LLM_MODEL || "gpt-4o-mini",
+            temperature: 0.4,
+            apiKey: process.env.OPENAI_API_KEY,
+          });
+          const response = await llm.invoke([new HumanMessage(rewritePrompt)]);
+          rewritten = String(response.content || "").trim();
+        } else {
+          rewritten = state.post;
+        }
+
+        if (rewritten && rewritten.length > 20) {
+          console.log(
+            `   ✏️  Caption refined via learning loop (${rewritten.length} chars)`,
+          );
+          return { post: rewritten.slice(0, 2200) };
+        }
+      } catch (err) {
+        console.warn(
+          "[PREPARE CAPTION] Learning-based rewrite failed, using original:",
+          err,
+        );
+      }
+    }
+
     console.log(
       `✅ [PREPARE CAPTION] Using existing post (${state.post.length} chars)`,
     );
@@ -837,21 +920,88 @@ async function prepareCaption(
 // Router to decide whether to skip Instagram publishing
 function routePublishing(
   state: typeof ContentAutomationAdvancedState.State,
-): "publishToInstagram" | "savePostToDb" {
-  // If requiresApproval is true, skip publishing and go straight to DB save
-  // (In a full implementation, this would go to a human approval node)
+): "publishToInstagram" | "saveDraftForApproval" {
   if (state.requiresApproval) {
-    console.log("Requires approval - skipping auto-publish");
-    return "savePostToDb";
+    console.log(
+      "[ROUTE] requiresApproval=true → saving draft for human review",
+    );
+    return "saveDraftForApproval";
+  }
+  console.log("[ROUTE] requiresApproval=false → auto-publishing");
+  return "publishToInstagram";
+}
+
+// Node: persist the generated draft for human review.
+// Posts row keeps status='pending_approval' with the caption + image URL,
+// so the approval inbox UI can fetch and approve/reject without re-running
+// the agent. Credits are NOT deducted here (they're charged on approve).
+async function saveDraftForApproval(
+  state: typeof ContentAutomationAdvancedState.State,
+) {
+  console.log("\n📥 [SAVE DRAFT] Saving pending-approval draft...");
+
+  if (!process.env.DATABASE_URI && !process.env.DATABASE_URL) {
+    console.warn("⚠️  DATABASE_URI not configured. Skipping draft save.");
+    return { publishStatus: "skipped" };
+  }
+  if (!state.post || state.post.length === 0) {
+    console.warn("⚠️  No post content to save.");
+    return { publishStatus: "skipped", publishError: "No post content" };
   }
 
-  console.log("Auto-approving post as requiresApproval is false");
-  return "publishToInstagram";
+  const { queryOne, insert, query } = await import("../../utils/postgres.js");
+
+  let connectionId: string | null = null;
+  if (state.workflowId) {
+    const workflow = await queryOne<{ connection_id: string }>(
+      `SELECT connection_id FROM workflows WHERE id = $1`,
+      [state.workflowId],
+    );
+    if (workflow?.connection_id) connectionId = workflow.connection_id;
+  }
+
+  const draftMetadata = {
+    searchQuery: state.searchQuery,
+    location: state.location,
+    stylePrompt: state.stylePrompt,
+    learningContext: state.learningContext || null,
+    selectedContent: state.selectedContent || [],
+  };
+
+  await insert("posts", {
+    workflow_id: state.workflowId || null,
+    connection_id: connectionId,
+    user_id: state.userId,
+    content: state.post,
+    platform: state.platform,
+    status: "pending_approval",
+    source: "workflow",
+    image_url: state.imageUrl || state.image?.imageUrl || null,
+    draft_metadata: JSON.stringify(draftMetadata),
+  });
+
+  // Mark workflow run as completed (not failed) — the run itself succeeded,
+  // the post is just awaiting human review. No credits deducted yet.
+  if (state.workflowId) {
+    await query(
+      `UPDATE workflows
+          SET run_status = 'completed',
+              run_completed_at = NOW(),
+              last_error = NULL,
+              last_run_at = NOW()
+        WHERE id = $1`,
+      [state.workflowId],
+    );
+  }
+
+  console.log("✅ Draft saved as pending_approval. Awaiting human review.");
+  return { publishStatus: "skipped" };
 }
 
 export const contentAutomationAdvancedGraph = new StateGraph(
   ContentAutomationAdvancedState,
 )
+  .addNode("loadLearnings", loadLearnings)
   .addNode("fetchContent", fetchContent)
   .addNode("curateContent", curateContent)
   .addNode("checkContentQuality", checkContentQuality)
@@ -860,8 +1010,10 @@ export const contentAutomationAdvancedGraph = new StateGraph(
   .addNode("prepareCaption", prepareCaption)
   .addNode("publishToInstagram", publishToInstagram)
   .addNode("savePostToDb", savePostToDb)
+  .addNode("saveDraftForApproval", saveDraftForApproval)
 
-  .addEdge(START, "fetchContent")
+  .addEdge(START, "loadLearnings")
+  .addEdge("loadLearnings", "fetchContent")
   .addEdge("fetchContent", "curateContent")
   .addEdge("curateContent", "checkContentQuality")
   .addConditionalEdges("checkContentQuality", routeContentQuality, {
@@ -872,10 +1024,11 @@ export const contentAutomationAdvancedGraph = new StateGraph(
   .addEdge("generatePostSubgraph", "prepareCaption")
   .addConditionalEdges("prepareCaption", routePublishing, {
     publishToInstagram: "publishToInstagram",
-    savePostToDb: "savePostToDb",
+    saveDraftForApproval: "saveDraftForApproval",
   })
   .addEdge("publishToInstagram", "savePostToDb")
   .addEdge("savePostToDb", END)
+  .addEdge("saveDraftForApproval", END)
   .compile();
 
 contentAutomationAdvancedGraph.name = "Content Automation Advanced Graph";

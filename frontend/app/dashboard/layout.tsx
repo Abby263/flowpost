@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   ShieldCheck,
+  Inbox,
 } from "lucide-react";
 
 interface CreditsData {
@@ -94,6 +95,12 @@ export default function DashboardLayout({
       label: "Workflows",
       icon: Workflow,
       description: "Automation flows",
+    },
+    {
+      href: "/dashboard/approvals",
+      label: "Approvals",
+      icon: Inbox,
+      description: "Review AI drafts",
     },
     {
       href: "/dashboard/content-ideas",
