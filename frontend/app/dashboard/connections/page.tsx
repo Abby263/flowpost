@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,85 +22,154 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
-  Instagram,
-  Twitter,
-  Linkedin,
-  Trash2,
+  AlertCircle,
   CheckCircle2,
-  Shield,
-  Key,
-  User,
-  Plus,
   ExternalLink,
+  Facebook,
+  Instagram,
+  Linkedin,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Shield,
+  Trash2,
+  Twitter,
 } from "lucide-react";
+
+interface Connection {
+  id: string;
+  platform: "instagram" | "twitter" | "linkedin";
+  profile_name: string;
+  ig_business_account_id: string | null;
+  connection_status: "active" | "expired" | "revoked" | "pending" | null;
+  token_expires_at: string | null;
+  created_at: string;
+}
+
+interface PageCandidate {
+  pageId: string;
+  pageName: string;
+  igUserId: string;
+}
 
 export default function ConnectionsPage() {
   const { user } = useUser();
-  const [connections, setConnections] = useState<any[]>([]);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [platform, setPlatform] = useState<
     "instagram" | "twitter" | "linkedin"
   >("instagram");
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [pageCandidates, setPageCandidates] = useState<PageCandidate[]>([]);
+  const [pickingPage, setPickingPage] = useState(false);
+  const [notification, setNotification] = useState<{
+    type: "success" | "error" | "info";
+    message: string;
+  } | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      fetchConnections();
-    }
-  }, [user]);
+  const showNote = useCallback(
+    (type: "success" | "error" | "info", message: string) => {
+      setNotification({ type, message });
+      setTimeout(() => setNotification(null), 5000);
+    },
+    [],
+  );
 
-  async function fetchConnections() {
+  const fetchConnections = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/connections");
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to load connections");
-      }
+      if (!res.ok) throw new Error(data.error || "Failed to load");
       setConnections(data.connections || []);
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      showNote(
+        "error",
+        err instanceof Error ? err.message : "Failed to load connections",
+      );
     } finally {
       setLoading(false);
     }
+  }, [showNote]);
+
+  const fetchPageCandidates = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/instagram/select-page");
+      const data = await res.json();
+      setPageCandidates(data.candidates || []);
+    } catch {
+      setPageCandidates([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) void fetchConnections();
+  }, [user, fetchConnections]);
+
+  // Surface OAuth callback results from query params.
+  useEffect(() => {
+    const connected = searchParams.get("ig_connected");
+    const error = searchParams.get("ig_error");
+    const pick = searchParams.get("ig_pick");
+
+    if (connected) {
+      showNote("success", `Instagram connected as @${connected}`);
+      router.replace("/dashboard/connections");
+      void fetchConnections();
+    } else if (error) {
+      showNote("error", `Instagram connection failed: ${error}`);
+      router.replace("/dashboard/connections");
+    } else if (pick) {
+      void fetchPageCandidates();
+    }
+  }, [searchParams, router, showNote, fetchConnections, fetchPageCandidates]);
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  function startInstagramOAuth() {
+    window.location.href = "/api/auth/instagram/start";
+  }
 
-  async function addConnection() {
+  async function selectPage(pageId: string) {
+    setPickingPage(true);
+    try {
+      const res = await fetch("/api/auth/instagram/select-page", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save selection");
+      showNote("success", `Instagram connected as @${data.profileName}`);
+      setPageCandidates([]);
+      await fetchConnections();
+    } catch (err) {
+      showNote(
+        "error",
+        err instanceof Error ? err.message : "Failed to save Page selection",
+      );
+    } finally {
+      setPickingPage(false);
+    }
+  }
+
+  async function addNonInstagramConnection() {
     if (!user) return;
-
-    let credentials = {};
+    let credentials: Record<string, string> = {};
     let profileName = "";
 
-    let extraFields: Record<string, string> = {};
-    if (platform === "instagram") {
-      if (!formData.username || !formData.password) {
-        alert("Please fill in all fields");
-        return;
-      }
-      credentials = {
-        username: formData.username,
-        password: formData.password,
-      };
-      profileName = formData.username;
-      // Optional Meta Graph API access for engagement insights.
-      if (formData.graph_access_token) {
-        extraFields.graph_access_token = formData.graph_access_token;
-      }
-      if (formData.ig_business_account_id) {
-        extraFields.ig_business_account_id = formData.ig_business_account_id;
-      }
-    } else if (platform === "twitter") {
+    if (platform === "twitter") {
       if (
         !formData.apiKey ||
         !formData.apiKeySecret ||
         !formData.accessToken ||
         !formData.accessTokenSecret
       ) {
-        alert("Please fill in all fields");
+        showNote("error", "Please fill in all fields");
         return;
       }
       credentials = {
@@ -111,24 +181,22 @@ export default function ConnectionsPage() {
       profileName = "Twitter API";
     } else if (platform === "linkedin") {
       if (!formData.accessToken || !formData.personUrn) {
-        alert("Please fill in all fields");
+        showNote("error", "Please fill in all fields");
         return;
       }
       credentials = {
         accessToken: formData.accessToken,
         personUrn: formData.personUrn,
-        organizationId: formData.organizationId,
+        organizationId: formData.organizationId || "",
       };
       profileName = formData.personUrn;
     }
 
-    // Check for duplicates
     const isDuplicate = connections.some(
       (c) => c.platform === platform && c.profile_name === profileName,
     );
-
     if (isDuplicate) {
-      alert("This connection already exists.");
+      showNote("info", "This connection already exists.");
       return;
     }
 
@@ -140,52 +208,41 @@ export default function ConnectionsPage() {
           platform,
           profile_name: profileName,
           credentials,
-          ...extraFields,
         }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to add connection");
-      }
-      setConnections([...connections, data.connection]);
+      if (!res.ok) throw new Error(data.error || "Failed to add connection");
+      setConnections([data.connection as Connection, ...connections]);
       setFormData({});
-    } catch (error: any) {
-      console.error(error);
-      alert(`Failed to add connection: ${error?.message || "Unknown error"}`);
+      showNote("success", `${platform} connected`);
+    } catch (err) {
+      showNote(
+        "error",
+        err instanceof Error ? err.message : "Failed to add connection",
+      );
     }
   }
 
   async function deleteConnection(id: string) {
+    if (!confirm("Remove this connection?")) return;
     try {
       const res = await fetch(`/api/connections?id=${id}`, {
         method: "DELETE",
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to delete connection");
-      }
+      if (!res.ok) throw new Error(data.error || "Failed to delete");
       setConnections(connections.filter((c) => c.id !== id));
-    } catch (error) {
-      console.error(error);
-      alert("Failed to delete connection");
+      showNote("success", "Connection removed");
+    } catch (err) {
+      showNote(
+        "error",
+        err instanceof Error ? err.message : "Failed to delete connection",
+      );
     }
   }
 
-  const getPlatformIcon = (platform: string) => {
-    switch (platform) {
-      case "instagram":
-        return <Instagram className="h-5 w-5 text-pink-600" />;
-      case "twitter":
-        return <Twitter className="h-5 w-5 text-blue-500" />;
-      case "linkedin":
-        return <Linkedin className="h-5 w-5 text-blue-700" />;
-      default:
-        return null;
-    }
-  };
-
-  const getPlatformColor = (platform: string) => {
-    switch (platform) {
+  function getPlatformColor(p: string) {
+    switch (p) {
       case "instagram":
         return "bg-gradient-to-br from-purple-500 to-pink-500";
       case "twitter":
@@ -195,10 +252,61 @@ export default function ConnectionsPage() {
       default:
         return "bg-gray-500";
     }
-  };
+  }
+
+  function statusBadge(conn: Connection) {
+    const status = conn.connection_status || "active";
+    if (status === "active") {
+      return (
+        <Badge
+          variant="outline"
+          className="bg-green-50 text-green-700 border-green-200 text-[10px] sm:text-xs px-1.5 sm:px-2"
+        >
+          <CheckCircle2 className="mr-1 h-3 w-3" />
+          Active
+        </Badge>
+      );
+    }
+    if (status === "expired") {
+      return (
+        <Badge
+          variant="outline"
+          className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] sm:text-xs px-1.5 sm:px-2"
+        >
+          <AlertCircle className="mr-1 h-3 w-3" />
+          Token expired
+        </Badge>
+      );
+    }
+    return (
+      <Badge
+        variant="outline"
+        className="bg-red-50 text-red-700 border-red-200 text-[10px] sm:text-xs px-1.5 sm:px-2"
+      >
+        <AlertCircle className="mr-1 h-3 w-3" />
+        {status}
+      </Badge>
+    );
+  }
 
   return (
     <div className="space-y-6 sm:space-y-8 px-4 sm:px-6 py-4 sm:py-6 max-w-[1400px]">
+      {notification && (
+        <div className="fixed top-4 right-4 z-50">
+          <div
+            className={`rounded-lg border px-4 py-2.5 text-sm shadow-lg ${
+              notification.type === "success"
+                ? "bg-green-50 border-green-300 text-green-800"
+                : notification.type === "error"
+                  ? "bg-red-50 border-red-300 text-red-800"
+                  : "bg-blue-50 border-blue-300 text-blue-800"
+            }`}
+          >
+            {notification.message}
+          </div>
+        </div>
+      )}
+
       <div>
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2 sm:gap-3">
           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
@@ -211,8 +319,48 @@ export default function ConnectionsPage() {
         </p>
       </div>
 
+      {pageCandidates.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">
+              Pick the Instagram account to connect
+            </CardTitle>
+            <CardDescription className="text-xs">
+              You manage multiple Facebook Pages. Choose which Instagram
+              Business account this connection should publish to.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {pageCandidates.map((p) => (
+              <div
+                key={p.pageId}
+                className="flex items-center justify-between rounded-md border bg-white p-3"
+              >
+                <div>
+                  <p className="text-sm font-medium">{p.pageName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    IG ID: {p.igUserId}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  disabled={pickingPage}
+                  onClick={() => selectPage(p.pageId)}
+                >
+                  {pickingPage ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                  )}
+                  Use this account
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* Add New Connection Form */}
         <Card className="lg:col-span-1 shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="p-4 sm:p-6">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -231,7 +379,9 @@ export default function ConnectionsPage() {
               </Label>
               <Select
                 value={platform}
-                onValueChange={(value: any) => {
+                onValueChange={(
+                  value: "instagram" | "twitter" | "linkedin",
+                ) => {
                   setPlatform(value);
                   setFormData({});
                 }}
@@ -263,71 +413,28 @@ export default function ConnectionsPage() {
             </div>
 
             {platform === "instagram" && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="username" className="flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    Username
-                  </Label>
-                  <Input
-                    id="username"
-                    name="username"
-                    placeholder="your_username"
-                    value={formData.username || ""}
-                    onChange={handleInputChange}
-                  />
+              <div className="space-y-3">
+                <div className="rounded-md border bg-blue-50/60 p-3 text-xs text-blue-900 space-y-1">
+                  <p className="font-medium">Requirements</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px] leading-relaxed">
+                    <li>Instagram Business or Creator account</li>
+                    <li>Connected to a Facebook Page you admin</li>
+                    <li>You&apos;ll grant publishing + insights permissions</li>
+                  </ul>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="flex items-center gap-2">
-                    <Key className="h-4 w-4" />
-                    Password
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    name="password"
-                    placeholder="••••••••"
-                    value={formData.password || ""}
-                    onChange={handleInputChange}
-                  />
-                </div>
-
-                <div className="border-t pt-3 mt-2">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">
-                    Meta Graph API (optional, for engagement insights)
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mb-3">
-                    Requires a Business or Creator IG account linked to a
-                    Facebook Page. Without these the agent can still post, but
-                    cannot auto-fetch likes/comments for the learning loop.
-                  </p>
-                  <div className="space-y-2">
-                    <Label htmlFor="ig_business_account_id" className="text-xs">
-                      Instagram Business Account ID
-                    </Label>
-                    <Input
-                      id="ig_business_account_id"
-                      name="ig_business_account_id"
-                      placeholder="17841... (numeric)"
-                      value={formData.ig_business_account_id || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2 mt-2">
-                    <Label htmlFor="graph_access_token" className="text-xs">
-                      Long-lived Access Token
-                    </Label>
-                    <Input
-                      id="graph_access_token"
-                      name="graph_access_token"
-                      type="password"
-                      placeholder="EAAB... (long-lived token)"
-                      value={formData.graph_access_token || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
-              </>
+                <Button
+                  onClick={startInstagramOAuth}
+                  className="w-full bg-[#1877F2] hover:bg-[#166fe0] text-white"
+                >
+                  <Facebook className="mr-2 h-4 w-4" />
+                  Connect with Facebook
+                </Button>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  We never see your Instagram password. The Meta Graph API
+                  issues a token scoped to publishing and insights for the
+                  account you choose.
+                </p>
+              </div>
             )}
 
             {platform === "twitter" && (
@@ -358,6 +465,13 @@ export default function ConnectionsPage() {
                   value={formData.accessTokenSecret || ""}
                   onChange={handleInputChange}
                 />
+                <Button
+                  onClick={addNonInstagramConnection}
+                  className="w-full h-9 sm:h-10 text-sm"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Connect Account
+                </Button>
               </>
             )}
 
@@ -382,20 +496,18 @@ export default function ConnectionsPage() {
                   value={formData.organizationId || ""}
                   onChange={handleInputChange}
                 />
+                <Button
+                  onClick={addNonInstagramConnection}
+                  className="w-full h-9 sm:h-10 text-sm"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Connect Account
+                </Button>
               </>
             )}
-
-            <Button
-              onClick={addConnection}
-              className="w-full h-9 sm:h-10 text-sm"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Connect Account
-            </Button>
           </CardContent>
         </Card>
 
-        {/* Your Connections List */}
         <div className="lg:col-span-2 space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg sm:text-xl font-semibold">
@@ -410,7 +522,7 @@ export default function ConnectionsPage() {
           {loading ? (
             <Card className="p-8 sm:p-12">
               <div className="flex items-center justify-center space-x-3 text-muted-foreground">
-                <div className="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-b-2 border-primary"></div>
+                <Loader2 className="h-5 w-5 animate-spin" />
                 <span className="text-sm">Loading connections...</span>
               </div>
             </Card>
@@ -434,7 +546,6 @@ export default function ConnectionsPage() {
                   className="hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-center p-3 sm:p-4 gap-3 sm:gap-4">
-                    {/* Platform Icon */}
                     <div
                       className={`w-10 h-10 sm:w-14 sm:h-14 rounded-xl ${getPlatformColor(conn.platform)} flex items-center justify-center shadow-md shrink-0`}
                     >
@@ -451,27 +562,41 @@ export default function ConnectionsPage() {
                       </div>
                     </div>
 
-                    {/* Connection Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
                         <h3 className="font-semibold capitalize text-sm sm:text-lg">
                           {conn.platform}
                         </h3>
-                        <Badge
-                          variant="outline"
-                          className="bg-green-50 text-green-700 border-green-200 text-[10px] sm:text-xs px-1.5 sm:px-2"
-                        >
-                          <CheckCircle2 className="mr-0.5 sm:mr-1 h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                          Active
-                        </Badge>
+                        {statusBadge(conn)}
                       </div>
                       <p className="text-xs sm:text-sm text-muted-foreground truncate">
                         @{conn.profile_name}
                       </p>
+                      {conn.platform === "instagram" &&
+                        conn.token_expires_at && (
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            Token expires{" "}
+                            {new Date(
+                              conn.token_expires_at,
+                            ).toLocaleDateString()}
+                          </p>
+                        )}
                     </div>
 
-                    {/* Actions */}
                     <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                      {conn.platform === "instagram" &&
+                        conn.connection_status &&
+                        conn.connection_status !== "active" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 sm:h-9"
+                            onClick={startInstagramOAuth}
+                          >
+                            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                            Reconnect
+                          </Button>
+                        )}
                       <Button
                         variant="outline"
                         size="sm"

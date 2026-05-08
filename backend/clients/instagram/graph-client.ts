@@ -16,8 +16,7 @@
  *     account linked to a Facebook Page. Personal IG accounts cannot use this.
  *   - Some metric names changed in v22+ (e.g. impressions → views). We request
  *     a conservative core set and tolerate missing fields.
- *   - We do NOT post via Graph API here — posting still goes through the
- *     existing instagram-private-api client. This module is read-only.
+ *   - publishImage() does the full two-step Meta posting protocol.
  */
 
 const GRAPH_BASE = "https://graph.facebook.com/v22.0";
@@ -79,6 +78,83 @@ export class InstagramGraphClient {
       { fields, limit: String(limit) },
     );
     return data.data || [];
+  }
+
+  /**
+   * Publish a single-image post via the Meta Graph API.
+   *
+   * Two-step protocol:
+   *   1. POST /{ig-user-id}/media → returns { id } (creation container)
+   *   2. POST /{ig-user-id}/media_publish → returns the published media id
+   *
+   * The image URL must be publicly fetchable from Meta's servers (no auth,
+   * no `data:` URLs). Caller should run uploadImageToSupabase first.
+   */
+  async publishImage(args: {
+    imageUrl: string;
+    caption: string;
+  }): Promise<{ mediaId: string; permalink: string | null }> {
+    if (args.imageUrl.startsWith("data:")) {
+      throw new Error(
+        "Graph API requires a public URL — base64 images must be uploaded first.",
+      );
+    }
+
+    const createUrl = new URL(
+      `${GRAPH_BASE}/${this.igBusinessAccountId}/media`,
+    );
+    createUrl.searchParams.set("access_token", this.accessToken);
+    const createBody = new URLSearchParams({
+      image_url: args.imageUrl,
+      caption: args.caption,
+    });
+    const createRes = await fetch(createUrl.toString(), {
+      method: "POST",
+      body: createBody,
+    });
+    const createText = await createRes.text();
+    if (!createRes.ok) {
+      throw new Error(
+        `Graph API media container failed (${createRes.status}): ${createText.slice(0, 300)}`,
+      );
+    }
+    const { id: creationId } = JSON.parse(createText) as { id: string };
+    if (!creationId) {
+      throw new Error("Graph API did not return a creation_id");
+    }
+
+    const publishUrl = new URL(
+      `${GRAPH_BASE}/${this.igBusinessAccountId}/media_publish`,
+    );
+    publishUrl.searchParams.set("access_token", this.accessToken);
+    const publishBody = new URLSearchParams({ creation_id: creationId });
+    const publishRes = await fetch(publishUrl.toString(), {
+      method: "POST",
+      body: publishBody,
+    });
+    const publishText = await publishRes.text();
+    if (!publishRes.ok) {
+      throw new Error(
+        `Graph API media_publish failed (${publishRes.status}): ${publishText.slice(0, 300)}`,
+      );
+    }
+    const { id: mediaId } = JSON.parse(publishText) as { id: string };
+
+    let permalink: string | null = null;
+    try {
+      const permaUrl = new URL(`${GRAPH_BASE}/${mediaId}`);
+      permaUrl.searchParams.set("fields", "permalink");
+      permaUrl.searchParams.set("access_token", this.accessToken);
+      const permaRes = await fetch(permaUrl.toString());
+      if (permaRes.ok) {
+        const data = (await permaRes.json()) as { permalink?: string };
+        permalink = data.permalink || null;
+      }
+    } catch {
+      permalink = null;
+    }
+
+    return { mediaId, permalink };
   }
 
   /**
