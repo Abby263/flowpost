@@ -212,7 +212,7 @@ function ConnectionsPageInner() {
       case "linkedin":
         return "bg-gradient-to-br from-blue-600 to-blue-800";
       default:
-        return "bg-gray-500";
+        return "bg-muted-foreground";
     }
   }
 
@@ -222,7 +222,7 @@ function ConnectionsPageInner() {
       return (
         <Badge
           variant="outline"
-          className="bg-green-50 text-green-700 border-green-200 text-[10px] sm:text-xs px-1.5 sm:px-2"
+          className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-900/60 text-[10px] sm:text-xs px-1.5 sm:px-2"
         >
           <CheckCircle2 className="mr-1 h-3 w-3" />
           Active
@@ -233,7 +233,7 @@ function ConnectionsPageInner() {
       return (
         <Badge
           variant="outline"
-          className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] sm:text-xs px-1.5 sm:px-2"
+          className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60 text-[10px] sm:text-xs px-1.5 sm:px-2"
         >
           <AlertCircle className="mr-1 h-3 w-3" />
           Token expired
@@ -243,7 +243,7 @@ function ConnectionsPageInner() {
     return (
       <Badge
         variant="outline"
-        className="bg-red-50 text-red-700 border-red-200 text-[10px] sm:text-xs px-1.5 sm:px-2"
+        className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60 text-[10px] sm:text-xs px-1.5 sm:px-2"
       >
         <AlertCircle className="mr-1 h-3 w-3" />
         {status}
@@ -258,10 +258,10 @@ function ConnectionsPageInner() {
           <div
             className={`rounded-lg border px-4 py-2.5 text-sm shadow-lg ${
               notification.type === "success"
-                ? "bg-green-50 dark:bg-green-950/40 border-green-300 dark:border-green-700 dark:border-green-700 text-green-800 dark:text-green-200"
+                ? "bg-green-50 dark:bg-green-950/40 border-green-300 dark:border-green-800 text-green-800 dark:text-green-200"
                 : notification.type === "error"
-                  ? "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-700 dark:border-red-700 text-red-800 dark:text-red-200"
-                  : "bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-700 dark:border-blue-700 text-blue-800 dark:text-blue-200"
+                  ? "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-800 text-red-800 dark:text-red-200"
+                  : "bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800 text-blue-800 dark:text-blue-200"
             }`}
           >
             {notification.message}
@@ -282,7 +282,7 @@ function ConnectionsPageInner() {
       </div>
 
       {pageCandidates.length > 0 && (
-        <Card className="border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30/40">
+        <Card className="border-amber-300 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">
               Pick the Instagram account to connect
@@ -353,19 +353,19 @@ function ConnectionsPageInner() {
                 <SelectContent>
                   <SelectItem value="instagram">
                     <div className="flex items-center gap-2">
-                      <Instagram className="h-4 w-4 text-pink-600" />
+                      <Instagram className="h-4 w-4 text-pink-600 dark:text-pink-400" />
                       Instagram
                     </div>
                   </SelectItem>
                   <SelectItem value="twitter">
                     <div className="flex items-center gap-2">
-                      <Twitter className="h-4 w-4 text-blue-500" />
+                      <Twitter className="h-4 w-4 text-blue-500 dark:text-blue-400" />
                       Twitter
                     </div>
                   </SelectItem>
                   <SelectItem value="linkedin">
                     <div className="flex items-center gap-2">
-                      <Linkedin className="h-4 w-4 text-blue-700" />
+                      <Linkedin className="h-4 w-4 text-blue-700 dark:text-blue-400" />
                       LinkedIn
                     </div>
                   </SelectItem>
@@ -375,7 +375,7 @@ function ConnectionsPageInner() {
 
             {platform === "instagram" && (
               <div className="space-y-3">
-                <div className="rounded-md border bg-blue-50/60 p-3 text-xs text-blue-900 space-y-1">
+                <div className="rounded-md border border-blue-200 bg-blue-50/60 p-3 text-xs text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-200 space-y-1">
                   <p className="font-medium">Requirements</p>
                   <ul className="list-disc list-inside space-y-0.5 text-[11px] leading-relaxed">
                     <li>Instagram Business or Creator account</li>

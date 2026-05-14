@@ -124,15 +124,15 @@ export default function Home() {
           <div className="mx-auto grid min-h-[calc(100vh-72px)] max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:py-12">
             <div className="min-w-0 space-y-8">
               <div className="space-y-5">
-                <div className="inline-flex items-center gap-2 rounded-full border bg-muted/40 px-3 py-1.5 text-sm font-medium text-neutral-700">
-                  <Sparkles className="h-4 w-4 text-emerald-600" />
+                <div className="inline-flex items-center gap-2 rounded-full border bg-muted/40 px-3 py-1.5 text-sm font-medium text-foreground">
+                  <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   AI-assisted social publishing
                 </div>
                 <div>
                   <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl lg:text-7xl">
                     FlowPost
                   </h1>
-                  <p className="mt-5 max-w-xl text-base leading-7 text-neutral-600 sm:text-lg">
+                  <p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
                     A focused command center for finding content ideas,
                     generating post drafts, scheduling publishing work, and
                     keeping AI usage visible.
@@ -167,7 +167,7 @@ export default function Home() {
                     className="rounded-lg border bg-card p-3"
                   >
                     <p className="text-2xl font-semibold">{metric.value}</p>
-                    <p className="mt-1 text-xs leading-4 text-neutral-500">
+                    <p className="mt-1 text-xs leading-4 text-muted-foreground">
                       {metric.label}
                     </p>
                   </div>
@@ -224,7 +224,7 @@ export default function Home() {
                     {workflowRows.map((row) => (
                       <div
                         key={row.title}
-                        className="min-w-0 rounded-lg border border-white/10 bg-card p-3 text-foreground"
+                        className="min-w-0 rounded-lg border border-white/10 bg-white p-3 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100"
                       >
                         <div className="flex min-w-0 items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -236,15 +236,15 @@ export default function Home() {
                                 {row.title}
                               </p>
                             </div>
-                            <p className="mt-2 text-xs text-neutral-500">
+                            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
                               {row.platform}
                             </p>
                           </div>
-                          <span className="shrink-0 rounded-full border bg-muted/40 px-2.5 py-1 text-xs font-medium">
+                          <span className="shrink-0 rounded-full border border-neutral-200 bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
                             {row.status}
                           </span>
                         </div>
-                        <div className="mt-3 flex items-center gap-2 text-xs text-neutral-500">
+                        <div className="mt-3 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
                           <Clock className="h-3.5 w-3.5" />
                           {row.time}
                         </div>
@@ -264,14 +264,14 @@ export default function Home() {
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wider text-emerald-700">
+                <p className="text-sm font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
                   Product surface
                 </p>
                 <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
                   Everything needed to keep content moving.
                 </h2>
               </div>
-              <p className="max-w-xl text-sm leading-6 text-neutral-600">
+              <p className="max-w-xl text-sm leading-6 text-muted-foreground">
                 FlowPost is organized around daily publishing operations:
                 account setup, workflow creation, manual scheduling, content
                 ideas, analytics, and credit visibility.
@@ -284,13 +284,13 @@ export default function Home() {
                 return (
                   <div
                     key={feature.title}
-                    className="rounded-lg border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    className="rounded-lg border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md hover:border-foreground/20"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted text-foreground">
                       <Icon className="h-5 w-5" />
                     </div>
                     <h3 className="mt-5 font-semibold">{feature.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-neutral-600">
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
                       {feature.description}
                     </p>
                   </div>
@@ -303,13 +303,13 @@ export default function Home() {
         <section className="bg-card px-4 py-14 sm:px-6" id="how-it-works">
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wider text-emerald-700">
+              <p className="text-sm font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
                 Workflow
               </p>
               <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
                 From idea to scheduled post without losing control.
               </h2>
-              <p className="mt-4 text-sm leading-6 text-neutral-600">
+              <p className="mt-4 text-sm leading-6 text-muted-foreground">
                 The app keeps automation explicit. Users can connect accounts,
                 generate ideas, approve work, publish manually, or let active
                 workflows run.
@@ -331,17 +331,20 @@ export default function Home() {
               {setupSteps.map((step, index) => {
                 const Icon = step.icon;
                 return (
-                  <div key={step.title} className="rounded-lg border p-5">
+                  <div
+                    key={step.title}
+                    className="rounded-lg border bg-background p-5"
+                  >
                     <div className="flex items-center justify-between">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-md bg-neutral-950 text-white">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-md bg-foreground text-background">
                         <Icon className="h-5 w-5" />
                       </div>
-                      <span className="text-sm font-semibold text-neutral-400">
+                      <span className="text-sm font-semibold text-muted-foreground">
                         0{index + 1}
                       </span>
                     </div>
                     <h3 className="mt-5 font-semibold">{step.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-neutral-600">
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
                       {step.description}
                     </p>
                   </div>
@@ -383,7 +386,7 @@ export default function Home() {
       </main>
 
       <footer className="border-t bg-card px-4 py-8 sm:px-6">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-neutral-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-foreground">
             <Sparkles className="h-4 w-4" />
             <span className="font-semibold">FlowPost</span>

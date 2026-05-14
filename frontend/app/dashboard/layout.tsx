@@ -184,7 +184,7 @@ export default function DashboardLayout({
                   >
                     <div className="flex items-center gap-3 w-full">
                       <ShieldCheck
-                        className={`h-5 w-5 shrink-0 ${pathname === "/admin" ? "" : "text-emerald-600"}`}
+                        className={`h-5 w-5 shrink-0 ${pathname === "/admin" ? "" : "text-emerald-600 dark:text-emerald-400"}`}
                       />
                       <span className="font-medium text-sm">
                         Admin Dashboard
@@ -310,7 +310,7 @@ export default function DashboardLayout({
                     >
                       <div className="flex items-center gap-3 w-full">
                         <ShieldCheck
-                          className={`h-5 w-5 shrink-0 ${pathname === "/admin" ? "" : "text-emerald-600"}`}
+                          className={`h-5 w-5 shrink-0 ${pathname === "/admin" ? "" : "text-emerald-600 dark:text-emerald-400"}`}
                         />
                         <div className="flex flex-col items-start text-left">
                           <span className="font-medium">Admin Dashboard</span>
@@ -341,7 +341,7 @@ export default function DashboardLayout({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 px-2 text-xs text-violet-600 dark:text-violet-300 hover:text-violet-700 hover:bg-violet-100"
+                      className="h-6 px-2 text-xs text-violet-600 dark:text-violet-300 hover:text-violet-700 hover:bg-violet-100 dark:hover:bg-violet-950/40 dark:hover:text-violet-200"
                     >
                       <Zap className="h-3 w-3 mr-1" />
                       Get More

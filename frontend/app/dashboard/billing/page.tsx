@@ -147,10 +147,10 @@ function BillingPageInner() {
     return (
       <div className="p-8">
         <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-slate-200 rounded w-48"></div>
+          <div className="h-8 bg-muted rounded w-48"></div>
           <div className="grid md:grid-cols-2 gap-6">
             {[1, 2].map((i) => (
-              <div key={i} className="h-40 bg-slate-200 rounded-lg"></div>
+              <div key={i} className="h-40 bg-muted rounded-lg"></div>
             ))}
           </div>
         </div>
@@ -166,18 +166,18 @@ function BillingPageInner() {
     <div className="p-4 sm:p-6 md:p-8 max-w-5xl mx-auto">
       {/* Status Messages */}
       {success && (
-        <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-          <p className="text-xs sm:text-sm text-emerald-800">
+        <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/60 rounded-lg flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <p className="text-xs sm:text-sm text-emerald-800 dark:text-emerald-200">
             <span className="font-medium">Payment successful!</span> Your
             account has been updated.
           </p>
         </div>
       )}
       {canceled && (
-        <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
-          <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
-          <p className="text-xs sm:text-sm text-amber-800">
+        <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-lg flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+          <p className="text-xs sm:text-sm text-amber-800 dark:text-amber-200">
             Payment canceled. No charges were made.
           </p>
         </div>
@@ -188,7 +188,7 @@ function BillingPageInner() {
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">
           Billing
         </h1>
-        <p className="text-slate-500 text-xs sm:text-sm mt-1">
+        <p className="text-muted-foreground text-xs sm:text-sm mt-1">
           Manage your plan and credits
         </p>
       </div>
@@ -207,7 +207,7 @@ function BillingPageInner() {
                   <p className="font-bold text-foreground">
                     {currentPlan?.name || "Free"} Plan
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted-foreground">
                     {subscription?.status === "active"
                       ? `${subscription.billing_cycle} billing`
                       : "Free tier"}
@@ -220,7 +220,7 @@ function BillingPageInner() {
                   size="sm"
                   onClick={() => handleUpgrade("pro")}
                   disabled={isUpgrading}
-                  className="text-blue-600 border-blue-200 hover:bg-blue-50 w-full sm:w-auto"
+                  className="text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/60 hover:bg-blue-50 dark:hover:bg-blue-950/40 w-full sm:w-auto"
                 >
                   <ArrowUpRight className="h-3 w-3 mr-1" />
                   Upgrade
@@ -230,7 +230,7 @@ function BillingPageInner() {
 
             <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-4 border-t">
               <div className="text-center sm:text-left">
-                <p className="text-[10px] sm:text-xs text-slate-500 mb-1">
+                <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">
                   Credits/mo
                 </p>
                 <p className="font-semibold text-sm sm:text-base text-foreground">
@@ -238,7 +238,7 @@ function BillingPageInner() {
                 </p>
               </div>
               <div className="text-center sm:text-left">
-                <p className="text-[10px] sm:text-xs text-slate-500 mb-1">
+                <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">
                   Workflows
                 </p>
                 <p className="font-semibold text-sm sm:text-base text-foreground">
@@ -248,7 +248,7 @@ function BillingPageInner() {
                 </p>
               </div>
               <div className="text-center sm:text-left">
-                <p className="text-[10px] sm:text-xs text-slate-500 mb-1">
+                <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">
                   Connections
                 </p>
                 <p className="font-semibold text-sm sm:text-base text-foreground">
@@ -260,7 +260,7 @@ function BillingPageInner() {
             </div>
 
             {subscription?.current_period_end && (
-              <p className="text-xs text-slate-500 mt-4 flex items-center gap-1">
+              <p className="text-xs text-muted-foreground mt-4 flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
                 Renews {formatDate(subscription.current_period_end)}
               </p>
@@ -269,10 +269,10 @@ function BillingPageInner() {
         </Card>
 
         {/* Credits Balance */}
-        <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <Card className="border-2 border-blue-200 dark:border-blue-900/60 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40">
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-blue-700">
+              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
                 <Coins className="h-5 w-5" />
                 <span className="font-semibold text-sm sm:text-base">
                   Credit Balance
@@ -281,15 +281,15 @@ function BillingPageInner() {
             </div>
 
             <div className="flex items-baseline gap-2 mb-3">
-              <span className="text-3xl sm:text-4xl font-bold text-blue-900">
+              <span className="text-3xl sm:text-4xl font-bold text-blue-900 dark:text-blue-100">
                 {credits?.total_credits || 0}
               </span>
-              <span className="text-xs sm:text-sm text-blue-600">
+              <span className="text-xs sm:text-sm text-blue-600 dark:text-blue-300">
                 available
               </span>
             </div>
 
-            <div className="w-full bg-blue-200 rounded-full h-2 mb-3">
+            <div className="w-full bg-blue-200 dark:bg-blue-900/50 rounded-full h-2 mb-3">
               <div
                 className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full transition-all"
                 style={{
@@ -298,7 +298,7 @@ function BillingPageInner() {
               />
             </div>
 
-            <div className="flex flex-wrap justify-between gap-1 text-[10px] sm:text-xs text-blue-700">
+            <div className="flex flex-wrap justify-between gap-1 text-[10px] sm:text-xs text-blue-700 dark:text-blue-300">
               <span>Monthly: {credits?.credits_balance || 0}</span>
               <span>Bonus: {credits?.bonus_credits || 0}</span>
               <span>Used: {credits?.credits_used_this_month || 0}</span>
@@ -323,10 +323,10 @@ function BillingPageInner() {
             return (
               <div
                 key={plan.id}
-                className={`p-3 sm:p-4 rounded-xl border-2 transition-all ${
+                className={`p-3 sm:p-4 rounded-xl border-2 transition-all bg-card ${
                   isCurrentPlan
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-border hover:border-slate-300"
+                    ? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-950/30"
+                    : "border-border hover:border-foreground/30"
                 }`}
               >
                 <div className="flex items-center gap-1.5 sm:gap-2 mb-2">
@@ -350,22 +350,22 @@ function BillingPageInner() {
                   <span className="text-lg sm:text-xl font-bold text-foreground">
                     ${plan.price_monthly}
                   </span>
-                  <span className="text-[10px] sm:text-xs text-slate-500">
+                  <span className="text-[10px] sm:text-xs text-muted-foreground">
                     /mo
                   </span>
                 </div>
 
-                <p className="text-[10px] sm:text-xs text-slate-500 mb-2 sm:mb-3">
+                <p className="text-[10px] sm:text-xs text-muted-foreground mb-2 sm:mb-3">
                   {plan.credits_per_month} credits/mo
                 </p>
 
                 {isCurrentPlan ? (
-                  <div className="text-[10px] sm:text-xs font-medium text-blue-600 flex items-center gap-1">
+                  <div className="text-[10px] sm:text-xs font-medium text-blue-600 dark:text-blue-300 flex items-center gap-1">
                     <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                     Current
                   </div>
                 ) : plan.slug === "free" ? (
-                  <span className="text-[10px] sm:text-xs text-slate-400">
+                  <span className="text-[10px] sm:text-xs text-muted-foreground">
                     Free tier
                   </span>
                 ) : (
@@ -387,13 +387,19 @@ function BillingPageInner() {
 
       {/* Help Link */}
       <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t text-center">
-        <p className="text-xs sm:text-sm text-slate-500">
+        <p className="text-xs sm:text-sm text-muted-foreground">
           Need help?{" "}
-          <a href="#" className="text-blue-600 hover:underline">
+          <a
+            href="#"
+            className="text-blue-600 dark:text-blue-400 hover:underline"
+          >
             Contact support
           </a>{" "}
           or{" "}
-          <a href="/pricing" className="text-blue-600 hover:underline">
+          <a
+            href="/pricing"
+            className="text-blue-600 dark:text-blue-400 hover:underline"
+          >
             view full pricing
           </a>
         </p>

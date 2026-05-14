@@ -121,11 +121,11 @@ export default function WorkflowDetailPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "published":
-        return "bg-green-100 text-green-800 border-green-300";
+        return "bg-green-100 text-green-800 border-green-300 dark:bg-green-950/40 dark:text-green-300 dark:border-green-900/60";
       case "failed":
-        return "bg-red-100 text-red-800 border-red-300";
+        return "bg-red-100 text-red-800 border-red-300 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-300";
+        return "bg-muted text-muted-foreground border-border";
     }
   };
 
@@ -187,7 +187,7 @@ export default function WorkflowDetailPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {workflow.is_active ? (
-            <Badge className="bg-green-600">
+            <Badge className="bg-green-600 hover:bg-green-600 text-white">
               <CheckCircle2 className="mr-1 h-3 w-3" />
               Active
             </Badge>
@@ -195,7 +195,10 @@ export default function WorkflowDetailPage() {
             <Badge variant="secondary">Paused</Badge>
           )}
           {workflow.requires_approval && (
-            <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+            <Badge
+              variant="secondary"
+              className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+            >
               Approval Required
             </Badge>
           )}
@@ -209,8 +212,8 @@ export default function WorkflowDetailPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Total Runs
             </CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Activity className="h-5 w-5 text-blue-600" />
+            <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
+              <Activity className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
           </CardHeader>
           <CardContent>
@@ -225,12 +228,12 @@ export default function WorkflowDetailPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Successful
             </CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-950/50 flex items-center justify-center">
+              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">
+            <div className="text-3xl font-bold text-green-600 dark:text-green-400">
               {stats.successfulRuns}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -245,12 +248,12 @@ export default function WorkflowDetailPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Failed
             </CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-              <XCircle className="h-5 w-5 text-red-600" />
+            <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-950/50 flex items-center justify-center">
+              <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-red-600">
+            <div className="text-3xl font-bold text-red-600 dark:text-red-400">
               {stats.failedRuns}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -265,8 +268,8 @@ export default function WorkflowDetailPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Last Run
             </CardTitle>
-            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Clock className="h-5 w-5 text-purple-600" />
+            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center">
+              <Clock className="h-5 w-5 text-purple-600 dark:text-purple-400" />
             </div>
           </CardHeader>
           <CardContent>
@@ -290,49 +293,51 @@ export default function WorkflowDetailPage() {
       <Card className="shadow-md">
         <CardHeader className="border-b bg-muted/40">
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-blue-600" />
+            <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             Workflow Configuration
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200">
-                <p className="text-xs font-semibold text-blue-900 mb-2 flex items-center gap-1">
+              <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60">
+                <p className="text-xs font-semibold text-blue-900 dark:text-blue-300 mb-2 flex items-center gap-1">
                   Platform
                 </p>
-                <p className="text-lg font-bold capitalize flex items-center gap-2">
+                <p className="text-lg font-bold capitalize flex items-center gap-2 text-foreground">
                   <span className="text-2xl">
                     {getPlatformEmoji(workflow.platform)}
                   </span>
                   {workflow.platform}
                 </p>
               </div>
-              <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
-                <p className="text-xs font-semibold text-green-900 mb-2 flex items-center gap-1">
+              <div className="p-4 rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/60">
+                <p className="text-xs font-semibold text-green-900 dark:text-green-300 mb-2 flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
                   Frequency
                 </p>
-                <p className="text-lg font-bold capitalize">
+                <p className="text-lg font-bold capitalize text-foreground">
                   {workflow.frequency}
                 </p>
               </div>
               {workflow.schedule && (
-                <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200">
-                  <p className="text-xs font-semibold text-purple-900 mb-2 flex items-center gap-1">
+                <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/60">
+                  <p className="text-xs font-semibold text-purple-900 dark:text-purple-300 mb-2 flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     Schedule
                   </p>
-                  <p className="text-lg font-bold">{workflow.schedule}</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {workflow.schedule}
+                  </p>
                 </div>
               )}
             </div>
 
-            <div className="p-5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
-              <p className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+            <div className="p-5 rounded-xl bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-900/60">
+              <p className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3 flex items-center gap-2">
                 🔍 Search Query
               </p>
-              <p className="text-base font-medium text-blue-800 leading-relaxed">
+              <p className="text-base font-medium text-blue-900 dark:text-blue-100 leading-relaxed">
                 {workflow.search_query}
               </p>
             </div>
@@ -340,23 +345,23 @@ export default function WorkflowDetailPage() {
             {(workflow.location || workflow.style_prompt) && (
               <div className="grid gap-4 md:grid-cols-2">
                 {workflow.location && (
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200">
-                    <p className="text-xs font-semibold text-orange-900 mb-2 flex items-center gap-1">
+                  <div className="p-4 rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900/60">
+                    <p className="text-xs font-semibold text-orange-900 dark:text-orange-300 mb-2 flex items-center gap-1">
                       <MapPin className="h-3 w-3" />
                       Location
                     </p>
-                    <p className="text-base font-bold text-orange-900">
+                    <p className="text-base font-bold text-orange-900 dark:text-orange-100">
                       {workflow.location}
                     </p>
                   </div>
                 )}
                 {workflow.style_prompt && (
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-pink-50 to-rose-50 border border-pink-200">
-                    <p className="text-xs font-semibold text-pink-900 mb-2 flex items-center gap-1">
+                  <div className="p-4 rounded-xl bg-pink-50 dark:bg-pink-950/30 border border-pink-200 dark:border-pink-900/60">
+                    <p className="text-xs font-semibold text-pink-900 dark:text-pink-300 mb-2 flex items-center gap-1">
                       <Sparkles className="h-3 w-3" />
                       Style
                     </p>
-                    <p className="text-base font-bold text-pink-900">
+                    <p className="text-base font-bold text-pink-900 dark:text-pink-100">
                       {workflow.style_prompt}
                     </p>
                   </div>
@@ -412,7 +417,7 @@ export default function WorkflowDetailPage() {
         <CardHeader className="border-b bg-muted/40">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-blue-600" />
+              <Activity className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               Run History
             </CardTitle>
             <Badge variant="secondary" className="text-sm px-3 py-1">
