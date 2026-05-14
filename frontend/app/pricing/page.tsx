@@ -262,7 +262,7 @@ export default function PricingPage() {
                         <Button
                           className={`w-full mb-3 sm:mb-4 h-9 sm:h-10 text-sm ${
                             plan.popular
-                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 hover:text-white dark:text-white dark:hover:text-white"
                               : ""
                           }`}
                           variant={plan.popular ? "default" : "outline"}
