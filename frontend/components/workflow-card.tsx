@@ -65,7 +65,7 @@ export function WorkflowCard({
         return (
           <Badge
             variant="secondary"
-            className="bg-blue-100 text-blue-800 hover:bg-blue-100"
+            className="bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-300 dark:hover:bg-blue-950/50"
           >
             <Loader2 className="mr-1 h-3 w-3 animate-spin" />
             Running
@@ -76,7 +76,7 @@ export function WorkflowCard({
         return (
           <Badge
             variant="secondary"
-            className="bg-green-100 text-green-800 hover:bg-green-100"
+            className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-950/50 dark:text-green-300 dark:hover:bg-green-950/50"
           >
             <CheckCircle2 className="mr-1 h-3 w-3" />
             Completed
@@ -87,7 +87,7 @@ export function WorkflowCard({
         return (
           <Badge
             variant="secondary"
-            className="bg-red-100 text-red-800 hover:bg-red-100"
+            className="bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950/50"
           >
             <XCircle className="mr-1 h-3 w-3" />
             Failed
@@ -176,7 +176,7 @@ export function WorkflowCard({
               variant={workflow.is_active ? "default" : "secondary"}
               className={
                 workflow.is_active
-                  ? "bg-green-600 text-xs justify-center"
+                  ? "bg-green-600 hover:bg-green-600 text-white text-xs justify-center"
                   : "text-xs justify-center"
               }
             >
@@ -185,7 +185,7 @@ export function WorkflowCard({
             {workflow.requires_approval && (
               <Badge
                 variant="secondary"
-                className="bg-amber-100 text-amber-800 text-xs justify-center"
+                className="bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 text-xs justify-center"
               >
                 Approval
               </Badge>
@@ -230,7 +230,7 @@ export function WorkflowCard({
                 size="sm"
                 variant="outline"
                 onClick={onResetStatus}
-                className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                className="text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-900/60 dark:hover:bg-amber-950/40"
                 title="Reset stuck workflow"
               >
                 <RotateCcw className="mr-1.5 h-3.5 w-3.5" />

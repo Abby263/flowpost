@@ -219,7 +219,7 @@ export default function PricingPage() {
                       <h3 className="text-base sm:text-lg font-bold text-foreground">
                         {plan.name}
                       </h3>
-                      <p className="text-xs sm:text-sm text-slate-500">
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         {plan.description}
                       </p>
 
@@ -228,18 +228,18 @@ export default function PricingPage() {
                           <span className="text-2xl sm:text-3xl font-extrabold text-foreground">
                             ${perMonth}
                           </span>
-                          <span className="text-slate-500 text-xs sm:text-sm">
+                          <span className="text-muted-foreground text-xs sm:text-sm">
                             /mo
                           </span>
                         </div>
                         {billingCycle === "yearly" && price > 0 && (
-                          <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5">
+                          <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
                             ${price} billed yearly
                           </p>
                         )}
                       </div>
 
-                      <div className="mt-2 sm:mt-3 py-2 px-2.5 sm:px-3 bg-muted/40 rounded-lg">
+                      <div className="mt-2 sm:mt-3 py-2 px-2.5 sm:px-3 bg-muted rounded-lg">
                         <div className="flex items-center justify-between text-xs sm:text-sm">
                           <span className="text-muted-foreground">
                             AI Credits
@@ -278,7 +278,7 @@ export default function PricingPage() {
                             key={i}
                             className="flex items-start gap-1.5 sm:gap-2"
                           >
-                            <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-500 shrink-0 mt-0.5" />
+                            <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-500 dark:text-emerald-400 shrink-0 mt-0.5" />
                             <span className="text-xs sm:text-sm text-muted-foreground">
                               {feature}
                             </span>
@@ -287,7 +287,7 @@ export default function PricingPage() {
                         {plan.limitations.map((limitation, i) => (
                           <li
                             key={i}
-                            className="flex items-start gap-1.5 sm:gap-2 text-slate-400"
+                            className="flex items-start gap-1.5 sm:gap-2 text-muted-foreground/70"
                           >
                             <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 mt-0.5 opacity-50" />
                             <span className="text-xs sm:text-sm">
@@ -308,7 +308,7 @@ export default function PricingPage() {
         <section className="py-10 sm:py-16 px-4 bg-card">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-6 sm:mb-10">
-              <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs sm:text-sm font-medium mb-2 sm:mb-3">
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 text-xs sm:text-sm font-medium mb-2 sm:mb-3">
                 <HelpCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 FAQ
               </div>
@@ -331,7 +331,7 @@ export default function PricingPage() {
                       {faq.question}
                     </span>
                     <ChevronDown
-                      className={`h-4 w-4 text-slate-500 transition-transform shrink-0 ${
+                      className={`h-4 w-4 text-muted-foreground transition-transform shrink-0 ${
                         openFaq === i ? "rotate-180" : ""
                       }`}
                     />
@@ -369,7 +369,7 @@ export default function PricingPage() {
         </section>
       </main>
 
-      <footer className="py-6 sm:py-8 px-4 bg-slate-900 text-slate-400 text-center text-xs sm:text-sm border-t border-slate-800">
+      <footer className="py-6 sm:py-8 px-4 bg-slate-900 text-slate-400 text-center text-xs sm:text-sm border-t border-slate-800 dark:bg-neutral-950 dark:text-neutral-500 dark:border-neutral-900">
         <p>© 2025 FlowPost. All rights reserved.</p>
       </footer>
     </div>
