@@ -86,6 +86,10 @@ export default function DashboardLayout({
       description: "Plans & credits",
     },
   ];
+  const activeNavItemClasses =
+    "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm hover:from-blue-700 hover:to-indigo-700 hover:text-white dark:text-white dark:hover:text-white focus-visible:ring-blue-500/60";
+  const activeAdminNavItemClasses =
+    "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm hover:from-emerald-700 hover:to-teal-700 hover:text-white dark:text-white dark:hover:text-white focus-visible:ring-emerald-500/60";
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100 dark:from-neutral-950 dark:to-neutral-900">
@@ -95,7 +99,7 @@ export default function DashboardLayout({
       <div className="md:hidden fixed bottom-4 right-4 z-50">
         <Button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="h-14 w-14 rounded-full shadow-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+          className="h-14 w-14 rounded-full shadow-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 hover:text-white dark:text-white dark:hover:text-white"
         >
           {isMobileMenuOpen ? (
             <X className="h-6 w-6" />
@@ -153,9 +157,7 @@ export default function DashboardLayout({
                   <Button
                     variant={isActive ? "default" : "ghost"}
                     className={`w-full justify-start h-auto py-2.5 px-3 ${
-                      isActive
-                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                        : "hover:bg-muted"
+                      isActive ? activeNavItemClasses : "hover:bg-muted"
                     }`}
                   >
                     <div className="flex items-center gap-3 w-full">
@@ -178,7 +180,7 @@ export default function DashboardLayout({
                     variant={pathname === "/admin" ? "default" : "ghost"}
                     className={`w-full justify-start h-auto py-2.5 px-3 ${
                       pathname === "/admin"
-                        ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                        ? activeAdminNavItemClasses
                         : "hover:bg-muted"
                     }`}
                   >
@@ -269,9 +271,7 @@ export default function DashboardLayout({
                     <Button
                       variant={isActive ? "default" : "ghost"}
                       className={`w-full justify-start h-auto py-3 px-3 ${
-                        isActive
-                          ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                          : "hover:bg-muted"
+                        isActive ? activeNavItemClasses : "hover:bg-muted"
                       }`}
                     >
                       <div className="flex items-center gap-3 w-full">
@@ -304,7 +304,7 @@ export default function DashboardLayout({
                       variant={pathname === "/admin" ? "default" : "ghost"}
                       className={`w-full justify-start h-auto py-3 px-3 ${
                         pathname === "/admin"
-                          ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                          ? activeAdminNavItemClasses
                           : "hover:bg-muted"
                       }`}
                     >
