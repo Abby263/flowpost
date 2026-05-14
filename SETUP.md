@@ -104,9 +104,10 @@ This is the heaviest setup step but unavoidable: Instagram does not allow progra
 ### 3a. App registration
 
 1. Go to [developers.facebook.com](https://developers.facebook.com) → **My Apps** → **Create App**.
-2. Choose **Business** as the use case.
-3. From the dashboard, click **Add Product** → **Instagram Graph API**.
-4. Under **App Settings → Basic**, copy the **App ID** and **App Secret**.
+2. On the **Use cases** screen, choose **Authenticate and request data from users with Facebook Login**. If Meta shows an Instagram-specific Graph API use case, choose that instead. Do not choose Marketing API, Threads, WhatsApp, or Ads Manager for FlowPost's Instagram publishing flow.
+3. On the next **Business** step, select or create the Business Portfolio that owns the Facebook Page connected to your Instagram Business/Creator account.
+4. From the dashboard, click **Add Product** → **Instagram Graph API**.
+5. Under **App Settings → Basic**, copy the **App ID** and **App Secret**.
 
 ### 3b. OAuth redirect URI
 
