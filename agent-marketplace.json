@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "flowpost",
+  "repository": "Abby263/flowpost",
+  "catalog": "listed",
+  "availability": "request_integration",
+  "name": "FlowPost Content Agent",
+  "category": "Marketing operations",
+  "description": "Prepare social content drafts and route them to a review queue.",
+  "request": "A topic, an approved channel, and publication guidelines.",
+  "response": "A content draft and its review status.",
+  "integration": {
+    "operation": "Create a draft for review using an authorized workspace.",
+    "readiness": "Validate workspace identity against the existing workflow runner. Keep publishing outside the initial tool surface."
+  }
+}
